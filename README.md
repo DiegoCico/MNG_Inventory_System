@@ -39,6 +39,3 @@ npm run dev:all
 npm run build -w src/cdk
 npm run synth -w src/cdk
 npm run deploy -w src/cdk
-
-
-this is a test
