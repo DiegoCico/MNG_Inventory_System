@@ -1,4 +1,18 @@
-need
+# make sure you are in node 20
+
+# install nvm (if you don’t have it)
+brew install nvm
+mkdir -p ~/.nvm
+echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.zshrc
+echo '[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"' >> ~/.zshrc
+source ~/.zshrc
+
+# install & use Node 20 (LTS)
+nvm install 20
+nvm use 20
+nvm alias default 20
+
+---
 
 npm i -g aws-cdk
 
