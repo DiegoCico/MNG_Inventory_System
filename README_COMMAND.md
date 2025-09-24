@@ -1,9 +1,5 @@
 # Commands
 
-Super quick rundown of the main commands you’ll actually use in this project:
-
----
-
 ### Install everything
 
 ```bash
@@ -20,7 +16,7 @@ This grabs all dependencies for the **frontend**, **api**, and **cdk** workspace
 npm run test
 ```
 
-Runs the **API tests** (Jest + Supertest). If they fail, you know right away before starting anything else.
+Runs the **API and frontend tests**. If they fail, you know right away before starting anything else.
 
 ---
 
@@ -40,7 +36,7 @@ Spins up **frontend (Vite on 5173)** and **API (Express on 3001)** at the same t
 npm run start
 ```
 
-Runs API tests **first**. If they pass, it will start **frontend + API** in parallel. If tests fail, servers won’t start — nice little safety net.
+Runs API and frontend tests **first**. If they pass, it will start **frontend + API** in parallel. If tests fail, servers won’t start — nice little safety net.
 
 ---
 

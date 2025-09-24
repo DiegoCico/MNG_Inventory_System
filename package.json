@@ -7,18 +7,22 @@
     "src/cdk"
   ],
   "scripts": {
-    "dev:frontend": "npm:dev -w src/frontend",
-    "dev:api": "npm:dev -w src/api",
-    "dev": "concurrently -k -n FRONTEND,API \"npm:dev -w src/frontend\" \"npm:dev -w src/api\"",
+    "dev:frontend": "npm -w src/frontend run dev",
+    "dev:api": "npm -w src/api run dev",
+    "dev": "concurrently -k -n FRONTEND,API \"npm -w src/frontend run dev\" \"npm -w src/api run dev\"",
 
-    "build": "npm run build -w src/frontend && npm run build -w src/api",
+    "build:frontend": "npm -w src/frontend run build",
+    "build:api": "npm -w src/api run build",
+    "build": "npm -w src/frontend run build && npm -w src/api run build",
 
     "format": "prettier -w .",
     "lint": "eslint . --ext .ts,.tsx",
 
-    "test": "npm run test -w src/api",
+    "test:frontend": "npm -w src/frontend run test",
+    "test:api": "npm -w src/api run test",
+    "test": "npm -w src/api run test && npm -w src/frontend run test",
 
-    "start": "npm run test -w src/api && concurrently -k -n FRONTEND,API \"npm:dev -w src/frontend\" \"npm:dev -w src/api\""
+    "start": "npm -w src/api run test && npm -w src/frontend run test && concurrently -k -n FRONTEND,API \"npm -w src/frontend run dev\" \"npm -w src/api run dev\""
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

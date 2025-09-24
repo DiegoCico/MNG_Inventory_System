@@ -3,10 +3,14 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "vite",
-        "build": "vite build",
-        "preview": "vite preview --port 5174"
-    },
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview --port 5174",
+  "test": "vitest",
+  "test:watch": "vitest --watch",
+  "test:ui": "vitest --ui",
+  "coverage": "vitest run --coverage"
+},
     "dependencies": {
         "@tanstack/react-query": "^5.90.2",
         "@trpc/client": "^11.5.1",
@@ -19,9 +23,12 @@
     "devDependencies": {
         "@testing-library/jest-dom": "^6.8.0",
         "@testing-library/react": "^16.3.0",
+        "@testing-library/user-event": "^14.6.1",
         "@types/react": "^18.3.24",
         "@types/react-dom": "^18.3.7",
         "@vitejs/plugin-react": "^5.0.3",
+        "@vitest/coverage-v8": "^3.2.4",
+        "jsdom": "^27.0.0",
         "typescript": "^5.9.2",
         "vite": "^5.4.20",
         "vitest": "^3.2.4"

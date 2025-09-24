@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -6,12 +7,21 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Forward /api/* to the API dev server
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true
-      }
+      '/api': { target: 'http://localhost:3001', changeOrigin: true }
     }
   },
-  build: { outDir: 'dist' }
+  build: { outDir: 'dist' },
+
+  // Vitest config
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    css: true,
+    include: ['tests/**/*.test.{ts,tsx}'], 
+    setupFiles: './tests/setup.ts',
+    coverage: {
+      reporter: ['text', 'html'],
+      include: ['src/**/*.{ts,tsx}']
+    }
+  }
 });
