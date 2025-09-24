@@ -1,24 +1,30 @@
 {
-    "name": "root",
-    "private": true,
-    "workspaces": [
-        "src/frontend",
-        "src/api",
-        "src/cdk"
-    ],
-    "scripts": {
-        "dev:frontend": "npm:dev -w src/frontend",
-        "dev:api": "npm:dev -w src/api",
-        "dev": "concurrently -k -n FRONTEND,API \"npm:dev -w src/frontend\" \"npm:dev -w src/api\"",
-        "build": "npm run build -w src/frontend && npm run build -w src/api",
-        "format": "prettier -w .",
-        "lint": "eslint . --ext .ts,.tsx"
-    },
-    "devDependencies": {
-        "concurrently": "^9.2.1",
-        "eslint": "^9.10.0",
-        "eslint-config-prettier": "^9.1.0",
-        "prettier": "^3.3.3",
-        "typescript": "^5.4.0"
-    }
+  "name": "root",
+  "private": true,
+  "workspaces": [
+    "src/frontend",
+    "src/api",
+    "src/cdk"
+  ],
+  "scripts": {
+    "dev:frontend": "npm:dev -w src/frontend",
+    "dev:api": "npm:dev -w src/api",
+    "dev": "concurrently -k -n FRONTEND,API \"npm:dev -w src/frontend\" \"npm:dev -w src/api\"",
+
+    "build": "npm run build -w src/frontend && npm run build -w src/api",
+
+    "format": "prettier -w .",
+    "lint": "eslint . --ext .ts,.tsx",
+
+    "test": "npm run test -w src/api",
+
+    "start": "npm run test -w src/api && concurrently -k -n FRONTEND,API \"npm:dev -w src/frontend\" \"npm:dev -w src/api\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "eslint": "^9.10.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.0"
+  }
 }
