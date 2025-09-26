@@ -1,20 +1,26 @@
+// tests/App.test.tsx
 import { render, screen } from '@testing-library/react';
-import { vi } from 'vitest';
+import { afterEach, test, vi } from 'vitest';
 import App from '../src/App';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 test('shows loading then the API message on success', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ message: 'Hello from API' })
+      json: async () => ({ result: { data: { message: 'Hello from API' } } }),
     } as any)
   );
 
   render(<App />);
 
+  // initial state
   expect(screen.getByText(/loading\.\.\./i)).toBeInTheDocument();
 
+  // resolves to the API message
   expect(
     await screen.findByText(/API says: Hello from API/i)
   ).toBeInTheDocument();
