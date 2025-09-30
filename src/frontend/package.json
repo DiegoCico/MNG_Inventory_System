@@ -6,10 +6,12 @@
   "dev": "vite",
   "build": "vite build",
   "preview": "vite preview --port 5174",
-  "test": "vitest",
+  "test": "run-p lint vitest",
   "test:watch": "vitest --watch",
   "test:ui": "vitest --ui",
-  "coverage": "vitest run --coverage"
+  "coverage": "vitest run --coverage",
+      "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
 },
     "dependencies": {
         "@tanstack/react-query": "^5.90.2",
