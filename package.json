@@ -22,7 +22,13 @@
     "test:api": "npm -w src/api run test",
     "test": "npm -w src/api run test && npm -w src/frontend run test",
 
-    "start": "npm -w src/api run test && npm -w src/frontend run test && concurrently -k -n FRONTEND,API \"npm -w src/frontend run dev\" \"npm -w src/api run dev\""
+    "start": "npm -w src/api run test && npm -w src/frontend run test && concurrently -k -n FRONTEND,API \"npm -w src/frontend run dev\" \"npm -w src/api run dev\"",
+
+    "synth": "npm -w src/cdk run synth",
+    "diff": "npm -w src/cdk run diff",
+    "bootstrap": "npm -w src/cdk run bootstrap",
+
+    "deploy": "npm -w src/cdk run deploy"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
