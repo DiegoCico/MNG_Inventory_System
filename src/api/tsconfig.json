@@ -3,7 +3,8 @@
     "compilerOptions": {
       "outDir": "dist",
       "module": "ESNext",
-      "baseUrl": "."
+      "baseUrl": ".",
+      "ignoreDeprecations": "6.0"
     },
     "include": ["src"]
   }
