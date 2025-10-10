@@ -8,22 +8,22 @@ import type {
 import express from "express";
 import { appRouter, createContext as baseCreateContext } from "./routers";
 
-/** ---------- Config ---------- */
+// config
 const CONFIG = {
   NODE_ENV: process.env.NODE_ENV ?? "development",
   STAGE: process.env.STAGE ?? "dev",
   SERVICE_NAME: process.env.SERVICE_NAME ?? "mng-api",
-
   CORS_ORIGINS: process.env.CORS_ORIGINS ?? "*",
   CORS_HEADERS: process.env.CORS_HEADERS ?? "content-type,authorization",
   CORS_METHODS: process.env.CORS_METHODS ?? "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 } as const;
 
-/** ---------- Types ---------- */
-type HeaderMap = Record<string, string | number | boolean>;
+/**  Types  */
+type HeaderMap = Record<string, string>; // API GW & tRPC both end up string-only
 type CorsHeaders = Partial<HeaderMap>;
+type TrpcHeaders = Record<string, string | string[] | undefined>;
 
-/** ---------- Utils ---------- */
+/**  Utils  */
 const parseAllowed = (csvOrStar: string) =>
   csvOrStar === "*"
     ? ["*"]
@@ -36,16 +36,24 @@ function getRequestOrigin(h?: Record<string, string | undefined>): string | unde
   return map["origin"] ?? map["referer"];
 }
 
-/** Remove undefined/null and coerce to API GW-safe header map */
-function cleanHeaders(h: Record<string, unknown>): HeaderMap {
+/** Coerce arbitrary values to string-only header map (safe for API Gateway) */
+function toHeaderMap(h: Record<string, unknown>): HeaderMap {
   const out: HeaderMap = {};
   for (const [k, v] of Object.entries(h)) {
-    if (v === undefined || v === null) continue;
-    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
-      out[k] = v;
-    } else {
-      out[k] = String(v);
-    }
+    if (v == null) continue;
+    if (Array.isArray(v)) out[k] = v.map((x) => String(x)).join(", ");
+    else out[k] = String(v);
+  }
+  return out;
+}
+
+/** For tRPC ResponseMeta.headers (HTTPHeaders) */
+function toTrpcHeaders(h: Record<string, unknown>): TrpcHeaders {
+  const out: TrpcHeaders = {};
+  for (const [k, v] of Object.entries(h)) {
+    if (v == null) continue;
+    if (Array.isArray(v)) out[k] = v.map((x) => String(x));
+    else out[k] = String(v);
   }
   return out;
 }
@@ -99,7 +107,7 @@ function resolveRuntimeRegion(event: APIGatewayProxyEventV2, context: LambdaCtx)
 
 let coldStart = true;
 
-/** ---------- Lambda entry (tRPC over API Gateway HTTP API v2) ---------- */
+/**  Lambda entry (tRPC over API Gateway HTTP API v2)  */
 export const handler = async (
   event: APIGatewayProxyEventV2,
   context: LambdaCtx
@@ -109,7 +117,7 @@ export const handler = async (
 
   // CORS preflight
   if (event.requestContext?.http?.method === "OPTIONS") {
-    return { statusCode: 204, headers: cleanHeaders(baseCors), body: "" };
+    return { statusCode: 204, headers: toHeaderMap(baseCors), body: "" };
   }
 
   const meta = {
@@ -130,9 +138,9 @@ export const handler = async (
       }),
     batching: { enabled: true },
     responseMeta() {
-      // Ensure CORS headers are on every response
+      // Ensure CORS + diagnostics headers are on every tRPC response
       return {
-        headers: cleanHeaders({
+        headers: toTrpcHeaders({
           ...baseCors,
           "x-aws-region": meta.region,
           "x-stage": meta.stage,
@@ -148,21 +156,21 @@ export const handler = async (
   return res;
 };
 
-/** ---------- Local dev server (mirrors Lambda) ---------- */
+/**  Local dev server (mirrors Lambda)  */
 if (CONFIG.NODE_ENV === "development") {
   const app = express();
 
   // Uniform CORS for all routes (credentials-aware)
   app.use((req, res, next) => {
     const ch = corsHeadersFrom(req.header("Origin") || req.header("origin") || undefined);
-    for (const [k, v] of Object.entries(ch)) res.header(k, v as any);
+    for (const [k, v] of Object.entries(ch)) if (v != null) res.header(k, String(v));
     next();
   });
 
   // Explicit preflight responder
   app.options("*", (req, res) => {
     const ch = corsHeadersFrom(req.header("Origin") || req.header("origin") || undefined);
-    res.status(204).set(cleanHeaders(ch)).send();
+    res.status(204).set(toHeaderMap(ch)).send();
   });
 
   // tRPC route
