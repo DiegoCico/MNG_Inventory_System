@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from "react";
 import HeroPage from './pages/HeroPage';
 import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
