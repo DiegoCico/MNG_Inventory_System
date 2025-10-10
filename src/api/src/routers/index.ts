@@ -1,7 +1,14 @@
-import { router, publicProcedure } from "../trpc";
+import { router, publicProcedure, mergeRouters } from "./trpc";
+import { helloRouter } from "./hello";
+import { usersRouter } from "./users";
 
-export const appRouter = router({
-  hello: publicProcedure.query(() => ({ message: "Hello from tRPC API!" })),
+const coreRouter = router({
+  health: publicProcedure.query(() => ({ ok: true })),
 });
 
+const routers = [coreRouter, helloRouter, usersRouter];
+
+export const appRouter = mergeRouters(...routers);
+
 export type AppRouter = typeof appRouter;
+export { createContext } from "./trpc";
