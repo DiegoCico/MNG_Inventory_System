@@ -1,4 +1,3 @@
-// Use Vite proxy; no hardcoded ports → no CORS
 const TRPC_URL  = "/trpc";
 const HEALTH_URL = "/health";
 

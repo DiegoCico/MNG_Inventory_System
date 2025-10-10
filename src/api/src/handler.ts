@@ -58,10 +58,7 @@ function toTrpcHeaders(h: Record<string, unknown>): TrpcHeaders {
   return out;
 }
 
-/**
- * If CORS_ORIGINS="*", we must NOT set Allow-Credentials and we return wildcard.
- * If explicit origins are configured, we echo the matched origin + set Allow-Credentials=true.
- */
+// CORS
 function corsHeadersFrom(origin?: string): CorsHeaders {
   const allowList = parseAllowed(CONFIG.CORS_ORIGINS);
   const wildcard = allowList.length === 1 && allowList[0] === "*";
