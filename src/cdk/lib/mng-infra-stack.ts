@@ -12,18 +12,32 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
-import * as apigwv2Integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import * as apigwIntegrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
+
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as kms from "aws-cdk-lib/aws-kms";
 
 import { resolveStage } from "../stage";
 
+// Accept the DynamoDB table + optional CMK so we can wire Lambda permissions
+export interface MngInfraStackProps extends cdk.StackProps {
+  ddbTable: dynamodb.ITable;
+  ddbKey?: kms.IKey;
+}
+
 export class MngInfraStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  public readonly httpApi: apigwv2.HttpApi;
+  public readonly apiFn: NodejsFunction;
+  public readonly distribution: cloudfront.Distribution;
+  public readonly webBucket: s3.Bucket;
+
+  constructor(scope: Construct, id: string, props: MngInfraStackProps) {
     super(scope, id, props);
 
     const stage = resolveStage(this.node.root as cdk.App);
 
     // BACKEND: Lambda (tRPC) + HTTP API
-    const apiFn = new NodejsFunction(this, "TrpcLambda", {
+    this.apiFn = new NodejsFunction(this, "TrpcLambda", {
       runtime: lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, "../../api/src/handler.ts"),
       handler: "handler",
@@ -40,16 +54,31 @@ export class MngInfraStack extends cdk.Stack {
         NODE_ENV: stage.nodeEnv,
         STAGE: stage.name,
         SERVICE_NAME: "mng-api",
-        CORS_ORIGINS: stage.cors.allowOrigins.join(","),  // explicit origins (no "*") if you want credentials
+
+        // CORS envs your handler might read
+        CORS_ORIGINS: stage.cors.allowOrigins.join(","),
         CORS_HEADERS: stage.cors.allowHeaders.join(","),
         CORS_METHODS: stage.cors.allowMethods.join(","),
+
+        // DynamoDB information
+        TABLE_NAME: props.ddbTable.tableName,
+        GSI_ITEMS_BY_PROFILE: "GSI_ItemsByProfile",
+        GSI_ITEMS_BY_PARENT: "GSI_ItemsByParent",
+        GSI_REPORTS_BY_USER: "GSI_ReportsByUser",
+        GSI_REPORTS_BY_ITEM: "GSI_ReportsByItem",
+        GSI_LOCATIONS_BY_PARENT: "GSI_LocationsByParent",
+        GSI_USERS_BY_UID: "GSI_UsersByUid",
       },
     });
+
+    // Grant Lambda permissions to use the table + CMK
+    props.ddbTable.grantReadWriteData(this.apiFn);
+    props.ddbKey?.grantEncryptDecrypt(this.apiFn);
 
     const allowOrigins: string[] = stage.cors.allowOrigins;
     const wildcard = allowOrigins.length === 1 && allowOrigins[0] === "*";
 
-    const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
+    this.httpApi = new apigwv2.HttpApi(this, "HttpApi", {
       apiName: `mng-http-api-${stage.name}`,
       description: `HTTP API for tRPC (${stage.name})`,
       corsPreflight: {
@@ -63,56 +92,61 @@ export class MngInfraStack extends cdk.Stack {
       },
     });
 
-    const trpcIntegration = new apigwv2Integrations.HttpLambdaIntegration("TrpcIntegrationV2", apiFn);
+    const trpcIntegration = new apigwIntegrations.HttpLambdaIntegration(
+      "TrpcIntegrationV2",
+      this.apiFn
+    );
 
     // tRPC base
-    httpApi.addRoutes({
+    this.httpApi.addRoutes({
       path: "/trpc",
       methods: [apigwv2.HttpMethod.ANY],
       integration: trpcIntegration,
     });
 
     // tRPC proxy (batching, nested routes)
-    httpApi.addRoutes({
+    this.httpApi.addRoutes({
       path: "/trpc/{proxy+}",
       methods: [apigwv2.HttpMethod.ANY],
       integration: trpcIntegration,
     });
 
     // FRONTEND: S3 + CloudFront
-    const webBucket = new s3.Bucket(this, "WebBucket", {
+    this.webBucket = new s3.Bucket(this, "WebBucket", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       autoDeleteObjects: stage.autoDeleteObjects,
       removalPolicy: stage.removalPolicy,
     });
 
-    // OAI for S3
+    // CloudFront OAI for S3 origin
     const oai = new cloudfront.OriginAccessIdentity(this, "WebOAI");
-    const s3Origin = origins.S3BucketOrigin.withOriginAccessIdentity(webBucket, {
+    const s3Origin = origins.S3BucketOrigin.withOriginAccessIdentity(this.webBucket, {
       originAccessIdentity: oai,
     });
-    webBucket.grantRead(oai);
+    this.webBucket.grantRead(oai);
 
-    // API origin (point to $default stage host)
+    // API origin: point to the $default stage host of the HTTP API
     const apiOrigin = new origins.HttpOrigin(
-      `${httpApi.apiId}.execute-api.${this.region}.amazonaws.com`,
+      `${this.httpApi.apiId}.execute-api.${this.region}.amazonaws.com`,
       {
         protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
       }
     );
 
+    // Behavior for API paths
     const apiBehavior: cloudfront.BehaviorOptions = {
       origin: apiOrigin,
       viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED, // API responses should not be cached
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED, // don't cache API responses
       // Important: don't forward Host; API GW must see its own host
       originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
       compress: true,
     };
 
-    const distro = new cloudfront.Distribution(this, "WebDistribution", {
+    // Distribution with SPA defaults and API routing
+    this.distribution = new cloudfront.Distribution(this, "WebDistribution", {
       defaultBehavior: {
         origin: s3Origin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -123,27 +157,39 @@ export class MngInfraStack extends cdk.Stack {
         "/trpc": apiBehavior,    // base tRPC path
         "/trpc/*": apiBehavior,  // all procedures + batching
       },
+      // SPA fallback for client-side routing
       errorResponses: [
-        // SPA fallback to index.html
-        { httpStatus: 403, responseHttpStatus: 200, responsePagePath: "/index.html", ttl: cdk.Duration.seconds(0) },
-        { httpStatus: 404, responseHttpStatus: 200, responsePagePath: "/index.html", ttl: cdk.Duration.seconds(0) },
+        {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+          ttl: cdk.Duration.seconds(0),
+        },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+          ttl: cdk.Duration.seconds(0),
+        },
       ],
     });
 
     // Deploy built frontend (point to your actual dist path)
     new s3deploy.BucketDeployment(this, "DeployWebsite", {
       sources: [s3deploy.Source.asset(path.join(__dirname, "../../frontend/dist"))],
-      destinationBucket: webBucket,
-      distribution: distro,
+      destinationBucket: this.webBucket,
+      distribution: this.distribution,
       distributionPaths: ["/*"],
       prune: true,
     });
 
-    // Outputs  
+    // Outputs
     new cdk.CfnOutput(this, "Stage", { value: stage.name });
-    new cdk.CfnOutput(this, "SiteUrl", { value: `https://${distro.domainName}` });
+    new cdk.CfnOutput(this, "SiteUrl", { value: `https://${this.distribution.domainName}` });
     new cdk.CfnOutput(this, "HttpApiInvokeUrl", {
-      value: `https://${httpApi.apiId}.execute-api.${this.region}.amazonaws.com`,
+      value: `https://${this.httpApi.apiId}.execute-api.${this.region}.amazonaws.com`,
     });
+    new cdk.CfnOutput(this, "FunctionName", { value: this.apiFn.functionName });
+    new cdk.CfnOutput(this, "TableName", { value: props.ddbTable.tableName });
   }
 }
