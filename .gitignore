@@ -8,5 +8,6 @@ out/
 node_modules
 dist
 cdk.out
+.env
 .env.local
 .env.*.local
