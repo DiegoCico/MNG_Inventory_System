@@ -33,11 +33,16 @@
     "clean": "rimraf node_modules src/**/node_modules src/cdk/cdk.out || true"
   },
   "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.52.4",
+    "aws-sdk-client-mock": "^4.1.0",
     "concurrently": "^9.2.1",
     "eslint": "^9.10.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.3.3",
-    "typescript": "^5.4.0",
-    "rimraf": "^6.0.1"
+    "rimraf": "^6.0.1",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.908.0"
   }
 }
