@@ -1,10 +1,7 @@
-import { describe, it, beforeEach, expect } from "vitest";
 import request from "supertest";
 import express from "express";
 import { mockClient } from "aws-sdk-client-mock";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-
-
 import { s3Router } from "../src/routers/s3.options.router";
 
 const s3Mock = mockClient(S3Client);
@@ -41,15 +38,14 @@ describe("tRPC s3.uploadImage (dataUrl only, server-generated key)", () => {
     expect(data?.ok).toBe(true);
     expect(typeof data?.id).toBe("string");
     expect(data?.id.length).toBeGreaterThan(10);
-    expect(["item","user"]).toContain(data?.category);
+    expect(["item", "user"]).toContain(data?.category);
 
     const calls = s3Mock.commandCalls(PutObjectCommand);
     expect(calls.length).toBe(1);
     const input = calls[0].args[0].input;
-    expect(input.Key).toMatch(/^items\/[0-9a-f-]+\.png$/i); 
+    expect(input.Key).toMatch(/^items\/[0-9a-f-]+\.png$/i);
     expect(input.ContentType).toBe("image/png");
 
-   
     expect(data.key).toBeUndefined();
   });
 
@@ -72,7 +68,12 @@ describe("tRPC s3.uploadImage (dataUrl only, server-generated key)", () => {
 
     const res = await request(app)
       .post("/trpc/s3.uploadImage")
-      .send({ input: { category: "user", dataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/" } })
+      .send({
+        input: {
+          category: "user",
+          dataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/",
+        },
+      })
       .set("Content-Type", "application/json");
 
     const data = res.body?.result?.data;
