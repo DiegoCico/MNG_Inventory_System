@@ -35,20 +35,18 @@ test('shows fallback message when API fails', async () => {
 
   render(
     <BrowserRouter>
-      <HeroPage/>
-    </BrowserRouter>
+      <HeroPage />
+    </BrowserRouter>,
   );
 
-  expect(
-    await screen.findByText(/API not running/i)
-  ).toBeInTheDocument();
+  expect(await screen.findByText(/API not running/i)).toBeInTheDocument();
 });
 
 test('Sign In button has correct link', () => {
   render(
     <BrowserRouter>
       <HeroPage />
-    </BrowserRouter>
+    </BrowserRouter>,
   );
 
   const signInButton = screen.getByText(/sign in/i);
@@ -59,7 +57,7 @@ test('Sign Up button has correct link', () => {
   render(
     <BrowserRouter>
       <HeroPage />
-    </BrowserRouter>
+    </BrowserRouter>,
   );
 
   const signUpButton = screen.getByText(/sign up/i);

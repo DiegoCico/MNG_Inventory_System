@@ -1,4 +1,4 @@
-import { initTRPC } from "@trpc/server";
+import { initTRPC } from '@trpc/server';
 
 export type Context = {};
 export const createContext = async (): Promise<Context> => ({});

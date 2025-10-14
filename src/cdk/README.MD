@@ -11,12 +11,15 @@ export AWS_REGION=us-east-1
 aws sts get-caller-identity
 ```
 
-# CDK 
+# CDK
+
 npm i
 npm run cdk:bootstrap
 npm run cdk:synth
 npm run cdk:diff
 npm run cdk:deploy
 npm run cdk:destroy
+
 ```
 
+```

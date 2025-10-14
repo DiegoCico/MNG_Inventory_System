@@ -22,12 +22,12 @@ function HeroPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selectedFeature = features[selectedIndex];
 
-  const [msg, setMsg] = useState("loading...");
+  const [msg, setMsg] = useState('loading...');
 
   useEffect(() => {
     getHelloMessage()
       .then(setMsg)
-      .catch(() => setMsg("API not running"));
+      .catch(() => setMsg('API not running'));
   }, []);
 
   return (
@@ -37,10 +37,20 @@ function HeroPage() {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             App
           </Typography>
-          <Button component={Link} to="/signin" variant="contained" sx={{ bgcolor:'primary.main'}}>
+          <Button
+            component={Link}
+            to="/signin"
+            variant="contained"
+            sx={{ bgcolor: 'primary.main' }}
+          >
             Sign In
           </Button>
-          <Button component={Link} to="/signup" variant="contained" sx={{ bgcolor:'secondary.main', marginLeft: 4}}>
+          <Button
+            component={Link}
+            to="/signup"
+            variant="contained"
+            sx={{ bgcolor: 'secondary.main', marginLeft: 4 }}
+          >
             Sign Up
           </Button>
         </Toolbar>
@@ -50,14 +60,17 @@ function HeroPage() {
         <Typography
           variant="h2"
           sx={{
-            textAlign: 'center'
+            textAlign: 'center',
           }}
           gutterBottom
         >
           {' '}
           File tracking made easy.
         </Typography>
-        <Typography variant="h5" sx={{ textAlign: 'center', color:'text.secondary', paddingBottom: 5}}>
+        <Typography
+          variant="h5"
+          sx={{ textAlign: 'center', color: 'text.secondary', paddingBottom: 5 }}
+        >
           {msg}
         </Typography>
         <Typography variant="h4" gutterBottom>
