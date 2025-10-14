@@ -1,7 +1,7 @@
 import { router, publicProcedure, mergeRouters } from './trpc';
 import { helloRouter } from './hello';
 import { usersRouter } from './users';
-import { s3Router } from './S3.options';
+import { s3Router } from './s3.options';
 
 const coreRouter = router({
   health: publicProcedure.query(() => ({ ok: true })),
