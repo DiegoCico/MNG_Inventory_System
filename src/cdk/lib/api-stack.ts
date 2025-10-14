@@ -62,16 +62,19 @@ export class ApiStack extends cdk.Stack {
 
     props.ddbTable.grantReadWriteData(this.apiFn);
 
-    this.httpApi = new apigwv2.HttpApi(this, "HttpApi", {
-      apiName: `${serviceName}-${stage.name}-api`,
-      corsPreflight: {
-        allowCredentials: stage.cors.allowCredentials,
-        allowHeaders: stage.cors.allowHeaders,
-        allowMethods: stage.cors.allowMethods,
-        allowOrigins: stage.cors.allowOrigins,
-        maxAge: stage.cors.maxAge ?? cdk.Duration.hours(12),
-      },
+    // inside ApiStack constructor
+    const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
+    apiName: props.serviceName ?? "mng-api",
+    corsPreflight: {
+        allowOrigins: props.stage.cors.allowOrigins,         // e.g. https://d2cktegyq4qcfk.cloudfront.net, http://localhost:5173
+        allowHeaders: props.stage.cors.allowHeaders,         // ["content-type", "authorization"]
+        allowMethods: props.stage.cors.allowMethods,         // GET,POST,PUT,PATCH,DELETE,OPTIONS
+        allowCredentials: props.stage.cors.allowCredentials, // true if you need cookies
+        maxAge: props.stage.cors.maxAge,                     // e.g. 12h
+    },
     });
+    this.httpApi = httpApi;
+
 
     const lambdaIntegration = new apigwIntegrations.HttpLambdaIntegration(
       "LambdaIntegration",

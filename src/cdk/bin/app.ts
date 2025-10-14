@@ -121,14 +121,19 @@ const api = new ApiStack(app, `MngApi-${cfg.name}`, {
   serviceName: "mng-api",
 });
 
-// Web
-const web = new WebStack(app, `MngWeb-${cfg.name}`, {
-  env: { account, region },
-  stage: { name: cfg.name },
-  serviceName: "mng-web",
-  // Provide the build output if you want CDK to upload it:
-  frontendBuildPath: "../../frontend/dist",
-});
+  // After creating `api`
+  const apiEndpoint = api.httpApi.apiEndpoint; // "https://abc123.execute-api.us-east-1.amazonaws.com"
+  const apiDomainName = cdk.Fn.select(2, cdk.Fn.split("/", apiEndpoint)); // "abc123.execute-api.us-east-1.amazonaws.com"
+
+  // Web
+  const web = new WebStack(app, `MngWeb-${cfg.name}`, {
+    env: { account, region },
+    stage: { name: cfg.name },
+    serviceName: "mng-web",
+    frontendBuildPath: "../../frontend/dist",
+    apiDomainName,                           
+    apiPaths: ["/trpc/*", "/health", "/hello"],
+  });
 
 if (cfg.tags) {
   [auth, dynamo, api, web].forEach((stack) => {
