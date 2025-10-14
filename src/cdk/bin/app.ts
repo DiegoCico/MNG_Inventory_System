@@ -1,11 +1,13 @@
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import { resolveStage } from "../stage";
 import { AuthStack } from "../lib/auth-stack";
 import { DynamoStack } from "../lib/dynamo-stack";
 import { ApiStack } from "../lib/api-stack";
 import { WebStack } from "../lib/web-stack";
+import { SesStack } from "../lib/ses-stack";
 
 const app = new cdk.App();
 const cfg = resolveStage(app) as {
@@ -121,7 +123,6 @@ const api = new ApiStack(app, `MngApi-${cfg.name}`, {
   serviceName: "mng-api",
 });
 
-  // After creating `api`
   const apiEndpoint = api.httpApi.apiEndpoint; // "https://abc123.execute-api.us-east-1.amazonaws.com"
   const apiDomainName = cdk.Fn.select(2, cdk.Fn.split("/", apiEndpoint)); // "abc123.execute-api.us-east-1.amazonaws.com"
 
@@ -135,8 +136,25 @@ const api = new ApiStack(app, `MngApi-${cfg.name}`, {
     apiPaths: ["/trpc/*", "/health", "/hello"],
   });
 
+  // SES
+  const ses = new SesStack(app, `MngSes-${cfg.name}`, {
+    env: { account, region },
+    stage: cfg.name,
+    rootDomain: "example.com",   // TODO: Switch this to main domain once app done
+    fromLocalPart: "noreply",
+    createFeedbackTopic: true,
+    emailFrom: "cicotoste.d@northeastern.edu",
+  });
+
+  api.apiFn.role?.addManagedPolicy(
+    ses.node.tryFindChild("SesSendPolicy") as iam.ManagedPolicy
+  );
+
+  api.apiFn.addEnvironment("SES_FROM_ADDRESS", ses.fromAddress);
+  api.apiFn.addEnvironment("SES_CONFIG_SET", ses.configurationSetName);
+
 if (cfg.tags) {
-  [auth, dynamo, api, web].forEach((stack) => {
+  [auth, dynamo, api, web, ses].forEach((stack) => {
     Object.entries(cfg.tags!).forEach(([k, v]) => cdk.Tags.of(stack).add(k, v));
   });
 }
