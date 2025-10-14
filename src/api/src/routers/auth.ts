@@ -459,7 +459,7 @@ export const authRouter = router({
         console.log(`Inviting user via SES: ${input.email}`);
         console.log(`Inviting user via SES: ${input.email}`);
 
-        const result = await inviteUser({
+        const result = await cognitoService.inviteUser({
           email: input.email,
         });
 
@@ -502,7 +502,7 @@ export const authRouter = router({
       try {
         console.log(`Sign in attempt for: ${input.email}`);
 
-        const result = await signIn({
+        const result = await cognitoService.signIn({
           email: input.email,
           password: input.password,
         });
@@ -561,13 +561,13 @@ export const authRouter = router({
       z.object({
         challengeName: z.string(),
         session: z.string(),
-        newPassword: z.string().min(12),
+        newPassword: z.string().min(10),
         email: z.email(),
       }),
     )
     .mutation(async ({ input }) => {
       try {
-        const result = await respondToChallenge({
+        const result = await cognitoService.respondToChallenge({
           challengeName: input.challengeName,
           session: input.session,
           newPassword: input.newPassword,
