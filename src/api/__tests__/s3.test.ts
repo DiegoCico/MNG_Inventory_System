@@ -2,7 +2,7 @@ import request from "supertest";
 import express from "express";
 import { mockClient } from "aws-sdk-client-mock";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { s3Router } from "../src/routers/s3.options.router";
+import { s3Router } from "../src/routers/s3";
 
 const s3Mock = mockClient(S3Client);
 
