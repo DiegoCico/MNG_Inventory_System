@@ -8,5 +8,10 @@ out/
 node_modules
 dist
 cdk.out
+.env
 .env.local
 .env.*.local
+
+
+.package-lock.json 
+package-lock.json

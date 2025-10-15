@@ -27,7 +27,8 @@ export class WebStack extends cdk.Stack {
 
     // Static bucket
     this.bucket = new s3.Bucket(this, "WebBucket", {
-      bucketName: `${serviceName}-${stageName}-${this.account}-${this.region}`.toLowerCase(),
+      // NOTE: Avoid hard-coding bucketName with unresolved account/region tokens to prevent synth errors.
+      // bucketName: `${serviceName}-${stageName}-${this.account}-${this.region}`.toLowerCase(),
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
@@ -40,15 +41,20 @@ export class WebStack extends cdk.Stack {
       comment: `${serviceName}-${stageName}-oai`,
     });
 
-    const s3Origin = origins.S3BucketOrigin.withOriginAccessIdentity(this.bucket, {
+    // Grant CloudFront OAI read access to the bucket
+    this.bucket.grantRead(oai);
+
+    // S3 origin (behind OAI)
+    const s3Origin = new origins.S3Origin(this.bucket, {
       originAccessIdentity: oai,
     });
 
     // Optional API origin
     const apiDomainName = props.apiDomainName;
-    const apiPaths = props.apiPaths && props.apiPaths.length
-      ? props.apiPaths
-      : ["/trpc/*", "/health", "/hello"];
+    const apiPaths =
+      props.apiPaths && props.apiPaths.length
+        ? props.apiPaths
+        : ["/trpc/*", "/health", "/hello"];
 
     // Build additional behaviors if API is provided
     const additionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
@@ -79,7 +85,12 @@ export class WebStack extends cdk.Stack {
       },
       additionalBehaviors,
       errorResponses: [
-        { httpStatus: 404, responseHttpStatus: 200, responsePagePath: "/index.html", ttl: cdk.Duration.minutes(1) },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+          ttl: cdk.Duration.minutes(1),
+        },
       ],
     });
 
@@ -100,6 +111,8 @@ export class WebStack extends cdk.Stack {
     }
 
     new cdk.CfnOutput(this, "Stage", { value: stageName });
-    new cdk.CfnOutput(this, "SiteUrl", { value: `https://${this.distribution.distributionDomainName}` });
+    new cdk.CfnOutput(this, "SiteUrl", {
+      value: `https://${this.distribution.distributionDomainName}`,
+    });
   }
 }

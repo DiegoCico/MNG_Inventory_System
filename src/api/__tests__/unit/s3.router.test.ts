@@ -1,15 +1,21 @@
-import request from "supertest";
-import express from "express";
-import { mockClient } from "aws-sdk-client-mock";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { s3Router } from "../src/routers/s3.options.router";
+import request from 'supertest';
+import express from 'express';
+import { mockClient } from 'aws-sdk-client-mock';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { s3Router } from '../../src/routers/s3';
+
+/**
+ * UNIT TESTS - S3 Router
+ *
+ * These tests use mocked AWS S3 responses to verify S3 upload logic.
+ */
 
 const s3Mock = mockClient(S3Client);
 
 function testApp() {
   const app = express();
   app.use(express.json({ limit: "15mb" }));
-  app.post("/trpc/s3.uploadImage", async (req, res) => {
+  app.post("/trpc/uploadImage", async (req, res) => {
     try {
       const caller = s3Router.createCaller({} as any);
       const result = await caller.uploadImage(req.body?.input);
@@ -29,7 +35,7 @@ describe("tRPC s3.uploadImage (dataUrl only, server-generated key)", () => {
     const app = testApp();
 
     const res = await request(app)
-      .post("/trpc/s3.uploadImage")
+      .post("/trpc/uploadImage")
       .send({ input: { dataUrl: "data:image/png;base64,iVBORw0KGgoAAA==" } })
       .set("Content-Type", "application/json");
 
@@ -54,7 +60,7 @@ describe("tRPC s3.uploadImage (dataUrl only, server-generated key)", () => {
     const app = testApp();
 
     const res = await request(app)
-      .post("/trpc/s3.uploadImage")
+      .post("/trpc/uploadImage")
       .send({ input: { dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" } })
       .set("Content-Type", "application/json");
 
@@ -67,7 +73,7 @@ describe("tRPC s3.uploadImage (dataUrl only, server-generated key)", () => {
     const app = testApp();
 
     const res = await request(app)
-      .post("/trpc/s3.uploadImage")
+      .post("/trpc/uploadImage")
       .send({
         input: {
           category: "user",

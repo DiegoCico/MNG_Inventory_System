@@ -39,7 +39,6 @@ export class ApiStack extends cdk.Stack {
     this.apiFn = new NodejsFunction(this, "TrpcLambda", {
       functionName: `${serviceName}-${stage.name}-trpc`,
       runtime: lambda.Runtime.NODEJS_20_X,
-      // IMPORTANT: from src/cdk/lib -> ../../api/src/handler.ts
       entry: path.resolve(__dirname, "../../api/src/handler.ts"),
       handler: "handler",
       memorySize: stage.lambda.memorySize,
@@ -62,19 +61,17 @@ export class ApiStack extends cdk.Stack {
 
     props.ddbTable.grantReadWriteData(this.apiFn);
 
-    // inside ApiStack constructor
     const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
-    apiName: props.serviceName ?? "mng-api",
-    corsPreflight: {
-        allowOrigins: props.stage.cors.allowOrigins,         // e.g. https://d2cktegyq4qcfk.cloudfront.net, http://localhost:5173
-        allowHeaders: props.stage.cors.allowHeaders,         // ["content-type", "authorization"]
-        allowMethods: props.stage.cors.allowMethods,         // GET,POST,PUT,PATCH,DELETE,OPTIONS
-        allowCredentials: props.stage.cors.allowCredentials, // true if you need cookies
-        maxAge: props.stage.cors.maxAge,                     // e.g. 12h
-    },
+      apiName: props.serviceName ?? "mng-api",
+      corsPreflight: {
+        allowOrigins: props.stage.cors.allowOrigins,
+        allowHeaders: props.stage.cors.allowHeaders,
+        allowMethods: props.stage.cors.allowMethods,
+        allowCredentials: props.stage.cors.allowCredentials,
+        maxAge: props.stage.cors.maxAge,
+      },
     });
     this.httpApi = httpApi;
-
 
     const lambdaIntegration = new apigwIntegrations.HttpLambdaIntegration(
       "LambdaIntegration",
@@ -97,6 +94,6 @@ export class ApiStack extends cdk.Stack {
       value: `https://${this.httpApi.apiId}.execute-api.${this.region}.amazonaws.com`,
     });
     new cdk.CfnOutput(this, "FunctionName", { value: this.apiFn.functionName });
-    new cdk.CfnOutput(this, "TableName", { value: props.ddbTable.tableName });
+    new cdk.CfnOutput(this, "TableName", { value: (props.ddbTable as any).tableName });
   }
 }

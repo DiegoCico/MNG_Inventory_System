@@ -1,5 +1,10 @@
 import request from 'supertest';
-import app from '../src/server';
+import app from '../../src/server';
+
+/**
+ * INTEGRATION TESTS - Server
+ *
+ */
 
 describe('tRPC Routes', () => {
   it('GET /trpc/hello should return a hello message', async () => {
@@ -17,7 +22,6 @@ describe('tRPC Routes', () => {
       }),
     );
   });
-  
 
   it('GET / should return root API message', async () => {
     const res = await request(app).get('/');

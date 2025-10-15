@@ -1,6 +1,6 @@
-import { Stack, StackProps, CfnOutput, Duration, RemovalPolicy } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import * as cognito from 'aws-cdk-lib/aws-cognito';
+import { Stack, StackProps, CfnOutput, Duration, RemovalPolicy } from "aws-cdk-lib";
+import { Construct } from "constructs";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 
 export interface AuthStackProps extends StackProps {
   stage: string;
@@ -11,13 +11,16 @@ export interface AuthStackProps extends StackProps {
 }
 
 export class AuthStack extends Stack {
+  public readonly userPool: cognito.UserPool;
+  public readonly webClient: cognito.UserPoolClient;
+
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
 
-    const service = (props.serviceName ?? 'mng').toLowerCase();
+    const service = (props.serviceName ?? "mng").toLowerCase();
     const stage = props.stage.toLowerCase();
 
-    const userPool = new cognito.UserPool(this, 'UserPool', {
+    const userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: `${service}-${stage}-users`,
       selfSignUpEnabled: false, // invite-only
       signInAliases: { email: true },
@@ -34,27 +37,36 @@ export class AuthStack extends Stack {
         tempPasswordValidity: Duration.days(7),
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      removalPolicy: stage === 'dev' ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
+      removalPolicy: stage === "dev" ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
     });
 
-    const domainPrefix = `${service}-${stage}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    const domain = userPool.addDomain('HostedUiDomain', {
+    // Hosted UI domain (kept as-is)
+    const domainPrefix = `${service}-${stage}`.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    const domain = userPool.addDomain("HostedUiDomain", {
       cognitoDomain: { domainPrefix },
     });
 
+    // Build callback/logout URLs from web origins if not explicitly provided
     const callbacks = props.callbackUrls?.length
       ? props.callbackUrls
-      : props.webOrigins.map((o) => `${o.replace(/\/$/, '')}/auth/callback`);
+      : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/callback`);
     const logouts = props.logoutUrls?.length
       ? props.logoutUrls
-      : props.webOrigins.map((o) => `${o.replace(/\/$/, '')}/auth/logout`);
+      : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/logout`);
 
-    const webClient = new cognito.UserPoolClient(this, 'WebClient', {
+    // Public web client with ADMIN_NO_SRP_AUTH enabled for backend server flows
+    const webClient = new cognito.UserPoolClient(this, "WebClient", {
       userPool,
       userPoolClientName: `${service}-${stage}-web`,
-      generateSecret: false,
+      generateSecret: false,                
       preventUserExistenceErrors: true,
-      authFlows: { userSrp: true },
+      enableTokenRevocation: true,
+      // enable admin password auth for server-side sign-in
+      authFlows: {
+        adminUserPassword: true,  
+        userPassword: true,             
+        userSrp: true,                     
+      },
       oAuth: {
         flows: { authorizationCodeGrant: true },
         callbackUrls: callbacks,
@@ -67,18 +79,27 @@ export class AuthStack extends Stack {
       supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
     });
 
-    new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
-    new CfnOutput(this, 'UserPoolArn', { value: userPool.userPoolArn });
-    new CfnOutput(this, 'UserPoolClientId', { value: webClient.userPoolClientId });
-    new CfnOutput(this, 'HostedUiDomain', { value: domain.domainName });
-    new CfnOutput(this, 'IssuerUrl', {
+    // expose for other stacks
+    this.userPool = userPool;
+    this.webClient = webClient;
+
+    // Outputs (kept)
+    new CfnOutput(this, "UserPoolId", { value: userPool.userPoolId });
+    new CfnOutput(this, "UserPoolArn", { value: userPool.userPoolArn });
+    new CfnOutput(this, "UserPoolClientId", { value: webClient.userPoolClientId });
+    new CfnOutput(this, "HostedUiDomain", { value: domain.domainName });
+    new CfnOutput(this, "IssuerUrl", {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
     });
-    new CfnOutput(this, 'JwksUri', {
+    new CfnOutput(this, "JwksUri", {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}/.well-known/jwks.json`,
     });
-    new CfnOutput(this, 'HostedUiAuthorizeUrlExample', {
-      value: `https://${domain.domainName}/login?response_type=code&client_id=${webClient.userPoolClientId}&redirect_uri=${encodeURIComponent(callbacks[0])}&scope=openid+email+profile`,
+    new CfnOutput(this, "HostedUiAuthorizeUrlExample", {
+      value: `https://${domain.domainName}/login?response_type=code&${new URLSearchParams({
+        client_id: webClient.userPoolClientId,
+        redirect_uri: callbacks[0],
+        scope: "openid email profile",
+      }).toString()}`,
     });
   }
 }
