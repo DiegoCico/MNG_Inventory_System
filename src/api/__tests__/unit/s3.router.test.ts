@@ -15,7 +15,7 @@ const s3Mock = mockClient(S3Client);
 function testApp() {
   const app = express();
   app.use(express.json({ limit: "15mb" }));
-  app.post("/trpc/s3.uploadImage", async (req, res) => {
+  app.post("/trpc/uploadImage", async (req, res) => {
     try {
       const caller = s3Router.createCaller({} as any);
       const result = await caller.uploadImage(req.body?.input);
@@ -35,7 +35,7 @@ describe("tRPC s3.uploadImage (dataUrl only, server-generated key)", () => {
     const app = testApp();
 
     const res = await request(app)
-      .post("/trpc/s3.uploadImage")
+      .post("/trpc/uploadImage")
       .send({ input: { dataUrl: "data:image/png;base64,iVBORw0KGgoAAA==" } })
       .set("Content-Type", "application/json");
 
@@ -60,7 +60,7 @@ describe("tRPC s3.uploadImage (dataUrl only, server-generated key)", () => {
     const app = testApp();
 
     const res = await request(app)
-      .post("/trpc/s3.uploadImage")
+      .post("/trpc/uploadImage")
       .send({ input: { dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" } })
       .set("Content-Type", "application/json");
 
@@ -73,7 +73,7 @@ describe("tRPC s3.uploadImage (dataUrl only, server-generated key)", () => {
     const app = testApp();
 
     const res = await request(app)
-      .post("/trpc/s3.uploadImage")
+      .post("/trpc/uploadImage")
       .send({
         input: {
           category: "user",
