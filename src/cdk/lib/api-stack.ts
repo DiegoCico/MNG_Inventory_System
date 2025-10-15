@@ -1,80 +1,102 @@
-import { Duration, Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { HttpApi, CorsHttpMethod } from '@aws-cdk/aws-apigatewayv2-alpha';
-import { HttpLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Runtime, Tracing } from 'aws-cdk-lib/aws-lambda';
-import * as path from 'path';
+import * as path from "path";
+import * as cdk from "aws-cdk-lib";
+import { Construct } from "constructs";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
+import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
+import * as apigwIntegrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 
-interface ApiStackProps extends StackProps {
-  stage?: string;
-  allowedOrigins?: string[];
-  allowedOriginPatterns?: string[];
+export interface ApiStackProps extends cdk.StackProps {
+  stage: {
+    name: string;
+    nodeEnv: string;
+    lambda: { memorySize: number; timeout: cdk.Duration };
+    cors: {
+      allowCredentials: boolean;
+      allowHeaders: string[];
+      allowMethods: apigwv2.CorsHttpMethod[];
+      allowOrigins: string[];
+      maxAge?: cdk.Duration;
+    };
+  };
+  ddbTable: dynamodb.Table;
+  serviceName?: string;
 }
 
-export class ApiStack extends Stack {
-  constructor(scope: Construct, id: string, props: ApiStackProps = {}) {
+export class ApiStack extends cdk.Stack {
+  public readonly httpApi: apigwv2.HttpApi;
+  public readonly apiFn: lambda.Function;
+
+  constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
-    const stage = props.stage ?? 'dev';
+    const stage = props.stage;
+    const serviceName = props.serviceName ?? "mng-api";
 
-    // Lambda that runs Express/tRPC.
-    const apiFn = new NodejsFunction(this, 'ApiFn', {
-      entry: path.join(__dirname, '../../api/src/handler.ts'), 
-      handler: 'handler',                                 
-      runtime: Runtime.NODEJS_20_X,
-      memorySize: 512,
-      timeout: Duration.seconds(15),
-      tracing: Tracing.ACTIVE,
+    console.log(`[ApiStack] stage=${stage.name} service=${serviceName}`);
+
+    this.apiFn = new NodejsFunction(this, "TrpcLambda", {
+      functionName: `${serviceName}-${stage.name}-trpc`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      // IMPORTANT: from src/cdk/lib -> ../../api/src/handler.ts
+      entry: path.resolve(__dirname, "../../api/src/handler.ts"),
+      handler: "handler",
+      memorySize: stage.lambda.memorySize,
+      timeout: stage.lambda.timeout,
       bundling: {
-        // keep external if needed, or let it bundle everything
-        externalModules: [],
+        format: OutputFormat.CJS,
+        target: "node20",
+        minify: true,
+        sourceMap: true,
+        externalModules: ["aws-sdk"],
       },
       environment: {
-        NODE_ENV: stage === 'prod' ? 'production' : 'development',
-        STAGE: stage,
-        AWS_REGION: this.region,
-        // We will set ALLOWED_ORIGINS and ALLOWED_ORIGIN_PATTERNS below
+        NODE_OPTIONS: "--enable-source-maps",
+        NODE_ENV: stage.nodeEnv,
+        STAGE: stage.name,
+        SERVICE_NAME: serviceName,
+        TABLE_NAME: props.ddbTable.tableName,
       },
     });
 
-    // HTTP API fronting the Lambda
-    const httpApi = new HttpApi(this, 'HttpApi', {
-      corsPreflight: {
-        allowMethods: [CorsHttpMethod.ANY],
-        allowOrigins: ['*'], 
-        allowHeaders: ['*'],
-      },
+    props.ddbTable.grantReadWriteData(this.apiFn);
+
+    // inside ApiStack constructor
+    const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
+    apiName: props.serviceName ?? "mng-api",
+    corsPreflight: {
+        allowOrigins: props.stage.cors.allowOrigins,         // e.g. https://d2cktegyq4qcfk.cloudfront.net, http://localhost:5173
+        allowHeaders: props.stage.cors.allowHeaders,         // ["content-type", "authorization"]
+        allowMethods: props.stage.cors.allowMethods,         // GET,POST,PUT,PATCH,DELETE,OPTIONS
+        allowCredentials: props.stage.cors.allowCredentials, // true if you need cookies
+        maxAge: props.stage.cors.maxAge,                     // e.g. 12h
+    },
+    });
+    this.httpApi = httpApi;
+
+
+    const lambdaIntegration = new apigwIntegrations.HttpLambdaIntegration(
+      "LambdaIntegration",
+      this.apiFn
+    );
+
+    new apigwv2.HttpRoute(this, "TrpcProxy", {
+      httpApi: this.httpApi,
+      routeKey: apigwv2.HttpRouteKey.with("/trpc/{proxy+}", apigwv2.HttpMethod.ANY),
+      integration: lambdaIntegration,
     });
 
-    // Lambda proxy integration
-    const integration = new HttpLambdaIntegration('LambdaIntegration', apiFn);
-    httpApi.addRoutes({
-      path: '/{proxy+}',
-      integration,
+    new apigwv2.HttpRoute(this, "HealthRoute", {
+      httpApi: this.httpApi,
+      routeKey: apigwv2.HttpRouteKey.with("/health", apigwv2.HttpMethod.GET),
+      integration: lambdaIntegration,
     });
 
-    // Build the execute-api origin 
-    const apiExecuteDomain = `${httpApi.apiId}.execute-api.${this.region}.amazonaws.com`;
-
-    // Final allowlist to inject
-    const exactOrigins = [
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      `https://${apiExecuteDomain}`,
-      ...(props.allowedOrigins ?? []),
-    ];
-
-    const originPatterns = props.allowedOriginPatterns ?? []; 
-
-    // Inject env for server.ts to read
-    apiFn.addEnvironment('ALLOWED_ORIGINS', JSON.stringify([...new Set(exactOrigins)]));
-    apiFn.addEnvironment('ALLOWED_ORIGIN_PATTERNS', originPatterns.join(','));
-    apiFn.addEnvironment('API_ID', httpApi.apiId);
-
-    // Useful outputs
-    new CfnOutput(this, 'HttpApiEndpoint', { value: httpApi.apiEndpoint });
-    new CfnOutput(this, 'HttpApiExecuteDomain', { value: apiExecuteDomain });
-    new CfnOutput(this, 'Stage', { value: stage });
+    new cdk.CfnOutput(this, "HttpApiInvokeUrl", {
+      value: `https://${this.httpApi.apiId}.execute-api.${this.region}.amazonaws.com`,
+    });
+    new cdk.CfnOutput(this, "FunctionName", { value: this.apiFn.functionName });
+    new cdk.CfnOutput(this, "TableName", { value: props.ddbTable.tableName });
   }
 }

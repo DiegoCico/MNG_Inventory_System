@@ -7,25 +7,17 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Forward all /trpc requests to the API server
-      '/trpc': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-      },
+      // TODO: MAKE THIS OWRK WITH THE CLOUD AS WELL
+      '/trpc': { target: 'http://localhost:3001', changeOrigin: true },
     },
   },
   build: { outDir: 'dist' },
-
-  // Vitest config
   test: {
     environment: 'jsdom',
     globals: true,
     css: true,
     include: ['tests/**/*.test.{ts,tsx}'],
     setupFiles: './tests/setup.ts',
-    coverage: {
-      reporter: ['text', 'html'],
-      include: ['src/**/*.{ts,tsx}'],
-    },
+    coverage: { reporter: ['text', 'html'], include: ['src/**/*.{ts,tsx}'] },
   },
 });

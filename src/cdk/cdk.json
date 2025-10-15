@@ -2,12 +2,7 @@
   "app": "npx ts-node --swc bin/app.ts",
   "context": {
     "stage": "prod",
-    "allowedOrigins": [
-      "https://app.example.com",
-      "http://localhost:5173"
-    ],
-    "allowedOriginPatterns": [
-      "^https://([a-z0-9-]+\\.)?example\\.com$"
-    ]
+    "allowedOrigins": ["https://app.example.com", "http://localhost:5173"],
+    "allowedOriginPatterns": ["^https://([a-z0-9-]+\\.)?example\\.com$"]
   }
 }

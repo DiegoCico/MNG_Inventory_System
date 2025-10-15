@@ -1,0 +1,7 @@
+{
+  "MngInfra-dev": {
+    "Stage": "dev",
+    "SiteUrl": "https://d29vaol3nbarxx.cloudfront.net",
+    "HttpApiInvokeUrl": "https://4nm2m28uue.execute-api.us-east-1.amazonaws.com"
+  }
+}

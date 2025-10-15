@@ -1,18 +1,15 @@
-const BASE =
-  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://localhost:3001"
-    : window.location.origin; // same-origin in production
-
-const TRPC_URL = `${BASE}/trpc`;
-const HEALTH_URL = `${BASE}/health`;
+const TRPC_URL = '/trpc';
+const HEALTH_URL = '/health';
 
 export async function getHelloMessage() {
-  const res = await fetch(`${TRPC_URL}/hello?input=null`, { credentials: "include" });
-  const json = await res.json();
-  return json?.result?.data?.message ?? "no message";
+  // tRPC query: GET with ?input=null
+  const r = await fetch(`${TRPC_URL}/hello?input=null`);
+  if (!r.ok) throw new Error(`hello failed: ${r.status}`);
+  const j = await r.json();
+  return j?.result?.data?.message ?? 'no message';
 }
 
 export async function checkHealth() {
-  const res = await fetch(HEALTH_URL);
-  return res.ok;
+  const r = await fetch(HEALTH_URL);
+  return r.ok;
 }

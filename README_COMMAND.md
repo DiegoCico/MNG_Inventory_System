@@ -40,4 +40,4 @@ Runs API and frontend tests **first**. If they pass, it will start **frontend + 
 
 ---
 
-That’s basically it. Install, test, dev, start. 
+That’s basically it. Install, test, dev, start.

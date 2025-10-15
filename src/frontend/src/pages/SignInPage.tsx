@@ -289,6 +289,7 @@ function SignInPage() {
       </Card>
     </Box>
   );
+  return <Typography variant="h1">Sign In Page</Typography>;
 }
 
 export default SignInPage;

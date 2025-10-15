@@ -1,28 +1,33 @@
-name: Run Tests
+name: CI - Build & Test
 
 on:
   pull_request:
-    branches:
-      - main  
+    branches: [main]
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  test:
+  build_and_test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # or your version 
+          node-version: '20.x'
+          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Clean lockfiles & node_modules (monorepo)
+        run: |
+          rm -rf node_modules package-lock.json
+          find ./src -maxdepth 2 -type d -name node_modules -prune -exec rm -rf {} +
+          find ./src -maxdepth 2 -type f -name package-lock.json -delete
+
+      - name: Install dependencies (recreate lockfile on Linux)
+        run: npm install --workspaces
 
       - name: Build the project
         run: npm run build

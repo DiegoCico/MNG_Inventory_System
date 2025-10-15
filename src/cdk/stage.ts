@@ -1,92 +1,50 @@
-import type { RemovalPolicy, Duration } from "aws-cdk-lib";
-import * as cdk from "aws-cdk-lib";
+import type { App, RemovalPolicy, Duration } from 'aws-cdk-lib';
+import * as cdk from 'aws-cdk-lib';
 
-export type StageName = "dev" | "beta" | "prod";
+type StageName = 'dev' | 'prod';
 
 export interface StageConfig {
   name: StageName;
-  nodeEnv: "development" | "production";
-  removalPolicy: RemovalPolicy;
+  nodeEnv: 'development' | 'production';
   autoDeleteObjects: boolean;
+  removalPolicy: cdk.RemovalPolicy;
+  lambda: {
+    memorySize: number; // MB
+    timeout: cdk.Duration; // seconds
+  };
   cors: {
     allowOrigins: string[];
-    allowHeaders: string[];
-    allowMethods: ("GET" | "POST" | "OPTIONS")[];
-  };
-  lambda: {
-    memorySize: number;
-    timeout: Duration;
+    allowMethods: string[];   // "GET","POST","OPTIONS","PUT","PATCH","DELETE"
+    allowHeaders: string[];   //   "content-type","authorization"
   };
   tags?: Record<string, string>;
 }
 
-const ALLOW_PROD_DEPLOY = false; 
+export function resolveStage(app: App): StageConfig {
+  const name =
+    (app.node.tryGetContext('stage') as StageName) ?? (process.env.STAGE as StageName) ?? 'dev';
 
-const COMMON = {
-  cors: {
-    allowHeaders: ["*"],
-    allowMethods: ["GET", "POST", "OPTIONS"] as ("GET" | "POST" | "OPTIONS")[],
-  },
-  lambda: {
-    memorySize: 512,
-    timeout: cdk.Duration.seconds(10),
-  },
-};
-
-const STAGES: Record<StageName, StageConfig> = {
-  dev: {
-    name: "dev",
-    nodeEnv: "development",
-    removalPolicy: cdk.RemovalPolicy.DESTROY,
-    autoDeleteObjects: true,
-    cors: {
-      ...COMMON.cors,
-      allowOrigins: ["*"],
+  const base: Omit<StageConfig, 'name' | 'nodeEnv'> = {
+    autoDeleteObjects: name === 'dev',
+    removalPolicy: name === 'dev' ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN,
+    lambda: {
+      memorySize: name === 'prod' ? 1024 : 512,
+      timeout: cdk.Duration.seconds(name === 'prod' ? 20 : 15),
     },
-    lambda: { ...COMMON.lambda },
-    tags: { Stage: "dev", Service: "mng" },
-  },
-  beta: {
-    name: "beta",
-    nodeEnv: "development",
-    removalPolicy: cdk.RemovalPolicy.DESTROY,
-    autoDeleteObjects: true,
     cors: {
-      ...COMMON.cors,
-      allowOrigins: ["https://beta.example.com", "*"], // TODO: replace with real domain
+      allowOrigins: ['*'], // tighten later
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['content-type', 'authorization'],
     },
-    lambda: { ...COMMON.lambda },
-    tags: { Stage: "beta", Service: "mng" },
-  },
-  prod: {
-    name: "prod",
-    nodeEnv: "production",
-    removalPolicy: cdk.RemovalPolicy.RETAIN,
-    autoDeleteObjects: false,
-    cors: {
-      ...COMMON.cors,
-      allowOrigins: ["https://app.example.com"], // TODO: replace with real domain
+    tags: {
+      App: 'MNG-Inventory',
+      Stage: name,
     },
-    lambda: { ...COMMON.lambda },
-    tags: { Stage: "prod", Service: "mng" },
-  },
-};
+  };
 
-export function resolveStage(app: cdk.App): StageConfig {
-  const ctxStage =
-    (app.node.tryGetContext("stage") ?? process.env.STAGE ?? "dev") as StageName;
-
-  const stage = (["dev", "beta", "prod"].includes(ctxStage)
-    ? ctxStage
-    : "dev") as StageName;
-
-  // safety check for prod
-  if (stage === "prod" && !ALLOW_PROD_DEPLOY) {
-    throw new Error(
-      "🚨 Production deployments are currently disabled. To enable, set ALLOW_PROD_DEPLOY = true in stage.ts."
-    );
-  }
-
-  console.log(`Using stage: ${stage}`);
-  return STAGES[stage];
+  return {
+    name,
+    nodeEnv: name === 'prod' ? 'production' : 'development',
+    ...base,
+  };
 }

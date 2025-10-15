@@ -1,5 +1,3 @@
-
-
 to do a pull request follow this command
 
 git add .
