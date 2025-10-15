@@ -1,8 +1,14 @@
-import request from "supertest";
-import express from "express";
-import { mockClient } from "aws-sdk-client-mock";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { s3Router } from "../src/routers/s3";
+import request from 'supertest';
+import express from 'express';
+import { mockClient } from 'aws-sdk-client-mock';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { s3Router } from '../../src/routers/s3';
+
+/**
+ * UNIT TESTS - S3 Router
+ *
+ * These tests use mocked AWS S3 responses to verify S3 upload logic.
+ */
 
 const s3Mock = mockClient(S3Client);
 
