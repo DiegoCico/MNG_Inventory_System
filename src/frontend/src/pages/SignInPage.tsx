@@ -166,7 +166,7 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
 /* -------------------------------------------------------------------------- */
 /*                               Auth Page Main                               */
 /* -------------------------------------------------------------------------- */
-export default function AuthPage() {
+function SignInPage() {
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -294,3 +294,5 @@ export default function AuthPage() {
     </Box>
   );
 }
+
+export default SignInPage;
