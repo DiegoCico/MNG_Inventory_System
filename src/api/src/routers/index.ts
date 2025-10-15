@@ -1,16 +1,21 @@
-import { router, publicProcedure } from './trpc';
-import { helloRouter } from './hello';
-import { usersRouter } from './users';
-import { s3Router } from './s3';
-import { authRouter } from './auth';
+import { router, publicProcedure, mergeRouters } from "./trpc";
+import { helloRouter } from "./hello";
+import { usersRouter } from "./users";
+import { s3Router } from "./s3";
+import { authRouter } from "./auth";
 
-export const appRouter = router({
+const coreRouter = router({
   health: publicProcedure.query(() => ({ ok: true })),
-  hello: helloRouter,
-  users: usersRouter,
-  s3: s3Router,
-  auth: authRouter,
 });
 
+const featureRouters = [
+  helloRouter,
+  usersRouter,
+  s3Router,
+  authRouter,
+] as const;
+
+export const appRouter = mergeRouters(coreRouter, ...featureRouters);
+
 export type AppRouter = typeof appRouter;
-export { createContext } from './trpc';
+export { createContext } from "./trpc";

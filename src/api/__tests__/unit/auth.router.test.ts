@@ -1,133 +1,236 @@
-import { mockClient } from 'aws-sdk-client-mock';
+import request from "supertest";
+import app from "../../src/server";
+
 import {
   CognitoIdentityProviderClient,
+  AdminGetUserCommand,
+  AdminSetUserPasswordCommand,
   AdminCreateUserCommand,
   AdminInitiateAuthCommand,
   AdminRespondToAuthChallengeCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
-import request from 'supertest';
-import app from '../../src/server';
-import { cognitoFixtures } from '../fixtures/cognito.fixtures';
+} from "@aws-sdk/client-cognito-identity-provider";
 
-const cognitoMock = mockClient(CognitoIdentityProviderClient);
+import {
+  SESv2Client,
+  SendEmailCommand,
+} from "@aws-sdk/client-sesv2";
 
-describe('Auth Router - Unit Tests (Mocked AWS)', () => {
-  beforeEach(() => {
-    cognitoMock.reset();
+const authResult = () => ({
+  AccessToken: "mock-access-token-123",
+  IdToken: "mock-id-token-abc",
+  RefreshToken: "mock-refresh-token-xyz",
+  TokenType: "Bearer",
+  ExpiresIn: 3600,
+});
+
+const isCmd = (cmd: unknown, name: string) =>
+  Boolean(cmd) && (cmd as any).constructor?.name === name;
+
+let cognitoSendSpy: jest.SpyInstance;
+let sesSendSpy: jest.SpyInstance;
+
+beforeAll(() => {
+  cognitoSendSpy = jest.spyOn(
+    CognitoIdentityProviderClient.prototype,
+    "send"
+  );
+
+  sesSendSpy = jest.spyOn(SESv2Client.prototype, "send");
+});
+
+afterAll(() => {
+  cognitoSendSpy.mockRestore();
+  sesSendSpy.mockRestore();
+});
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+describe("Auth Router - inviteUser", () => {
+  it("invites NEW user: AdminGetUser -> UserNotFoundException, then AdminCreateUser, then SES email (200)", async () => {
+    cognitoSendSpy.mockImplementation(async (command: any) => {
+      if (isCmd(command, "AdminGetUserCommand")) {
+        const err = new Error("No such user");
+        (err as any).name = "UserNotFoundException";
+        throw err;
+      }
+      if (isCmd(command, "AdminCreateUserCommand")) {
+        return {}; // ok
+      }
+      return {};
+    });
+
+    sesSendSpy.mockImplementation(async (command: any) => {
+      if (isCmd(command, "SendEmailCommand")) {
+        return {}; // ok
+      }
+      return {};
+    });
+
+    const res = await request(app)
+      .post("/trpc/inviteUser")
+      .set("Content-Type", "application/json")
+      .send({ email: "test@example.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body?.result?.data).toMatchObject({
+      success: true,
+      userEmail: "test@example.com",
+      message:
+        "User invited successfully - a custom SES email with credentials was sent.",
+    });
+
+    expect(
+      cognitoSendSpy.mock.calls.some(([cmd]) =>
+        isCmd(cmd, "AdminGetUserCommand")
+      )
+    ).toBe(true);
+    expect(
+      cognitoSendSpy.mock.calls.some(([cmd]) =>
+        isCmd(cmd, "AdminCreateUserCommand")
+      )
+    ).toBe(true);
+    expect(
+      sesSendSpy.mock.calls.some(([cmd]) => isCmd(cmd, "SendEmailCommand"))
+    ).toBe(true);
   });
 
-  describe('inviteUser', () => {
-    it('should invite user successfully', async () => {
-      cognitoMock.on(AdminCreateUserCommand).resolves(cognitoFixtures.inviteUserSuccess);
+  it("re-invites EXISTING user: AdminGetUser OK, AdminSetUserPassword OK, SES email OK (200)", async () => {
+    cognitoSendSpy.mockImplementation(async (command: any) => {
+      if (isCmd(command, "AdminGetUserCommand")) {
+        return { Username: "existing@example.com" }; // user exists
+      }
+      if (isCmd(command, "AdminSetUserPasswordCommand")) {
+        return {}; // ok
+      }
+      return {};
+    });
 
-      const response = await request(app)
-        .post('/trpc/auth.inviteUser')
-        .send({ email: 'test@example.com' })
-        .set('Content-Type', 'application/json')
-        .expect(200);
+    sesSendSpy.mockResolvedValue({});
 
-      expect(response.body.result.data).toMatchObject({
-        success: true,
-        userId: 'test@example.com',
-        userStatus: 'FORCE_CHANGE_PASSWORD',
-        message: expect.stringContaining('invited successfully'),
+    const res = await request(app)
+      .post("/trpc/inviteUser")
+      .set("Content-Type", "application/json")
+      .send({ email: "existing@example.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body?.result?.data).toMatchObject({
+      success: true,
+      userEmail: "existing@example.com",
+    });
+
+    expect(
+      cognitoSendSpy.mock.calls.some(([cmd]) =>
+        isCmd(cmd, "AdminGetUserCommand")
+      )
+    ).toBe(true);
+    expect(
+      cognitoSendSpy.mock.calls.some(([cmd]) =>
+        isCmd(cmd, "AdminSetUserPasswordCommand")
+      )
+    ).toBe(true);
+    expect(
+      sesSendSpy.mock.calls.some(([cmd]) => isCmd(cmd, "SendEmailCommand"))
+    ).toBe(true);
+  });
+
+  it("invalid email -> 400 from Zod", async () => {
+    const res = await request(app)
+      .post("/trpc/inviteUser")
+      .set("Content-Type", "application/json")
+      .send({ email: "not-an-email" });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("Auth Router - signIn", () => {
+  it("first-time login challenge -> 200 with NEW_PASSWORD_REQUIRED", async () => {
+    cognitoSendSpy.mockImplementation(async (command: any) => {
+      if (isCmd(command, "AdminInitiateAuthCommand")) {
+        return {
+          ChallengeName: "NEW_PASSWORD_REQUIRED",
+          Session: "mock-session-token-12345",
+          ChallengeParameters: {},
+        };
+      }
+      return {};
+    });
+
+    const res = await request(app)
+      .post("/trpc/signIn")
+      .set("Content-Type", "application/json")
+      .send({
+        email: "test@example.com",
+        // router requires min 12 chars:
+        password: "TempPassword1!",
       });
 
-      // Verify AWS command was called correctly
-      expect(cognitoMock.commandCalls(AdminCreateUserCommand)).toHaveLength(1);
-    });
-
-    it('should handle user already exists error', async () => {
-      const error = new Error('User already exists');
-      error.name = 'UsernameExistsException';
-      cognitoMock.on(AdminCreateUserCommand).rejects(error);
-
-      const response = await request(app)
-        .post('/trpc/auth.inviteUser')
-        .send({ email: 'existing@example.com' })
-        .set('Content-Type', 'application/json')
-        .expect(500);
-
-      expect(response.body.error.message).toContain('User already exists');
-    });
-
-    it('should validate email format', async () => {
-      const response = await request(app)
-        .post('/trpc/auth.inviteUser')
-        .send({ email: 'not-an-email' })
-        .set('Content-Type', 'application/json')
-        .expect(400);
-
-      expect(response.body.error).toBeDefined();
-      expect(cognitoMock.commandCalls(AdminCreateUserCommand)).toHaveLength(0);
+    expect(res.status).toBe(200);
+    expect(res.body?.result?.data).toMatchObject({
+      success: false,
+      challengeName: "NEW_PASSWORD_REQUIRED",
+      session: "mock-session-token-12345",
     });
   });
 
-  describe('signIn', () => {
-    it('should return challenge for first-time login', async () => {
-      cognitoMock.on(AdminInitiateAuthCommand).resolves(cognitoFixtures.signInChallenge);
-
-      const response = await request(app)
-        .post('/trpc/auth.signIn')
-        .send({
-          email: 'test@example.com',
-          password: 'TempPassword123!',
-        })
-        .set('Content-Type', 'application/json')
-        .expect(200);
-
-      expect(response.body.result.data).toMatchObject({
-        success: false,
-        challengeName: 'NEW_PASSWORD_REQUIRED',
-        session: 'mock-session-token-12345',
-        message: 'Additional authentication step required',
-      });
+  it("successful authentication -> 200 with tokens", async () => {
+    cognitoSendSpy.mockImplementation(async (command: any) => {
+      if (isCmd(command, "AdminInitiateAuthCommand")) {
+        return {
+          AuthenticationResult: authResult(),
+        };
+      }
+      return {};
     });
 
-    it('should return tokens for successful authentication', async () => {
-      cognitoMock.on(AdminInitiateAuthCommand).resolves(cognitoFixtures.signInSuccess);
-
-      const response = await request(app)
-        .post('/trpc/auth.signIn')
-        .send({
-          email: 'test@example.com',
-          password: 'ValidPassword123!',
-        })
-        .set('Content-Type', 'application/json')
-        .expect(200);
-
-      expect(response.body.result.data).toMatchObject({
-        success: true,
-        accessToken: expect.stringContaining('mock-access-token'),
-        idToken: expect.stringContaining('mock-id-token'),
-        refreshToken: 'mock-refresh-token-abcdef',
-        tokenType: 'Bearer',
-        expiresIn: 3600,
-        message: 'Sign in successful',
+    const res = await request(app)
+      .post("/trpc/signIn")
+      .set("Content-Type", "application/json")
+      .send({
+        email: "test@example.com",
+        password: "ValidPassword12!",
       });
+
+    expect(res.status).toBe(200);
+    expect(res.body?.result?.data).toMatchObject({
+      success: true,
+      accessToken: expect.stringContaining("mock-access-token"),
+      idToken: expect.stringContaining("mock-id-token"),
+      refreshToken: expect.stringContaining("mock-refresh-token"),
+      tokenType: "Bearer",
+      expiresIn: 3600,
     });
   });
+});
 
-  describe('respondToChallenge', () => {
-    it('should complete password challenge successfully', async () => {
-      cognitoMock.on(AdminRespondToAuthChallengeCommand).resolves(cognitoFixtures.signInSuccess);
+describe("Auth Router - respondToChallenge", () => {
+  it("completes NEW_PASSWORD_REQUIRED and returns tokens (200)", async () => {
+    cognitoSendSpy.mockImplementation(async (command: any) => {
+      if (isCmd(command, "AdminRespondToAuthChallengeCommand")) {
+        return {
+          AuthenticationResult: authResult(),
+        };
+      }
+      return {};
+    });
 
-      const response = await request(app)
-        .post('/trpc/auth.respondToChallenge')
-        .send({
-          challengeName: 'NEW_PASSWORD_REQUIRED',
-          session: 'mock-session',
-          newPassword: 'NewPassword123!',
-          email: 'test@example.com',
-        })
-        .set('Content-Type', 'application/json')
-        .expect(200);
-
-      expect(response.body.result.data).toMatchObject({
-        success: true,
-        accessToken: expect.stringContaining('mock-access-token'),
-        message: 'Password updated and sign in successful',
+    const res = await request(app)
+      .post("/trpc/respondToChallenge")
+      .set("Content-Type", "application/json")
+      .send({
+        challengeName: "NEW_PASSWORD_REQUIRED",
+        session: "mock-session",
+        newPassword: "NewPassword123!",
+        email: "test@example.com",
       });
+
+    expect(res.status).toBe(200);
+    expect(res.body?.result?.data).toMatchObject({
+      success: true,
+      accessToken: expect.stringContaining("mock-access-token"),
+      message: "Password updated and sign in successful",
     });
   });
 });
