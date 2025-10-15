@@ -1,133 +1,3 @@
-// import { useState } from "react";
-// import {
-//   Box,
-//   Button,
-//   Card,
-//   CardContent,
-//   TextField,
-//   Typography,
-// } from "@mui/material";
-// import { useNavigate } from "react-router-dom";
-
-// function SignInPage() {
-//   const [identifier, setIdentifier] = useState(""); // username or email
-//   const [password, setPassword] = useState("");
-//   const navigate = useNavigate();
-
-//   const allFilled = identifier.trim() !== "" && password.trim() !== "";
-
-//   const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
-//     event.preventDefault();
-
-//     // In your final implementation:
-//     // - Use AWS Cognito's signIn() method here
-//     // - Cognito will handle the actual validation
-//     // - Optionally save cookies / IP info after successful login
-//     navigate("/");
-//   };
-
-//   return (
-//     <Box
-//       sx={{
-//         minHeight: "100vh",
-//         display: "flex",
-//         justifyContent: "center",
-//         alignItems: "center",
-//         bgcolor: "#f5f6fa",
-//         p: 2,
-//       }}
-//     >
-//       <Card
-//         sx={{
-//           width: "100%",
-//           maxWidth: 420,
-//           boxShadow: 3,
-//           borderRadius: 3,
-//           p: 2,
-//           backgroundColor: "white",
-//         }}
-//       >
-//         <CardContent>
-//           {/* Title */}
-//           <Typography variant="h4" fontWeight="bold" align="center" mb={1}>
-//             Welcome Back
-//           </Typography>
-//           <Typography
-//             variant="body1"
-//             color="text.secondary"
-//             align="center"
-//             mb={3}
-//           >
-//             Please log in to your account
-//           </Typography>
-
-//           {/* Form */}
-//           <Box
-//             component="form"
-//             display="flex"
-//             flexDirection="column"
-//             gap={2}
-//             onSubmit={handleLogin}
-//           >
-//             {/* Username or Email */}
-//             <TextField
-//               label="Username or Email"
-//               variant="outlined"
-//               fullWidth
-//               required
-//               value={identifier}
-//               onChange={(e) => setIdentifier(e.target.value)}
-//               slotProps={{
-//                 input: {
-//                   sx: { bgcolor: "#fafafa", borderRadius: 2 },
-//                 },
-//               }}
-//             />
-
-//             {/* Password */}
-//             <TextField
-//               label="Password"
-//               type="password"
-//               variant="outlined"
-//               fullWidth
-//               required
-//               value={password}
-//               onChange={(e) => setPassword(e.target.value)}
-//               slotProps={{
-//                 input: {
-//                   sx: { bgcolor: "#fafafa", borderRadius: 2 },
-//                 },
-//               }}
-//             />
-
-//             {/* Login button */}
-//             <Button
-//               type="submit"
-//               variant="contained"
-//               fullWidth
-//               disabled={!allFilled}
-//               sx={{
-//                 borderRadius: 2,
-//                 bgcolor: allFilled ? "#1976d2" : "grey.400",
-//                 textTransform: "none",
-//                 fontSize: "1rem",
-//                 py: 1,
-//                 "&:hover": {
-//                   bgcolor: allFilled ? "#1565c0" : "grey.500",
-//                 },
-//               }}
-//             >
-//               Login
-//             </Button>
-//           </Box>
-//         </CardContent>
-//       </Card>
-//     </Box>
-//   );
-// }
-
-// export default SignInPage;
-
 import { useState } from "react";
 import {
   Box,
@@ -143,9 +13,7 @@ import {
 import { Visibility, VisibilityOff, CheckCircle, Cancel } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 
-/* -------------------------------------------------------------------------- */
-/*                              Sign Up Component                             */
-/* -------------------------------------------------------------------------- */
+// sign up component (no longer a separate page - only renders when a temporary password is inputted)
 function SignUpComponent({ onComplete }: { onComplete: () => void }) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -294,9 +162,7 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                               Auth Page Main                               */
-/* -------------------------------------------------------------------------- */
+// sign in page - user should be redirected to this link from an invite email that specifies the temporary password to use
 function SignInPage() {
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [identifier, setIdentifier] = useState("");
@@ -308,8 +174,7 @@ function SignInPage() {
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // === Simulated Logic ===
-    // In real AWS Cognito integration:
+    // potential AWS Cognito integration:
     // Cognito.signIn(identifier, password)
     //   .then((user) => checkChallengeName for "NEW_PASSWORD_REQUIRED")
 
