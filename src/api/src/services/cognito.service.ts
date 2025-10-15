@@ -8,6 +8,9 @@ import {
   ChallengeNameType,
 } from '@aws-sdk/client-cognito-identity-provider';
 
+
+
+
 // Environment configuration
 const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
