@@ -16,6 +16,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     css: true,
+    deps: {
+      inline: [/react/, /react-dom/, /@testing-library/],
+    },
     include: ['tests/**/*.test.{ts,tsx}'],
     setupFiles: './tests/setup.ts',
     coverage: { reporter: ['text', 'html'], include: ['src/**/*.{ts,tsx}'] },
