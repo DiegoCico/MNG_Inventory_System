@@ -273,3 +273,5 @@ function SignInPage() {
     </Box>
   );
 }
+
+export default SignInPage;
