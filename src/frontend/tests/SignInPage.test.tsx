@@ -1,85 +1,165 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
-import { vi } from "vitest";
-import React from "react";
-import SignInPage from "../src/pages/SignInPage";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import SignInPage from "../src/pages/SignInPage"; // adjust path if needed
 
-const renderWithRouter = (ui: React.ReactNode) => {
-  return render(<BrowserRouter>{ui}</BrowserRouter>);
-};
+// mock react-router-dom navigation
+const mockNavigate = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = (await vi.importActual<typeof import("react-router-dom")>(
+    "react-router-dom"
+  )) as typeof import("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+window.alert = vi.fn();
+
 
 describe("SignInPage", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
-  test("renders all input fields and login button", () => {
-    renderWithRouter(<SignInPage />);
-    expect(screen.getByLabelText(/username or email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /login/i })).toBeInTheDocument();
+  it("renders the sign-in form initially", () => {
+    render(
+      <MemoryRouter>
+        <SignInPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Welcome Back")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /login/i })).toBeDisabled();
   });
 
-  test("login button is disabled initially", () => {
-    renderWithRouter(<SignInPage />);
-    const button = screen.getByRole("button", { name: /login/i });
-    expect(button).toBeDisabled();
-  });
-
-  test("login button enables when both fields are filled", () => {
-    renderWithRouter(<SignInPage />);
-    const identifierInput = screen.getByLabelText(/username or email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const button = screen.getByRole("button", { name: /login/i });
-
-    fireEvent.change(identifierInput, { target: { value: "john_doe" } });
-    expect(button).toBeDisabled(); // still disabled, password empty
-
-    fireEvent.change(passwordInput, { target: { value: "MyPassword123" } });
-    expect(button).not.toBeDisabled(); // both filled → enabled
-
-    fireEvent.change(identifierInput, { target: { value: "" } });
-    expect(button).toBeDisabled(); // one field cleared → disabled again
-  });
-
-  test("allows any input for email or username", () => {
-    renderWithRouter(<SignInPage />);
-    const identifierInput = screen.getByLabelText(/username or email/i);
-
-    fireEvent.change(identifierInput, { target: { value: "invalid@@@" } });
-    expect(identifierInput).toHaveValue("invalid@@@");
-
-    fireEvent.change(identifierInput, { target: { value: "john@example.com" } });
-    expect(identifierInput).toHaveValue("john@example.com");
-  });
-
-  test("navigates to home page on form submit when all fields filled", async () => {
-    const mockNavigate = vi.fn();
-
-    vi.mock("react-router-dom", async () => {
-      const actual = (await vi.importActual<typeof import("react-router-dom")>(
-        "react-router-dom"
-      )) as typeof import("react-router-dom");
-      return {
-        ...actual,
-        useNavigate: () => mockNavigate,
-      };
-    });
-
-    // Use dynamic import for mocked module to take effect
-    const { default: SignInPageMocked } = await import("../src/pages/SignInPage");
-
-    renderWithRouter(<SignInPageMocked />);
+  it("enables login button when both fields are filled", () => {
+    render(
+      <MemoryRouter>
+        <SignInPage />
+      </MemoryRouter>
+    );
 
     fireEvent.change(screen.getByLabelText(/username or email/i), {
-      target: { value: "john_doe" },
+      target: { value: "user@military.gov" },
     });
     fireEvent.change(screen.getByLabelText(/password/i), {
-      target: { value: "MyPassword123" },
+      target: { value: "Temp1234" },
     });
 
+    expect(screen.getByRole("button", { name: /login/i })).toBeEnabled();
+  });
+
+  it("shows alert for invalid credentials", async () => {
+    render(
+      <MemoryRouter>
+        <SignInPage />
+      </MemoryRouter>
+    );
+  
+    fireEvent.change(screen.getByLabelText(/username or email/i), {
+      target: { value: "wrong@military.gov" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "badpass" },
+    });
+  
+    fireEvent.click(screen.getByRole("button", { name: /login/i }));
+  
+    await waitFor(() => {
+      expect(window.alert).toHaveBeenCalledWith("Invalid credentials (simulated)");
+    });
+  });
+  
+
+  it("switches to SignUpComponent when using temporary password", async () => {
+    render(
+      <MemoryRouter>
+        <SignInPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText(/username or email/i), {
+      target: { value: "temp@military.gov" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "Temp1234" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /login/i }));
 
-    expect(mockNavigate).toHaveBeenCalledWith("/");
+    await waitFor(() => {
+      expect(
+        screen.getByText(/complete your registration/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("navigates to home if user logs in with existing credentials", async () => {
+    render(
+      <MemoryRouter>
+        <SignInPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText(/username or email/i), {
+      target: { value: "existing@military.gov" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "ExistingPass123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /login/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/");
+    });
+  });
+
+  it("validates and completes SignUp flow", async () => {
+    render(
+      <MemoryRouter>
+        <SignInPage />
+      </MemoryRouter>
+    );
+
+    // step 1: simulate temporary login
+    fireEvent.change(screen.getByLabelText(/username or email/i), {
+      target: { value: "temp@military.gov" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "Temp1234" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /login/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/complete your registration/i)
+      ).toBeInTheDocument();
+    });
+
+    // step 2: fill sign-up form
+    fireEvent.change(screen.getByLabelText(/username/i), {
+      target: { value: "NewUser" },
+    });
+    fireEvent.change(screen.getByLabelText(/^email/i), {
+      target: { value: "user@military.gov" },
+    });
+    const [passwordInput] = screen.getAllByLabelText(/password/i);
+    fireEvent.change(passwordInput, { target: { value: "ValidPass123" } 
+    });    
+    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
+    fireEvent.change(confirmPasswordInput, { target: { value: "ValidPass123" } 
+    });
+    
+
+    const signupButton = screen.getByRole("button", { name: /sign up/i });
+    await waitFor(() => expect(signupButton).toBeEnabled());
+
+    fireEvent.click(signupButton);
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/");
+    });
   });
 });
