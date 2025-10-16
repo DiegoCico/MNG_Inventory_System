@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -10,18 +10,21 @@ import {
   MenuItem,
   Select,
   TextField,
-  Typography
+  Typography,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import PercentageBar from '../components/PercentageBar';
+import { getItem } from '../api';
 
 interface ItemViewModel {
   productName: string;
-  actualName: string,
-  level: string,
-  description: string,
-  imageLink: string,
-  serialNumber: string,
-  AuthQuantity: number
+  actualName: string;
+  level: string;
+  description: string;
+  imageLink: string;
+  serialNumber: string;
+  AuthQuantity: number;
 }
 
 interface ProductCardProps {
@@ -132,41 +135,59 @@ const ProductCard = ({ product } : ProductCardProps) => {
   );
 };
 
-// Example Usage Component
 const ProductDisplay = () => {
-  const productInformation: ItemViewModel[] = [
-    {
-      productName: 'Laptop Computer, Portable',
-      actualName: 'TechPro X1 - 15" Business Laptop',
-      level: 'B',
-      description: 'High-performance business laptop with Intel i7 processor, 16GB RAM, 512GB SSD, and enterprise security features',
-      imageLink: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fpurepng.com%2Fpublic%2Fuploads%2Flarge%2Fpurepng.com-laptoplaptoptechnologyelectronicskeyboard-1121525119750ab9ua.png&f=1&nofb=1&ipt=0562cfdfa1101b7aee94878cf35c3dfb8338e52a2c027772ea3e8d6bc8600df9',
-      serialNumber: '',
-      AuthQuantity: 2
-    },
-    {
-      productName: 'Monitor, LCD Display',
-      actualName: 'ViewMax Pro 27" 4K Monitor',
-      level: 'C',
-      description: '27-inch 4K UHD monitor with IPS panel, HDR support, and USB-C connectivity for professional workstations',
-      imageLink: '',
-      serialNumber: '',
-      AuthQuantity: 10
-    },
-    {
-      productName: 'Headset, Wireless Audio',
-      actualName: 'SoundWave Elite - Noise Cancelling Headset',
-      level: 'A',
-      description: 'Premium wireless headset with active noise cancellation, 30-hour battery life, and crystal-clear microphone for calls',
-      imageLink: '',
-      serialNumber: '',
-      AuthQuantity: 15
-    }
-  ];
+  const [product, setProduct] = useState<ItemViewModel | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch item data
+        const itemData = await getItem();
+        if (itemData) {
+          setProduct(itemData);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
+
+  if (!product) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="info">No product data available</Alert>
+      </Container>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
-      <ProductCard product={productInformation[0]} />
+      <ProductCard product={product} />
     </Box>
   );
 };
