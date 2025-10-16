@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure } from './trpc';
 import {
-  CognitoIdentityProviderClient,
   AdminCreateUserCommand,
   AdminInitiateAuthCommand,
   AdminRespondToAuthChallengeCommand,
@@ -11,23 +10,14 @@ import {
   AuthFlowType,
   ChallengeNameType,
 } from '@aws-sdk/client-cognito-identity-provider';
-import {
-  SESv2Client,
-  SendEmailCommand,
-  SendEmailCommandInput,
-} from '@aws-sdk/client-sesv2';
 import crypto from 'crypto';
-import { cognitoClient, sesClient, AWS_CONFIG } from "../aws";
+import { cognitoClient } from "../aws";
+import { sendInviteEmail } from '../helpers/inviteEmail';
 
-
-const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
 const USER_POOL_CLIENT_ID = process.env.COGNITO_CLIENT_ID || '6vk8qbvjv6hvb99a0jjcpbth9k';
-const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
+export const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
 const APP_SIGNIN_URL = process.env.APP_SIGNIN_URL || 'https://d2cktegyq4qcfk.cloudfront.net/signin';
-
-// const cognitoClient = new CognitoIdentityProviderClient({ region: AWS_REGION });
-// const sesClient = new SESv2Client({ region: AWS_REGION });
 
 /**
  * Helper: Generate a random temporary password that satisfies Cognito's password policy
@@ -36,52 +26,6 @@ const generateTempPassword = (): string => {
   const base = crypto.randomBytes(6).toString('base64');
   const extras = 'Aa1!';
   return (base + extras).slice(0, 16);
-};
-
-/**
- * Helper: Send invitation email using Amazon SES
- */
-const sendInviteEmail = async (params: { to: string; tempPassword: string; signinUrl: string }) => {
-  const { to, tempPassword, signinUrl } = params;
-
-  const subject = 'Your MNG Inventory invitation';
-  const text = `Hi,
-
-You’ve been invited to MNG Inventory.
-
-Email: ${to}
-Temporary password: ${tempPassword}
-
-Please sign in here: ${signinUrl}
-
-You’ll be prompted to set a new password on first login.`;
-
-  const html = `
-  <div style="font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5">
-    <h2>Welcome to MNG Inventory</h2>
-    <p>You’ve been invited to join the platform. Use the credentials below to sign in for the first time:</p>
-    <ul>
-      <li><b>Email:</b> ${to}</li>
-      <li><b>Temporary password:</b> <code>${tempPassword}</code></li>
-    </ul>
-    <p><a href="${signinUrl}" target="_blank" rel="noopener noreferrer">Sign in now</a></p>
-    <p>You’ll be asked to set a new password on first login.</p>
-    <hr />
-    <small>If you didn’t expect this, you can safely ignore this email.</small>
-  </div>`;
-
-  const input: SendEmailCommandInput = {
-    FromEmailAddress: SES_FROM_ADDRESS,
-    Destination: { ToAddresses: [to] },
-    Content: {
-      Simple: {
-        Subject: { Data: subject },
-        Body: { Text: { Data: text }, Html: { Data: html } },
-      },
-    },
-  };
-
-  await sesClient.send(new SendEmailCommand(input));
 };
 
 /**
@@ -212,7 +156,7 @@ export const authRouter = router({
   signIn: publicProcedure
     .input(
       z.object({
-        email: z.string().email(),
+        email: z.string(),
         password: z.string().min(12),
       }),
     )
