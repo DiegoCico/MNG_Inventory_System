@@ -15,7 +15,7 @@ import {
   Alert
 } from '@mui/material';
 import PercentageBar from '../components/PercentageBar';
-import { getItem } from '../api';
+import { getItem } from '../api/api';
 
 interface ItemViewModel {
   productName: string;

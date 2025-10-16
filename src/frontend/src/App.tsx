@@ -14,7 +14,6 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HeroPage />} />
           <Route path="/signin" element={<SignInPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
           <Route path="/product/item" element={<ProductReviewPage />} />
         </Routes>
       </BrowserRouter>
