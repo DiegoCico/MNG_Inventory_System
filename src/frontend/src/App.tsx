@@ -1,5 +1,4 @@
 import HeroPage from './pages/HeroPage';
-import SignUpPage from './pages/SignUpPage';
 import SignInPage from './pages/SignInPage';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import ProductReviewPage from './pages/ProductReviewPage';

@@ -16,6 +16,18 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     css: true,
+    deps: {
+      optimizer: {
+        web: {
+          include: [
+            "react",
+            "react-dom",
+            "@testing-library/react",
+            "@testing-library/user-event",
+          ],
+        },
+      },
+    },
     include: ['tests/**/*.test.{ts,tsx}'],
     setupFiles: './tests/setup.ts',
     coverage: { reporter: ['text', 'html'], include: ['src/**/*.{ts,tsx}'] },
