@@ -21,13 +21,15 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const emailValid = email.endsWith("@military.gov");
+  const emailValid = /\S+@\S+\.\S+/.test(email);
+
   const passwordRequirements = {
     minLength: password.length >= 10,
     uppercase: /[A-Z]/.test(password),
     lowercase: /[a-z]/.test(password),
     number: /\d/.test(password),
   };
+
   const allPasswordValid = Object.values(passwordRequirements).every(Boolean);
   const passwordsMatch = password !== "" && password === confirmPassword;
   const allValid = emailValid && allPasswordValid && passwordsMatch;
@@ -69,6 +71,7 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
       <Typography variant="h5" align="center" fontWeight="bold">
         Complete Your Registration
       </Typography>
+
       <TextField
         label="Username"
         fullWidth
@@ -77,6 +80,7 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
         onChange={(e) => setUsername(e.target.value)}
         slotProps={{ input: { sx: { bgcolor: "#fafafa", borderRadius: 2 } } }}
       />
+
       <TextField
         label="Email"
         type="email"
@@ -85,11 +89,9 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         error={!emailValid && email !== ""}
+        helperText={!emailValid && email !== "" ? "Enter a valid email address" : ""}
         slotProps={{ input: { sx: { bgcolor: "#fafafa", borderRadius: 2 } } }}
       />
-      <Box sx={{ ml: 1, mb: 1 }}>
-        {renderRequirement("Ends with @military.gov", email === "" ? false : emailValid)}
-      </Box>
 
       <TextField
         label="Password"

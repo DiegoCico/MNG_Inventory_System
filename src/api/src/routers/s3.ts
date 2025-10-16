@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { randomUUID } from "crypto";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { router, publicProcedure } from "./trpc";
+import { s3Client } from "../aws";
 
 const REGION = process.env.AWS_REGION || "us-east-1";
 //change later to CDK bucket when ready
@@ -12,7 +13,7 @@ const PREFIX = {
   user: "users/",
 } as const;
 
-const s3 = new S3Client({ region: REGION });
+  const s3 = s3Client;
 
 const UploadInput = z.object({
   dataUrl: z.string(),                       
