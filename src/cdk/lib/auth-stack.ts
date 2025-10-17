@@ -8,6 +8,10 @@ export interface AuthStackProps extends StackProps {
   webOrigins: string[];
   callbackUrls?: string[];
   logoutUrls?: string[];
+  /** Optional: set if you’ve verified a domain in SES; otherwise Cognito email channel is used */
+  sesVerifiedDomain?: string;
+  /** Optional: SES configuration set name */
+  sesConfigurationSet?: string;
 }
 
 export class AuthStack extends Stack {
@@ -20,14 +24,41 @@ export class AuthStack extends Stack {
     const service = (props.serviceName ?? "mng").toLowerCase();
     const stage = props.stage.toLowerCase();
 
+    // Callback/logout URLs derived from webOrigins if not explicitly provided
+    const callbacks = props.callbackUrls?.length
+      ? props.callbackUrls
+      : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/callback`);
+    const logouts = props.logoutUrls?.length
+      ? props.logoutUrls
+      : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/logout`);
+
+    // Email channel: SES (domain-verified) OR Cognito default
+    const emailConfig = props.sesVerifiedDomain
+      ? cognito.UserPoolEmail.withSES({
+          sesRegion: this.region,
+          fromEmail: `no-reply@${props.sesVerifiedDomain}`,
+          fromName: `${service.toUpperCase()} ${stage.toUpperCase()}`,
+          sesVerifiedDomain: props.sesVerifiedDomain,
+          // configurationSet: props.sesConfigurationSet,
+        })
+      : cognito.UserPoolEmail.withCognito();
+
     const userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: `${service}-${stage}-users`,
-      selfSignUpEnabled: false, // invite-only
+      selfSignUpEnabled: false,                    // invite-only
       signInAliases: { email: true },
       autoVerify: { email: true },
       standardAttributes: {
         email: { required: true, mutable: false },
       },
+      userVerification: {
+        emailSubject: "Verify your email for MNG Ineventory System",
+        emailBody: "Hello, Your verification code is {####}",
+        emailStyle: cognito.VerificationEmailStyle.CODE,
+      },
+      // MFA REQUIRED (TOTP-only) 
+      mfa: cognito.Mfa.REQUIRED,
+      mfaSecondFactor: { otp: true, sms: false },  // Software token MFA only
       passwordPolicy: {
         minLength: 10,
         requireLowercase: true,
@@ -37,35 +68,31 @@ export class AuthStack extends Stack {
         tempPasswordValidity: Duration.days(7),
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      email: emailConfig,
       removalPolicy: stage === "dev" ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
     });
 
-    // Hosted UI domain (kept as-is)
+    // THREAT FOR ESSENTIAL ACCOUNTS: Enforce advanced security features
+    // const cfnPool = userPool.node.defaultChild as cognito.CfnUserPool;
+    // cfnPool.userPoolAddOns = { advancedSecurityMode: "ENFORCED" };
+
+    // Hosted UI (Cognito domain).
     const domainPrefix = `${service}-${stage}`.toLowerCase().replace(/[^a-z0-9-]/g, "");
     const domain = userPool.addDomain("HostedUiDomain", {
       cognitoDomain: { domainPrefix },
     });
 
-    // Build callback/logout URLs from web origins if not explicitly provided
-    const callbacks = props.callbackUrls?.length
-      ? props.callbackUrls
-      : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/callback`);
-    const logouts = props.logoutUrls?.length
-      ? props.logoutUrls
-      : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/logout`);
-
-    // Public web client with ADMIN_NO_SRP_AUTH enabled for backend server flows
     const webClient = new cognito.UserPoolClient(this, "WebClient", {
       userPool,
       userPoolClientName: `${service}-${stage}-web`,
-      generateSecret: false,                
+      generateSecret: false,
       preventUserExistenceErrors: true,
       enableTokenRevocation: true,
-      // enable admin password auth for server-side sign-in
+
       authFlows: {
-        adminUserPassword: true,  
-        userPassword: true,             
-        userSrp: true,                     
+        adminUserPassword: true,
+        userPassword: true,
+        userSrp: true,
       },
       oAuth: {
         flows: { authorizationCodeGrant: true },
@@ -79,11 +106,9 @@ export class AuthStack extends Stack {
       supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
     });
 
-    // expose for other stacks
     this.userPool = userPool;
     this.webClient = webClient;
 
-    // Outputs (kept)
     new CfnOutput(this, "UserPoolId", { value: userPool.userPoolId });
     new CfnOutput(this, "UserPoolArn", { value: userPool.userPoolArn });
     new CfnOutput(this, "UserPoolClientId", { value: webClient.userPoolClientId });

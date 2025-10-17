@@ -10,7 +10,7 @@ import { WebStack } from "../lib/web-stack";
 import { SesStack } from "../lib/ses-stack";
 
 const app = new cdk.App();
-const cfg = resolveStage(app) as {
+const cfg = resolveStage( app) as {
   name: string;
   nodeEnv?: string;
   lambda?: { memorySize?: number; timeoutSeconds?: number };
@@ -79,6 +79,8 @@ const auth = new AuthStack(app, `MngAuth-${cfg.name}`, {
   webOrigins: finalAuthWebOrigins,
   callbackUrls: envCallbackUrls.length ? envCallbackUrls : undefined,
   logoutUrls: envLogoutUrls.length ? envLogoutUrls : undefined,
+  // sesVerifiedDomain: "example.com", // TODO: set later if SES domain is verified
+  // sesConfigurationSet: "example-set", // TODO: set later if SES config set is used
 });
 
 // Dynamo
@@ -134,6 +136,9 @@ api.apiFn.addToRolePolicy(new iam.PolicyStatement({
     "cognito-idp:AdminInitiateAuth",
     "cognito-idp:AdminRespondToAuthChallenge",
     "cognito-idp:DescribeUserPool",
+    "cognito-idp:AssociateSoftwareToken",
+    "cognito-idp:VerifySoftwareToken",
+    "cognito-idp:AdminSetUserMFAPreference"
   ],
   resources: [auth.userPool.userPoolArn],
 }));
