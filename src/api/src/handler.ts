@@ -1,3 +1,4 @@
+// src/lambda.ts
 import { awsLambdaRequestHandler } from "@trpc/server/adapters/aws-lambda";
 import type {
   APIGatewayProxyEventV2,
@@ -5,9 +6,9 @@ import type {
   Context as LambdaCtx,
 } from "aws-lambda";
 import { appRouter } from "./routers";
-import { createContext } from "./routers/trpc";
+import { createLambdaContext } from "./routers/trpc";
 
-// Pick allowed CORS origin (env allowlist or reflect request)
+/** Resolve allowed origin from env allowlist or reflect request */
 function resolveAllowedOrigin(originHeader: string | undefined): string {
   const allow = (process.env.ALLOWED_ORIGINS ?? "")
     .split(",")
@@ -18,7 +19,7 @@ function resolveAllowedOrigin(originHeader: string | undefined): string {
   return allow[0] ?? originHeader ?? "*";
 }
 
-// Build CORS headers
+/** Build CORS headers */
 function buildCorsHeaders(
   originHeader: string | undefined,
   includeCreds = true,
@@ -37,30 +38,33 @@ function buildCorsHeaders(
   return h;
 }
 
-// Handle preflight if OPTIONS is routed to Lambda
+/** Handle preflight (if OPTIONS is routed to Lambda) */
 function handleOptions(
   event: APIGatewayProxyEventV2
 ): APIGatewayProxyStructuredResultV2 {
-  const origin = event.headers?.origin;
+  const origin =
+    (event.headers?.origin ??
+      (event.headers as any)?.Origin) as string | undefined;
   return { statusCode: 204, headers: buildCorsHeaders(origin, true, true) };
 }
 
+/** Main Lambda handler that wraps tRPC */
 export const lambdaHandler = async (
   event: APIGatewayProxyEventV2,
   ctx: LambdaCtx
 ): Promise<APIGatewayProxyStructuredResultV2> => {
+  // Preflight
   if ((event.requestContext?.http?.method ?? "").toUpperCase() === "OPTIONS") {
     return handleOptions(event);
   }
 
   return awsLambdaRequestHandler({
     router: appRouter,
-    createContext,
-    // Always attach CORS; surface proper error status
+    createContext: createLambdaContext, // <-- Lambda context factory
     responseMeta({ errors }) {
-      const origin = (event.headers?.origin ?? event.headers?.Origin) as
-        | string
-        | undefined;
+      const origin =
+        (event.headers?.origin ??
+          (event.headers as any)?.Origin) as string | undefined;
 
       if (errors?.length) {
         const status = (errors[0] as any)?.data?.httpStatus ?? 500;

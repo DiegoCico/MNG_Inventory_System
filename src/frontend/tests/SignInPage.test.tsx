@@ -14,13 +14,18 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-// Mock the API module so NO real API is used
+// --- API mocks: loginUser + me + refresh ---
 const loginUserMock = vi.fn();
+const meMock = vi.fn<() => Promise<{ authenticated: boolean }>>();
+const refreshMock = vi.fn<() => Promise<{ refreshed: boolean }>>();
+
 vi.mock("../src/api/auth", () => ({
   loginUser: (...args: unknown[]) => loginUserMock(...args),
+  me: () => meMock(),
+  refresh: () => refreshMock(),
 }));
 
-// Mock SignUpComponent to a simple visible stub
+// Mock SignUpComponent to a simple stub
 vi.mock("../src/components/SignUpComponent", () => ({
   default: (props: { onComplete?: () => void }) => (
     <div data-testid="signup-mock" onClick={props.onComplete}>
@@ -30,12 +35,17 @@ vi.mock("../src/components/SignUpComponent", () => ({
 }));
 
 describe("SignInPage (unit, no real APIs)", () => {
-  const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-  const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+  vi.spyOn(window, "alert").mockImplementation(() => {});
+  // Quiet noisy logs from the component during tests (optional)
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
 
   beforeEach(() => {
     vi.clearAllMocks();
     navigateMock.mockReset();
+    // Default mount behavior: not authenticated, refresh does nothing
+    meMock.mockResolvedValue({ authenticated: false });
+    refreshMock.mockResolvedValue({ refreshed: false });
   });
 
   const renderPage = () =>
@@ -45,12 +55,13 @@ describe("SignInPage (unit, no real APIs)", () => {
       </MemoryRouter>
     );
 
-  it("disables Login until both fields are filled; enables after input", () => {
+  it("disables Login until both fields are filled; enables after input", async () => {
     renderPage();
 
-    const userInput = screen.getByLabelText(/username or email/i);
-    const passInput = screen.getByLabelText(/password/i);
-    const loginBtn = screen.getByRole("button", { name: /login/i });
+    // Wait until the form appears after the initial async session check
+    const userInput = await screen.findByLabelText(/username or email/i);
+    const passInput = await screen.findByLabelText(/password/i);
+    const loginBtn = await screen.findByRole("button", { name: /login/i });
 
     expect(loginBtn).toBeDisabled();
 
@@ -62,26 +73,34 @@ describe("SignInPage (unit, no real APIs)", () => {
   });
 
   it("navigates to /home on successful login", async () => {
+    // Mount pass 1: initial session check -> not authenticated, no refresh
+    meMock.mockResolvedValueOnce({ authenticated: false });
+    refreshMock.mockResolvedValueOnce({ refreshed: false });
+
+    // Login succeeds
     loginUserMock.mockResolvedValueOnce({ success: true });
 
     renderPage();
 
-    fireEvent.change(screen.getByLabelText(/username or email/i), {
-      target: { value: "user@example.com" },
-    });
-    fireEvent.change(screen.getByLabelText(/password/i), {
-      target: { value: "Secret123!" },
-    });
+    const userInput = await screen.findByLabelText(/username or email/i);
+    const passInput = await screen.findByLabelText(/password/i);
+    const loginBtn = await screen.findByRole("button", { name: /login/i });
 
-    fireEvent.submit(screen.getByRole("button", { name: /login/i }));
+    fireEvent.change(userInput, { target: { value: "user@example.com" } });
+    fireEvent.change(passInput, { target: { value: "Secret123!" } });
+
+    // After login, component calls confirmAndGoHome():
+    // it will call me() again -> return authenticated = true so it navigates.
+    meMock.mockResolvedValueOnce({ authenticated: true });
+
+    fireEvent.click(loginBtn);
 
     await waitFor(() => {
-      expect(loginUserMock).toHaveBeenCalledWith(
-        "user@example.com",
-        "Secret123!"
-      );
+      expect(loginUserMock).toHaveBeenCalledWith("user@example.com", "Secret123!");
+    });
+
+    await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith("/home");
     });
   });
-
 });

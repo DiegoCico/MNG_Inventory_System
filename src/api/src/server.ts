@@ -1,15 +1,18 @@
+// src/server.ts
 import express from "express";
 import cors from "cors";
 import * as trpcExpress from "@trpc/server/adapters/express";
 import { appRouter } from "./routers";
-import { createContext } from "./routers/trpc";
+import { createExpressContext } from "./routers/trpc";
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+// Adjust origins as needed for local dev
+const LOCAL_ORIGIN = process.env.LOCAL_WEB_ORIGIN ?? "http://localhost:5173";
+app.use(cors({ origin: LOCAL_ORIGIN, credentials: true }));
 app.use(express.json());
 
-// Health check endpoint
+// Health check
 app.get("/health", (_req, res) => res.status(200).send("ok"));
 
 // tRPC endpoint
@@ -17,12 +20,12 @@ app.use(
   "/trpc",
   trpcExpress.createExpressMiddleware({
     router: appRouter,
-    createContext,
+    createContext: createExpressContext,
     onError({ error, path, type }) {
       console.error(`[tRPC] ${type} ${path} failed`, {
         code: error.code,
         message: error.message,
-        cause: error.cause, 
+        cause: (error.cause as any)?.message ?? error.cause,
       });
     },
   })
@@ -45,7 +48,7 @@ if (process.env.NODE_ENV !== "test") {
   );
 
   server.on("error", (err: any) => {
-    if (err.code === "EADDRINUSE") {
+    if (err?.code === "EADDRINUSE") {
       console.error(
         `⚠️  Port ${PORT} is already in use. Did you start another server?`
       );

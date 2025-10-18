@@ -15,6 +15,13 @@ const authResult = () => ({
   ExpiresIn: 3600,
 });
 
+function getSetCookieArray(res: any): string[] {
+  const v = res?.headers?.["set-cookie"];
+  if (!v) return [];
+  return Array.isArray(v) ? v : [v as string];
+}
+
+
 const isCmd = (cmd: unknown, name: string) =>
   Boolean(cmd) && (cmd as any).constructor?.name === name;
 
@@ -196,9 +203,9 @@ describe("Auth Router - signIn", () => {
     });
 
     // Verify cookies set
-    const setCookie = res.headers["set-cookie"] ?? [];
-    expect(Array.isArray(setCookie)).toBe(true);
+    const setCookie = getSetCookieArray(res);
     const cookieStr = setCookie.join(";");
+
     expect(cookieStr).toContain("auth_access=");
     expect(cookieStr).toContain("auth_id=");
     expect(cookieStr).toContain("auth_refresh=");
@@ -253,9 +260,9 @@ describe("Auth Router - respondToChallenge", () => {
     });
 
     // cookies set as well
-    const setCookie = res.headers["set-cookie"] ?? [];
-    expect(Array.isArray(setCookie)).toBe(true);
+    const setCookie = getSetCookieArray(res);
     const cookieStr = setCookie.join(";");
+
     expect(cookieStr).toContain("auth_access=");
     expect(cookieStr).toContain("auth_id=");
     expect(cookieStr).toContain("auth_refresh=");
@@ -340,9 +347,9 @@ describe("Auth Router - refresh", () => {
     });
 
     // Cookies should be (re)set for access/id (refresh is not reissued here)
-    const setCookie = res.headers["set-cookie"] ?? [];
-    expect(Array.isArray(setCookie)).toBe(true);
+    const setCookie = getSetCookieArray(res);
     const cookieStr = setCookie.join(";");
+
     expect(cookieStr).toContain("auth_access=");
     expect(cookieStr).toContain("auth_id=");
   });
@@ -391,9 +398,9 @@ describe("Auth Router - logout", () => {
     });
 
     // Expect cookies cleared (typically empty with past expiration)
-    const setCookie = res.headers["set-cookie"] ?? [];
-    expect(Array.isArray(setCookie)).toBe(true);
+    const setCookie = getSetCookieArray(res);
     const cookieStr = setCookie.join(";");
+
     expect(cookieStr).toContain("auth_access=");
     expect(cookieStr).toContain("auth_id=");
     expect(cookieStr).toContain("auth_refresh=");
