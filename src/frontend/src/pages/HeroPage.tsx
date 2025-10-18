@@ -11,6 +11,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getHelloMessage } from '../api/api';
+import NavBar from "../components/NavBar";
 
 const features = [
   { title: 'Dashboard', description: 'A snapshot of metrics.' },
@@ -105,6 +106,7 @@ function HeroPage() {
           </Card>
         </Box>
       </Container>
+      <NavBar />
     </div>
   );
 }
