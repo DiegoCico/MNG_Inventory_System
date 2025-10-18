@@ -9,6 +9,14 @@ export async function getHelloMessage() {
   return j?.result?.data?.message ?? 'no message';
 }
 
+export async function getItem(itemId?: string) {
+  const input = itemId ? encodeURIComponent(JSON.stringify({ itemId })) : 'null';
+  const r = await fetch(`${TRPC_URL}/getItem?input=${input}`);
+  if (!r.ok) throw new Error(`getItem failed: ${r.status}`);
+  const j = await r.json();
+  return j?.result?.data ?? null;
+}
+
 export async function checkHealth() {
   const r = await fetch(HEALTH_URL);
   return r.ok;
