@@ -1,6 +1,5 @@
 import { router, publicProcedure, mergeRouters } from "./trpc";
 import { helloRouter } from "./hello";
-import { usersRouter } from "./users";
 import { s3Router } from "./s3";
 import { authRouter } from "./auth";
 
@@ -10,7 +9,6 @@ const coreRouter = router({
 
 const featureRouters = [
   helloRouter,
-  usersRouter,
   s3Router,
   authRouter,
 ] as const;

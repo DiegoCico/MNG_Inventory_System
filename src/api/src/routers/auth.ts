@@ -9,15 +9,19 @@ import {
   MessageActionType,
   AuthFlowType,
   ChallengeNameType,
+  InitiateAuthCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import crypto from 'crypto';
 import { cognitoClient } from "../aws";
 import { sendInviteEmail } from '../helpers/inviteEmail';
+import { setAuthCookies, clearAuthCookies } from '../helpers/cookies';
+import cookie from "cookie";
 
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
 const USER_POOL_CLIENT_ID = process.env.COGNITO_CLIENT_ID || '6vk8qbvjv6hvb99a0jjcpbth9k';
 export const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
 const APP_SIGNIN_URL = process.env.APP_SIGNIN_URL || 'https://d2cktegyq4qcfk.cloudfront.net/signin';
+
 
 /**
  * Helper: Generate a random temporary password that satisfies Cognito's password policy
@@ -112,6 +116,52 @@ const respondToChallenge = async (params: {
 };
 
 export const authRouter = router({
+  me: publicProcedure.query(async ({ ctx }) => {
+    const cookieHeader = ctx.req.headers.cookie ?? "";
+    const cookies = cookie.parse(cookieHeader);
+
+    const hasSession =
+      Boolean(cookies.auth_access) ||
+      Boolean(cookies.auth_id) ||
+      Boolean(cookies.auth_refresh);
+
+    if (hasSession) {
+      return { authenticated: true, message: "User session found" };
+    } else {
+      return { authenticated: false, message: "No session" };
+    }
+  }),
+  refresh: publicProcedure.mutation(async ({ ctx }) => {
+    const cookieHeader = ctx.req.headers.cookie ?? "";
+    const cookies = cookie.parse(cookieHeader);
+    const refreshToken = cookies["auth_refresh"];
+
+    if (!refreshToken) {
+      return { refreshed: false, message: "No refresh token" };
+    }
+
+    const cmd = new InitiateAuthCommand({
+      ClientId: USER_POOL_CLIENT_ID,
+      AuthFlow: AuthFlowType.REFRESH_TOKEN_AUTH,
+      AuthParameters: {
+        REFRESH_TOKEN: refreshToken,
+      },
+    });
+
+    const result = await cognitoClient.send(cmd);
+
+    if (!result.AuthenticationResult) {
+      return { refreshed: false, message: "Token refresh failed" };
+    }
+
+    setAuthCookies(ctx.res, {
+      AccessToken: result.AuthenticationResult.AccessToken ?? null,
+      IdToken: result.AuthenticationResult.IdToken ?? null,
+      ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+    });
+
+    return { refreshed: true, expiresIn: result.AuthenticationResult.ExpiresIn };
+  }),
   /**
    * Invite a new user by sending them an email (admin only)
    */
@@ -160,7 +210,7 @@ export const authRouter = router({
         password: z.string().min(12),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         console.log(`Sign in attempt for: ${input.email}`);
 
@@ -180,8 +230,15 @@ export const authRouter = router({
           };
         }
 
-        // Successful authentication
         if (result.AuthenticationResult) {
+          setAuthCookies(ctx.res, {
+            AccessToken: result.AuthenticationResult.AccessToken ?? null,
+            IdToken: result.AuthenticationResult.IdToken ?? null,
+            RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+            ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+          });
+
+          // (Optional) You can stop returning tokens once frontend uses cookies
           return {
             success: true,
             accessToken: result.AuthenticationResult.AccessToken,
@@ -192,8 +249,6 @@ export const authRouter = router({
             message: 'Sign in successful',
           };
         }
-
-        throw new Error('Unexpected authentication result');
       } catch (error: any) {
         console.error('Error signing in user:', error);
 
@@ -227,7 +282,7 @@ export const authRouter = router({
         email: z.string(),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         const result = await respondToChallenge({
           challengeName: input.challengeName,
@@ -237,6 +292,13 @@ export const authRouter = router({
         });
 
         if (result.AuthenticationResult) {
+          setAuthCookies(ctx.res, {
+            AccessToken: result.AuthenticationResult.AccessToken ?? null,
+            IdToken: result.AuthenticationResult.IdToken ?? null,
+            RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+            ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+          });
+
           return {
             success: true,
             accessToken: result.AuthenticationResult.AccessToken,
@@ -248,10 +310,16 @@ export const authRouter = router({
           };
         }
 
+
         throw new Error('Failed to respond to challenge');
       } catch (error: any) {
         console.error('Error responding to challenge:', error);
         throw new Error(`Challenge response failed: ${error.message}`);
       }
     }),
+    logout: publicProcedure
+        .mutation(async ({ ctx }) => {
+          clearAuthCookies(ctx.res);
+          return { success: true, message: "Signed out" };
+        }),
 });

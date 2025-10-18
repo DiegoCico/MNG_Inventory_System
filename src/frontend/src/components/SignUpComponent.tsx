@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -8,7 +8,7 @@ import {
   InputAdornment,
 } from "@mui/material";
 import { Visibility, VisibilityOff, CheckCircle, Cancel } from "@mui/icons-material";
-import { completeNewPassword } from "../api/auth";
+import { completeNewPassword, me, refresh } from "../api/auth";
 
 /* -------------------------------------------------------------------------- */
 /*                              Sign Up Component                             */
@@ -20,6 +20,31 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // ✅ check if user already has valid cookie session
+  useEffect(() => {
+    (async () => {
+      try {
+        const m1 = await me();
+        if (m1.authenticated) {
+          onComplete();
+          return;
+        }
+        const r = await refresh().catch(() => ({ refreshed: false }));
+        if (r?.refreshed) {
+          const m2 = await me();
+          if (m2.authenticated) {
+            onComplete();
+            return;
+          }
+        }
+      } finally {
+        setCheckingSession(false);
+      }
+    })();
+  }, [onComplete]);
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
 
@@ -47,18 +72,42 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
     </Box>
   );
 
+  // confirm cookies landed before finishing signup
+  const confirmCookiesAndFinish = async () => {
+    const m1 = await me();
+    if (m1.authenticated) {
+      onComplete();
+      return;
+    }
+    const r = await refresh().catch(() => ({ refreshed: false }));
+    if (r?.refreshed) {
+      const m2 = await me();
+      if (m2.authenticated) {
+        onComplete();
+        return;
+      }
+    }
+    alert("Password set, but session cookie not detected. Check HTTPS/CORS/cookie settings.");
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const session = localStorage.getItem("cognitoSession");
     if (!session) return alert("Missing session");
     try {
+      setSubmitting(true);
       const res = await completeNewPassword(session, password, email);
-      if (res.success) onComplete();
-      else alert(res.error ?? "Failed to complete registration");
+      if (res.success) {
+        await confirmCookiesAndFinish();
+      } else alert(res.error ?? "Failed to complete registration");
     } catch {
       alert("Network error");
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  if (checkingSession) return null;
 
   return (
     <Box
@@ -153,19 +202,19 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
         type="submit"
         variant="contained"
         fullWidth
-        disabled={!allValid}
+        disabled={!allValid || submitting}
         sx={{
           borderRadius: 2,
-          bgcolor: allValid ? "#1976d2" : "grey.400",
+          bgcolor: allValid && !submitting ? "#1976d2" : "grey.400",
           textTransform: "none",
           fontSize: "1rem",
           py: 1,
           "&:hover": {
-            bgcolor: allValid ? "#1565c0" : "grey.500",
+            bgcolor: allValid && !submitting ? "#1565c0" : "grey.500",
           },
         }}
       >
-        Sign Up
+        {submitting ? "Setting password..." : "Sign Up"}
       </Button>
     </Box>
   );
