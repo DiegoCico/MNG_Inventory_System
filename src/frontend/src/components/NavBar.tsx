@@ -30,10 +30,10 @@ export default function NavBar() {
         value={value}
         onChange={(event, newValue) => setValue(newValue)}
       >
-        <BottomNavigationAction label="Home" icon={<HomeIcon />} />
-        <BottomNavigationAction label="To Review" icon={<CheckBoxBlankIcon />} />
-        <BottomNavigationAction label="Reviewed" icon={<CheckBoxIcon />} />
-        <BottomNavigationAction label="Send" icon={<OutboxIcon />} />
+        <BottomNavigationAction label="Home" value="home" icon={<HomeIcon />} />
+        <BottomNavigationAction label="To Review" value="toReview" icon={<CheckBoxBlankIcon />} />
+        <BottomNavigationAction label="Reviewed" value="reviewed" icon={<CheckBoxIcon />} />
+        <BottomNavigationAction label="Send" value="send" icon={<OutboxIcon />} />
       </BottomNavigation>
     </Paper>
   );
