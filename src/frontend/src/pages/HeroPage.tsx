@@ -32,7 +32,7 @@ function HeroPage() {
 
   return (
     <div className="HeroPage">
-      <AppBar>
+      <AppBar sx={{ bgcolor: 'primary.dark' }}>
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             App
@@ -49,7 +49,7 @@ function HeroPage() {
             component={Link}
             to="/signup"
             variant="contained"
-            sx={{ bgcolor: 'secondary.main', marginLeft: 4 }}
+            sx={{ bgcolor: 'secondary.dark', color: 'secondary.contrastText', marginLeft: 4}}
           >
             Sign Up
           </Button>
