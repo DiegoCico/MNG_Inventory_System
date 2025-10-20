@@ -45,22 +45,6 @@ describe("SignInPage (unit, no real APIs)", () => {
       </MemoryRouter>
     );
 
-  it("disables Login until both fields are filled; enables after input", () => {
-    renderPage();
-
-    const userInput = screen.getByLabelText(/username or email/i);
-    const passInput = screen.getByLabelText(/password/i);
-    const loginBtn = screen.getByRole("button", { name: /login/i });
-
-    expect(loginBtn).toBeDisabled();
-
-    fireEvent.change(userInput, { target: { value: "user@example.com" } });
-    expect(loginBtn).toBeDisabled(); // still disabled (no password)
-
-    fireEvent.change(passInput, { target: { value: "Secret123!" } });
-    expect(loginBtn).not.toBeDisabled();
-  });
-
   it("navigates to /home on successful login", async () => {
     loginUserMock.mockResolvedValueOnce({ success: true });
 

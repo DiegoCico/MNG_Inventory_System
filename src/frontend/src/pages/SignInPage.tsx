@@ -6,37 +6,43 @@ import {
   CardContent,
   TextField,
   Typography,
+  Stack,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import SecurityIcon from "@mui/icons-material/Security";
 import { loginUser } from "../api/auth";
-import SignUpComponent from "../components/SignUpComponent"
+import SignUpComponent from "../components/SignUpComponent";
 
 function SignInPage() {
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
-
-  const allFilled = identifier.trim() !== "" && password.trim() !== "";
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (submitting) return;
+
     try {
+      setSubmitting(true);
       const res = await loginUser(identifier, password);
-   
-      if (res.challengeName === "NEW_PASSWORD_REQUIRED") {
+
+      if (res?.challengeName === "NEW_PASSWORD_REQUIRED") {
         setIsSigningUp(true);
-        localStorage.setItem("cognitoSession", res.session); 
-      } else if (res.success) {
+        if (res?.session) localStorage.setItem("cognitoSession", res.session);
+      } else if (res?.success) {
         navigate("/home");
       } else {
-        console.log("Login failed:", res.error);
-        console.error("Login challenge:", res.challengeName);
-        alert(res.error ?? "Invalid credentials");
+        console.log("Login failed:", res?.error);
+        console.error("Login challenge:", res?.challengeName);
+        alert(res?.error ?? "Invalid credentials");
       }
     } catch (err) {
       console.error(err);
       alert("Network error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -47,41 +53,49 @@ function SignInPage() {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        bgcolor: "#f5f6fa",
         p: 2,
+        backgroundColor: "#F4F4F1", 
       }}
     >
       <Card
+        elevation={3}
         sx={{
           width: "100%",
           maxWidth: 440,
-          boxShadow: 3,
+          border: "1px solid rgba(0,0,0,0.08)",
           borderRadius: 3,
-          p: 3,
-          backgroundColor: "white",
+          bgcolor: "#FFFFFF",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
         }}
       >
-        <CardContent>
+        <CardContent sx={{ p: 4 }}>
           {!isSigningUp ? (
-            <>
-              <Typography variant="h4" fontWeight="bold" align="center" mb={1}>
-                Welcome Back
-              </Typography>
-              <Typography
-                variant="body1"
-                color="text.secondary"
-                align="center"
-                mb={3}
-              >
-                Please log in to your account
-              </Typography>
+            <Stack spacing={3}>
+              <Box textAlign="center">
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontWeight: 900,
+                    color: "#1F1F1F",
+                    mb: 0.5,
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Welcome Back
+                </Typography>
+                <Typography variant="body1" sx={{ color: "#3A3A3A" }}>
+                  Please log in to your account
+                </Typography>
+              </Box>
 
               <Box
                 component="form"
-                display="flex"
-                flexDirection="column"
-                gap={2}
                 onSubmit={handleLogin}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2.5,
+                }}
               >
                 <TextField
                   label="Username or Email"
@@ -90,10 +104,16 @@ function SignInPage() {
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  slotProps={{
-                    input: {
-                      sx: { bgcolor: "#fafafa", borderRadius: 2 },
+                  InputProps={{
+                    sx: {
+                      backgroundColor: "#FAFAFA",
+                      borderRadius: 2,
+                      color: "#000", 
+                      input: { color: "#000" },
                     },
+                  }}
+                  InputLabelProps={{
+                    sx: { color: "#555" },
                   }}
                 />
 
@@ -105,33 +125,39 @@ function SignInPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  slotProps={{
-                    input: {
-                      sx: { bgcolor: "#fafafa", borderRadius: 2 },
+                  InputProps={{
+                    sx: {
+                      backgroundColor: "#FAFAFA",
+                      borderRadius: 2,
+                      color: "#000", // ✅ black text
+                      input: { color: "#000" },
                     },
+                  }}
+                  InputLabelProps={{
+                    sx: { color: "#555" },
                   }}
                 />
 
                 <Button
                   type="submit"
                   variant="contained"
+                  startIcon={<SecurityIcon />}
                   fullWidth
-                  disabled={!allFilled}
+                  disableElevation
                   sx={{
                     borderRadius: 2,
-                    bgcolor: allFilled ? "#1976d2" : "grey.400",
-                    textTransform: "none",
+                    py: 1.3,
+                    fontWeight: 800,
                     fontSize: "1rem",
-                    py: 1,
-                    "&:hover": {
-                      bgcolor: allFilled ? "#1565c0" : "grey.500",
-                    },
+                    bgcolor: "#283996", // navy blue
+                    color: "#FFFFFF",
+                    ":hover": { bgcolor: "#1D2D77" },
                   }}
                 >
-                  Login
+                  {submitting ? "Logging in..." : "Login"}
                 </Button>
               </Box>
-            </>
+            </Stack>
           ) : (
             <SignUpComponent onComplete={() => navigate("/")} />
           )}

@@ -6,6 +6,7 @@ import {
   Typography,
   IconButton,
   InputAdornment,
+  Stack,
 } from "@mui/material";
 import { Visibility, VisibilityOff, CheckCircle, Cancel } from "@mui/icons-material";
 import { completeNewPassword } from "../api/auth";
@@ -20,6 +21,7 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const emailValid = /\S+@\S+\.\S+/.test(email);
 
@@ -49,60 +51,92 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (submitting) return;
     const session = localStorage.getItem("cognitoSession");
     if (!session) return alert("Missing session");
     try {
+      setSubmitting(true);
       const res = await completeNewPassword(session, password, email);
       if (res.success) onComplete();
       else alert(res.error ?? "Failed to complete registration");
     } catch {
       alert("Network error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <Box
-      component="form"
-      display="flex"
-      flexDirection="column"
-      gap={2}
-      onSubmit={handleSubmit}
-    >
-      <Typography variant="h5" align="center" fontWeight="bold">
-        Complete Your Registration
-      </Typography>
+    <Box component="form" onSubmit={handleSubmit}>
+      <Stack spacing={3}>
+        <Box textAlign="center">
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 900,
+              color: "#1F1F1F",
+              mb: 0.5,
+              letterSpacing: 0.3,
+            }}
+          >
+            Complete Your Registration
+          </Typography>
+          <Typography variant="body1" sx={{ color: "#3A3A3A" }}>
+            Set your credentials to finish signing in
+          </Typography>
+        </Box>
 
-      <TextField
-        label="Username"
-        fullWidth
-        required
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        slotProps={{ input: { sx: { bgcolor: "#fafafa", borderRadius: 2 } } }}
-      />
+        <TextField
+          label="Username"
+          fullWidth
+          required
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          InputProps={{
+            sx: {
+              backgroundColor: "#FAFAFA",
+              borderRadius: 2,
+              color: "#000",
+              input: { color: "#000" }, // ensure typed text is black
+            },
+          }}
+          InputLabelProps={{ sx: { color: "#555" } }}
+        />
 
-      <TextField
-        label="Email"
-        type="email"
-        fullWidth
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        error={!emailValid && email !== ""}
-        helperText={!emailValid && email !== "" ? "Enter a valid email address" : ""}
-        slotProps={{ input: { sx: { bgcolor: "#fafafa", borderRadius: 2 } } }}
-      />
+        <TextField
+          label="Email"
+          type="email"
+          fullWidth
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={!emailValid && email !== ""}
+          helperText={!emailValid && email !== "" ? "Enter a valid email address" : ""}
+          InputProps={{
+            sx: {
+              backgroundColor: "#FAFAFA",
+              borderRadius: 2,
+              color: "#000",
+              input: { color: "#000" },
+            },
+          }}
+          InputLabelProps={{ sx: { color: "#555" } }}
+        />
 
-      <TextField
-        label="Password"
-        type={showPassword ? "text" : "password"}
-        fullWidth
-        required
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        slotProps={{
-          input: {
-            sx: { bgcolor: "#fafafa", borderRadius: 2 },
+        <TextField
+          label="Password"
+          type={showPassword ? "text" : "password"}
+          fullWidth
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          InputProps={{
+            sx: {
+              backgroundColor: "#FAFAFA",
+              borderRadius: 2,
+              color: "#000",
+              input: { color: "#000" },
+            },
             endAdornment: (
               <InputAdornment position="end">
                 <IconButton onClick={() => setShowPassword((p) => !p)} edge="end">
@@ -110,63 +144,65 @@ function SignUpComponent({ onComplete }: { onComplete: () => void }) {
                 </IconButton>
               </InputAdornment>
             ),
-          },
-        }}
-      />
+          }}
+          InputLabelProps={{ sx: { color: "#555" } }}
+        />
 
-      <Box sx={{ ml: 1, mb: 1 }}>
-        {renderRequirement("At least 10 characters", passwordRequirements.minLength)}
-        {renderRequirement("At least one uppercase letter", passwordRequirements.uppercase)}
-        {renderRequirement("At least one lowercase letter", passwordRequirements.lowercase)}
-        {renderRequirement("At least one number", passwordRequirements.number)}
-      </Box>
+        <Box sx={{ ml: 1, mt: -1 }}>
+          {renderRequirement("At least 10 characters", passwordRequirements.minLength)}
+          {renderRequirement("At least one uppercase letter", passwordRequirements.uppercase)}
+          {renderRequirement("At least one lowercase letter", passwordRequirements.lowercase)}
+          {renderRequirement("At least one number", passwordRequirements.number)}
+        </Box>
 
-      <TextField
-        label="Confirm Password"
-        type={showConfirmPassword ? "text" : "password"}
-        fullWidth
-        required
-        value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        slotProps={{
-          input: {
-            sx: { bgcolor: "#fafafa", borderRadius: 2 },
+        <TextField
+          label="Confirm Password"
+          type={showConfirmPassword ? "text" : "password"}
+          fullWidth
+          required
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          InputProps={{
+            sx: {
+              backgroundColor: "#FAFAFA",
+              borderRadius: 2,
+              color: "#000",
+              input: { color: "#000" },
+            },
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton
-                  onClick={() => setShowConfirmPassword((p) => !p)}
-                  edge="end"
-                >
+                <IconButton onClick={() => setShowConfirmPassword((p) => !p)} edge="end">
                   {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                 </IconButton>
               </InputAdornment>
             ),
-          },
-        }}
-      />
+          }}
+          InputLabelProps={{ sx: { color: "#555" } }}
+        />
 
-      <Box sx={{ ml: 1, mb: 1 }}>
-        {renderRequirement("Passwords match", passwordsMatch)}
-      </Box>
+        <Box sx={{ ml: 1, mt: -1 }}>
+          {renderRequirement("Passwords match", passwordsMatch)}
+        </Box>
 
-      <Button
-        type="submit"
-        variant="contained"
-        fullWidth
-        disabled={!allValid}
-        sx={{
-          borderRadius: 2,
-          bgcolor: allValid ? "#1976d2" : "grey.400",
-          textTransform: "none",
-          fontSize: "1rem",
-          py: 1,
-          "&:hover": {
-            bgcolor: allValid ? "#1565c0" : "grey.500",
-          },
-        }}
-      >
-        Sign Up
-      </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          fullWidth
+          disabled={!allValid || submitting}
+          sx={{
+            borderRadius: 2,
+            py: 1.3,
+            fontWeight: 800,
+            fontSize: "1rem",
+            bgcolor: "#283996",       
+            color: "#FFFFFF",
+            ":hover": { bgcolor: "#1D2D77" },
+            opacity: allValid ? 1 : 0.8, 
+          }}
+        >
+          {submitting ? "Submitting..." : "Sign Up"}
+        </Button>
+      </Stack>
     </Box>
   );
 }
