@@ -59,7 +59,6 @@ function HeroPage() {
   const downSm = useMediaQuery(theme.breakpoints.down('sm'));
   const [accessOpen, setAccessOpen] = useState(false);
 
-  // ✅ Match Login page background: soft darker white, no grid pattern
   const heroBg = useMemo(
     () => ({
       backgroundColor: '#F4F4F1',
