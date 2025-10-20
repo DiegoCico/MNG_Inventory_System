@@ -13,5 +13,4 @@ cdk.out
 .env.*.local
 
 
-.package-lock.json 
 package-lock.json
