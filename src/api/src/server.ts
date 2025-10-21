@@ -3,6 +3,7 @@ import cors from "cors";
 import * as trpcExpress from "@trpc/server/adapters/express";
 import { appRouter } from "./routers";
 import { createContext } from "./routers/trpc";
+import imageServiceRouter from "./routers/image_service";   // ← add this line
 
 const app = express();
 
@@ -29,6 +30,8 @@ app.use((err: any, _req: any, res: any, _next: any) => {
     detail: String(err?.message ?? err),
   });
 });
+
+app.use("/images", imageServiceRouter);
 
 const PORT = Number(process.env.PORT) || 3001;
 
