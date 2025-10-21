@@ -64,3 +64,20 @@ export async function me() {
   const json = await res.json();
   return json?.result?.data as { authenticated: boolean; message: string };
 }
+
+export async function submitOtp(
+  challengeName: 'EMAIL_OTP' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA',
+  session: string,
+  mfaCode: string,
+  email: string,
+) {
+  const res = await fetch(`/trpc/respondToChallenge`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeName, session, mfaCode, email }),
+  });
+  if (!res.ok) throw new Error(`respondToChallenge failed: ${res.status}`);
+  const json = await res.json();
+  return json?.result?.data;
+}

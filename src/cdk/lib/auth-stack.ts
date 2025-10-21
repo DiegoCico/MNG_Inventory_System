@@ -3,15 +3,15 @@ import { Construct } from "constructs";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 
 export interface AuthStackProps extends StackProps {
-  stage: string;
+  stage: string;                       
   serviceName?: string;
   webOrigins: string[];
   callbackUrls?: string[];
   logoutUrls?: string[];
-  /** Optional: set if you’ve verified a domain in SES; otherwise Cognito email channel is used */
   sesVerifiedDomain?: string;
-  /** Optional: SES configuration set name */
-  sesConfigurationSet?: string;
+  sesFromAddress: string;
+  sesIdentityArn: string;
+  mfaMode?: "ON" | "OPTIONAL";
 }
 
 export class AuthStack extends Stack {
@@ -23,8 +23,9 @@ export class AuthStack extends Stack {
 
     const service = (props.serviceName ?? "mng").toLowerCase();
     const stage = props.stage.toLowerCase();
+    const mfaMode = props.mfaMode ?? "ON";
 
-    // Callback/logout URLs derived from webOrigins if not explicitly provided
+    // derive callback/logout urls from webOrigins if not explicitly provided
     const callbacks = props.callbackUrls?.length
       ? props.callbackUrls
       : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/callback`);
@@ -32,33 +33,30 @@ export class AuthStack extends Stack {
       ? props.logoutUrls
       : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/logout`);
 
-    // Email channel: SES (domain-verified) OR Cognito default
-    const emailConfig = props.sesVerifiedDomain
+
+    const verificationEmailChannel = props.sesVerifiedDomain
       ? cognito.UserPoolEmail.withSES({
           sesRegion: this.region,
           fromEmail: `no-reply@${props.sesVerifiedDomain}`,
           fromName: `${service.toUpperCase()} ${stage.toUpperCase()}`,
           sesVerifiedDomain: props.sesVerifiedDomain,
-          // configurationSet: props.sesConfigurationSet,
         })
       : cognito.UserPoolEmail.withCognito();
 
-    const userPool = new cognito.UserPool(this, "UserPool", {
+    // L2 user pool
+    this.userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: `${service}-${stage}-users`,
-      selfSignUpEnabled: false,                    // invite-only
+      selfSignUpEnabled: false,
       signInAliases: { email: true },
       autoVerify: { email: true },
-      standardAttributes: {
-        email: { required: true, mutable: false },
-      },
+      standardAttributes: { email: { required: true, mutable: false } },
       userVerification: {
-        emailSubject: "Verify your email for MNG Ineventory System",
-        emailBody: "Hello, Your verification code is {####}",
+        emailSubject: "Verify your email for MNG Inventory System",
+        emailBody: "Hello, your verification code is {####}",
         emailStyle: cognito.VerificationEmailStyle.CODE,
       },
-      // MFA REQUIRED (TOTP-only) 
-      mfa: cognito.Mfa.REQUIRED,
-      mfaSecondFactor: { otp: true, sms: false },  // Software token MFA only
+      mfa: mfaMode === "ON" ? cognito.Mfa.REQUIRED : cognito.Mfa.OPTIONAL,
+      mfaSecondFactor: { otp: false, sms: false },
       passwordPolicy: {
         minLength: 10,
         requireLowercase: true,
@@ -67,33 +65,43 @@ export class AuthStack extends Stack {
         requireSymbols: false,
         tempPasswordValidity: Duration.days(7),
       },
-      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      email: emailConfig,
+      // accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      email: verificationEmailChannel,
       removalPolicy: stage === "dev" ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
     });
 
-    // THREAT FOR ESSENTIAL ACCOUNTS: Enforce advanced security features
-    // const cfnPool = userPool.node.defaultChild as cognito.CfnUserPool;
-    // cfnPool.userPoolAddOns = { advancedSecurityMode: "ENFORCED" };
+    // L1 overrides required for EMAIL_OTP
+    const cfnPool = this.userPool.node.defaultChild as cognito.CfnUserPool;
 
-    // Hosted UI (Cognito domain).
-    const domainPrefix = `${service}-${stage}`.toLowerCase().replace(/[^a-z0-9-]/g, "");
-    const domain = userPool.addDomain("HostedUiDomain", {
+    // enable EMAIL_OTP
+    cfnPool.enabledMfas = ["EMAIL_OTP"];
+
+    // enforce MFA policy at L1
+    cfnPool.mfaConfiguration = mfaMode; // "ON" or "OPTIONAL"
+
+    // EMAIL_OTP requires "DEVELOPER" with your SES identity
+    // Using "COGNITO" here will prevent EMAIL_OTP from sending.
+    cfnPool.emailConfiguration = {
+      emailSendingAccount: "DEVELOPER",
+      from: props.sesFromAddress,
+      sourceArn: props.sesIdentityArn,
+      // replyToEmailAddress?: "support@yourdomain.com",
+    };
+
+    // Hosted UI domain (optional but handy)
+    const domainPrefix = `${service}-${stage}`.replace(/[^a-z0-9-]/g, "");
+    const domain = this.userPool.addDomain("HostedUiDomain", {
       cognitoDomain: { domainPrefix },
     });
 
-    const webClient = new cognito.UserPoolClient(this, "WebClient", {
-      userPool,
+    // Web client (no secret; SPA)
+    this.webClient = new cognito.UserPoolClient(this, "WebClient", {
+      userPool: this.userPool,
       userPoolClientName: `${service}-${stage}-web`,
       generateSecret: false,
       preventUserExistenceErrors: true,
       enableTokenRevocation: true,
-
-      authFlows: {
-        adminUserPassword: true,
-        userPassword: true,
-        userSrp: true,
-      },
+      authFlows: { adminUserPassword: true, userPassword: true, userSrp: true },
       oAuth: {
         flows: { authorizationCodeGrant: true },
         callbackUrls: callbacks,
@@ -106,25 +114,16 @@ export class AuthStack extends Stack {
       supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
     });
 
-    this.userPool = userPool;
-    this.webClient = webClient;
-
-    new CfnOutput(this, "UserPoolId", { value: userPool.userPoolId });
-    new CfnOutput(this, "UserPoolArn", { value: userPool.userPoolArn });
-    new CfnOutput(this, "UserPoolClientId", { value: webClient.userPoolClientId });
+    // outputs
+    new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
+    new CfnOutput(this, "UserPoolArn", { value: this.userPool.userPoolArn });
+    new CfnOutput(this, "UserPoolClientId", { value: this.webClient.userPoolClientId });
     new CfnOutput(this, "HostedUiDomain", { value: domain.domainName });
     new CfnOutput(this, "IssuerUrl", {
-      value: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
+      value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`,
     });
     new CfnOutput(this, "JwksUri", {
-      value: `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}/.well-known/jwks.json`,
-    });
-    new CfnOutput(this, "HostedUiAuthorizeUrlExample", {
-      value: `https://${domain.domainName}/login?response_type=code&${new URLSearchParams({
-        client_id: webClient.userPoolClientId,
-        redirect_uri: callbacks[0],
-        scope: "openid email profile",
-      }).toString()}`,
+      value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}/.well-known/jwks.json`,
     });
   }
 }
