@@ -11,6 +11,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getHelloMessage } from '../api/api';
+import NavBar from "../components/NavBar";
 
 const features = [
   { title: 'Dashboard', description: 'A snapshot of metrics.' },
@@ -32,7 +33,7 @@ function HeroPage() {
 
   return (
     <div className="HeroPage">
-      <AppBar>
+      <AppBar sx={{ bgcolor: 'primary.dark' }}>
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             App
@@ -49,7 +50,7 @@ function HeroPage() {
             component={Link}
             to="/signup"
             variant="contained"
-            sx={{ bgcolor: 'secondary.main', marginLeft: 4 }}
+            sx={{ bgcolor: 'secondary.dark', color: 'secondary.contrastText', marginLeft: 4}}
           >
             Sign Up
           </Button>
@@ -105,6 +106,7 @@ function HeroPage() {
           </Card>
         </Box>
       </Container>
+      <NavBar />
     </div>
   );
 }
