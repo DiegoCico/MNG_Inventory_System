@@ -4,9 +4,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { router, publicProcedure } from "./trpc";
 import { s3Client } from "../aws";
 
-const REGION = process.env.AWS_REGION || "us-east-1";
-//change later to CDK bucket when ready
-const BUCKET = process.env.S3_BUCKET || "mnginfra-dev-webbucket12880f5b-i5rl91kynypx";
+const BUCKET = process.env.S3_BUCKET || "mngweb-dev-webbucket12880f5b-kq75xxdqbbvj";
 
 const PREFIX = {
   item: "items/",

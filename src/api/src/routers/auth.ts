@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure } from './trpc';
 import {
-  CognitoIdentityProviderClient,
   AdminCreateUserCommand,
   AdminInitiateAuthCommand,
   AdminRespondToAuthChallengeCommand,
@@ -10,24 +9,18 @@ import {
   MessageActionType,
   AuthFlowType,
   ChallengeNameType,
+  InitiateAuthCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import {
-  SESv2Client,
-  SendEmailCommand,
-  SendEmailCommandInput,
-} from '@aws-sdk/client-sesv2';
 import crypto from 'crypto';
-import { cognitoClient, sesClient, AWS_CONFIG } from "../aws";
+import { cognitoClient } from '../aws';
+import { sendInviteEmail } from '../helpers/inviteEmail';
+import { setAuthCookies, clearAuthCookies } from '../helpers/cookies';
+import cookie from 'cookie';
 
-
-const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
 const USER_POOL_CLIENT_ID = process.env.COGNITO_CLIENT_ID || '6vk8qbvjv6hvb99a0jjcpbth9k';
-const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
+// export const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
 const APP_SIGNIN_URL = process.env.APP_SIGNIN_URL || 'https://d2cktegyq4qcfk.cloudfront.net/signin';
-
-// const cognitoClient = new CognitoIdentityProviderClient({ region: AWS_REGION });
-// const sesClient = new SESv2Client({ region: AWS_REGION });
 
 /**
  * Helper: Generate a random temporary password that satisfies Cognito's password policy
@@ -38,97 +31,46 @@ const generateTempPassword = (): string => {
   return (base + extras).slice(0, 16);
 };
 
-/**
- * Helper: Send invitation email using Amazon SES
- */
-const sendInviteEmail = async (params: { to: string; tempPassword: string; signinUrl: string }) => {
-  const { to, tempPassword, signinUrl } = params;
-
-  const subject = 'Your MNG Inventory invitation';
-  const text = `Hi,
-
-You’ve been invited to MNG Inventory.
-
-Email: ${to}
-Temporary password: ${tempPassword}
-
-Please sign in here: ${signinUrl}
-
-You’ll be prompted to set a new password on first login.`;
-
-  const html = `
-  <div style="font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5">
-    <h2>Welcome to MNG Inventory</h2>
-    <p>You’ve been invited to join the platform. Use the credentials below to sign in for the first time:</p>
-    <ul>
-      <li><b>Email:</b> ${to}</li>
-      <li><b>Temporary password:</b> <code>${tempPassword}</code></li>
-    </ul>
-    <p><a href="${signinUrl}" target="_blank" rel="noopener noreferrer">Sign in now</a></p>
-    <p>You’ll be asked to set a new password on first login.</p>
-    <hr />
-    <small>If you didn’t expect this, you can safely ignore this email.</small>
-  </div>`;
-
-  const input: SendEmailCommandInput = {
-    FromEmailAddress: SES_FROM_ADDRESS,
-    Destination: { ToAddresses: [to] },
-    Content: {
-      Simple: {
-        Subject: { Data: subject },
-        Body: { Text: { Data: text }, Html: { Data: html } },
-      },
-    },
-  };
-
-  await sesClient.send(new SendEmailCommand(input));
-};
-
-/**
- * Invite or re-invite a Cognito user (suppress default email, use SES instead)
- */
 const inviteUser = async (params: { email: string }) => {
   const { email } = params;
   const tempPassword = generateTempPassword();
 
   try {
-    // Check if user already exists
     await cognitoClient.send(
-      new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: email }),
+      new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: email })
     );
 
-    // User exists → reset their password instead of creating a new user
     await cognitoClient.send(
       new AdminSetUserPasswordCommand({
         UserPoolId: USER_POOL_ID,
         Username: email,
         Password: tempPassword,
         Permanent: false,
-      }),
+      })
     );
-
     console.log(`Re-invited existing user: ${email}`);
   } catch (err: any) {
-    // If user not found, create and suppress default Cognito email
-    if (err.name === 'UserNotFoundException') {
-      const command = new AdminCreateUserCommand({
-        UserPoolId: USER_POOL_ID,
-        Username: email,
-        TemporaryPassword: tempPassword,
-        UserAttributes: [
-          { Name: 'email', Value: email },
-          { Name: 'email_verified', Value: 'true' },
-        ],
-        MessageAction: MessageActionType.SUPPRESS,
-      });
-      await cognitoClient.send(command);
+    if (err.name === "UserNotFoundException") {
+      await cognitoClient.send(
+        new AdminCreateUserCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: email,
+          TemporaryPassword: tempPassword,
+          UserAttributes: [
+            { Name: "email", Value: email },
+            { Name: "email_verified", Value: "true" },
+          ],
+          // keep Cognito silent; we send the invite via SES
+          MessageAction: MessageActionType.SUPPRESS,
+        })
+      );
       console.log(`Created new user: ${email}`);
     } else {
       throw err;
     }
   }
 
-  // Send invite email via SES
+  // Custom SES invite with temp password
   await sendInviteEmail({ to: email, tempPassword, signinUrl: APP_SIGNIN_URL });
 
   return { success: true, email };
@@ -150,18 +92,27 @@ const signIn = async (params: { email: string; password: string }) => {
 const respondToChallenge = async (params: {
   challengeName: string;
   session: string;
-  newPassword: string;
+  newPassword?: string;
+  mfaCode?: string;
   email: string;
 }) => {
+  const challengeResponses: Record<string, string> = {
+    USERNAME: params.email,
+  };
+
+  // Handle different challenge types
+  if (params.challengeName === 'NEW_PASSWORD_REQUIRED' && params.newPassword) {
+    challengeResponses.NEW_PASSWORD = params.newPassword;
+  } else if (params.challengeName === 'EMAIL_OTP' && params.mfaCode) {
+    challengeResponses.EMAIL_OTP_CODE = params.mfaCode;
+  }
+
   const command = new AdminRespondToAuthChallengeCommand({
     UserPoolId: USER_POOL_ID,
     ClientId: USER_POOL_CLIENT_ID,
     ChallengeName: params.challengeName as ChallengeNameType,
     Session: params.session,
-    ChallengeResponses: {
-      USERNAME: params.email,
-      NEW_PASSWORD: params.newPassword,
-    },
+    ChallengeResponses: challengeResponses,
   });
 
   return await cognitoClient.send(command);
@@ -174,7 +125,7 @@ export const authRouter = router({
   inviteUser: publicProcedure
     .input(
       z.object({
-        email: z.string().email(),
+        email: z.string(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -188,8 +139,7 @@ export const authRouter = router({
         return {
           success: true,
           userEmail: result.email,
-          message:
-            'User invited successfully - a custom SES email with credentials was sent.',
+          message: 'User invited successfully - a custom SES email with credentials was sent.',
         };
       } catch (error: any) {
         console.error('Error inviting user:', error);
@@ -212,11 +162,11 @@ export const authRouter = router({
   signIn: publicProcedure
     .input(
       z.object({
-        email: z.string().email(),
+        email: z.string(),
         password: z.string().min(12),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
         console.log(`Sign in attempt for: ${input.email}`);
 
@@ -225,8 +175,30 @@ export const authRouter = router({
           password: input.password,
         });
 
-        // Handle authentication challenges (e.g., first-time login)
+        // Handle authentication challenges
         if (result.ChallengeName) {
+          // Handle password change challenge
+          if (result.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
+            return {
+              success: false,
+              challengeName: result.ChallengeName,
+              challengeParameters: result.ChallengeParameters,
+              session: result.Session,
+              message: 'Password change required',
+            };
+          }
+
+          // Handle email MFA challenge from Cognito
+          if (result.ChallengeName === 'EMAIL_OTP') {
+            return {
+              success: false,
+              challengeName: result.ChallengeName,
+              challengeParameters: result.ChallengeParameters,
+              session: result.Session,
+              message: 'MFA code sent to your email by Cognito',
+            };
+          }
+
           return {
             success: false,
             challengeName: result.ChallengeName,
@@ -236,8 +208,17 @@ export const authRouter = router({
           };
         }
 
-        // Successful authentication
+        // Successful authentication - return tokens immediately
         if (result.AuthenticationResult) {
+          if (ctx.res) {
+            setAuthCookies(ctx.res, {
+              AccessToken: result.AuthenticationResult.AccessToken ?? null,
+              IdToken: result.AuthenticationResult.IdToken ?? null,
+              RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+              ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+            });
+          }
+
           return {
             success: true,
             accessToken: result.AuthenticationResult.AccessToken,
@@ -276,23 +257,85 @@ export const authRouter = router({
    */
   respondToChallenge: publicProcedure
     .input(
-      z.object({
-        challengeName: z.string(),
-        session: z.string(),
-        newPassword: z.string().min(10),
-        email: z.string(),
-      }),
+      z
+        .object({
+          challengeName: z.string(),
+          session: z.string(),
+          newPassword: z.string().min(10).optional(),
+          mfaCode: z.string().optional(),
+          email: z.string(),
+        })
+        .refine(
+          (data) => {
+            const mfaChallenges = new Set(['EMAIL_OTP', 'SMS_MFA', 'SOFTWARE_TOKEN_MFA']);
+            if (data.challengeName === 'NEW_PASSWORD_REQUIRED') {
+              return !!data.newPassword;
+            }
+            if (mfaChallenges.has(data.challengeName)) {
+              return !!data.mfaCode;
+            }
+            return true;
+          },
+          {
+            message:
+              'newPassword required for NEW_PASSWORD_REQUIRED; mfaCode required for EMAIL_OTP/SMS_MFA/SOFTWARE_TOKEN_MFA',
+          },
+        ),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
-        const result = await respondToChallenge({
-          challengeName: input.challengeName,
-          session: input.session,
-          newPassword: input.newPassword,
-          email: input.email,
+        // Map the right response key based on challenge
+        const responses: Record<string, string> = { USERNAME: input.email };
+        switch (input.challengeName) {
+          case 'NEW_PASSWORD_REQUIRED':
+            responses.NEW_PASSWORD = input.newPassword!;
+            break;
+          case 'EMAIL_OTP':
+            responses.EMAIL_OTP_CODE = input.mfaCode!;
+            break;
+          case 'SMS_MFA':
+            responses.SMS_MFA_CODE = input.mfaCode!;
+            break;
+          case 'SOFTWARE_TOKEN_MFA':
+            responses.SOFTWARE_TOKEN_MFA_CODE = input.mfaCode!;
+            break;
+          default:
+            // leave as-is for other challenges (e.g., SELECT_MFA_TYPE/MFA_SETUP)
+            break;
+        }
+
+        const command = new AdminRespondToAuthChallengeCommand({
+          UserPoolId: USER_POOL_ID,
+          ClientId: USER_POOL_CLIENT_ID,
+          ChallengeName: input.challengeName as ChallengeNameType,
+          Session: input.session,
+          ChallengeResponses: responses,
         });
 
+        const result = await cognitoClient.send(command);
+
+        // Another challenge? Surface it
+        if (result.ChallengeName) {
+          return {
+            success: false,
+            challengeName: result.ChallengeName,
+            challengeParameters: result.ChallengeParameters,
+            session: result.Session,
+            message: 'Additional authentication step required',
+          };
+        }
+
+        // Success → set cookies
         if (result.AuthenticationResult) {
+          if (ctx.res) {
+            setAuthCookies(ctx.res, {
+              AccessToken: result.AuthenticationResult.AccessToken ?? null,
+              IdToken: result.AuthenticationResult.IdToken ?? null,
+              RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+              ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+            });
+          }
+
           return {
             success: true,
             accessToken: result.AuthenticationResult.AccessToken,
@@ -300,14 +343,95 @@ export const authRouter = router({
             refreshToken: result.AuthenticationResult.RefreshToken,
             tokenType: result.AuthenticationResult.TokenType,
             expiresIn: result.AuthenticationResult.ExpiresIn,
-            message: 'Password updated and sign in successful',
+            message:
+              input.challengeName === 'NEW_PASSWORD_REQUIRED'
+                ? 'Password updated and sign in successful'
+                : 'MFA/OTP verification successful',
           };
         }
 
         throw new Error('Failed to respond to challenge');
       } catch (error: any) {
         console.error('Error responding to challenge:', error);
+
+        // fine-grained MFA errors
+        if (error.name === 'CodeMismatchException') {
+          throw new Error('Invalid code');
+        }
+        if (error.name === 'ExpiredCodeException') {
+          throw new Error('Code expired');
+        }
+
         throw new Error(`Challenge response failed: ${error.message}`);
       }
     }),
+
+
+  me: publicProcedure.query(async ({ ctx }) => {
+    const cookieHeader =
+      ctx.req?.headers?.cookie ??
+      ctx.event?.headers?.cookie ??
+      (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
+      '';
+    const cookies = cookie.parse(cookieHeader);
+
+    const hasSession =
+      Boolean(cookies.auth_access) || Boolean(cookies.auth_id) || Boolean(cookies.auth_refresh);
+
+    if (hasSession) {
+      return { authenticated: true, message: 'User session found' };
+    } else {
+      return { authenticated: false, message: 'No session' };
+    }
+  }),
+
+  refresh: publicProcedure.mutation(async ({ ctx }) => {
+    try {
+      const cookieHeader =
+        ctx.req?.headers?.cookie ??
+        ctx.event?.headers?.cookie ??
+        (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
+        '';
+      const cookies = cookie.parse(cookieHeader);
+      const refreshToken = cookies['auth_refresh'];
+
+      if (!refreshToken) {
+        return { refreshed: false, message: 'No refresh token' };
+      }
+
+      const cmd = new InitiateAuthCommand({
+        ClientId: USER_POOL_CLIENT_ID,
+        AuthFlow: AuthFlowType.REFRESH_TOKEN_AUTH,
+        AuthParameters: {
+          REFRESH_TOKEN: refreshToken,
+        },
+      });
+
+      const result = await cognitoClient.send(cmd);
+
+      if (!result.AuthenticationResult) {
+        return { refreshed: false, message: 'Token refresh failed' };
+      }
+
+      if (ctx.res) {
+        setAuthCookies(ctx.res, {
+          AccessToken: result.AuthenticationResult.AccessToken ?? null,
+          IdToken: result.AuthenticationResult.IdToken ?? null,
+          ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+        });
+      }
+
+      return { refreshed: true, expiresIn: result.AuthenticationResult.ExpiresIn };
+    } catch (err) {
+      console.error('refresh error:', err);
+      return { refreshed: false, message: 'Token refresh failed' };
+    }
+  }),
+
+  logout: publicProcedure.mutation(async ({ ctx }) => {
+    if (ctx.res) {
+      clearAuthCookies(ctx.res);
+    }
+    return { success: true, message: 'Signed out' };
+  }),
 });
