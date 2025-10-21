@@ -4,109 +4,259 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  Stack,
   Toolbar,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { alpha, useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import SecurityIcon from '@mui/icons-material/Security';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getHelloMessage } from '../api/api';
-import NavBar from "../components/NavBar";
+import NavBar from '../components/NavBar';
 
 const features = [
-  { title: 'Dashboard', description: 'A snapshot of metrics.' },
-  { title: 'Mobile', description: 'Access from mobile.' },
-  { title: 'All platforms', description: 'Web, mobile, desktop.' },
+  {
+    title: 'Operational Readiness',
+    description:
+      'Maintain mission-critical equipment, vehicles, and supplies at optimal condition to support every operation.',
+    icon: <AssessmentIcon />,
+  },
+  {
+    title: 'Centralized Asset Tracking',
+    description:
+      'Track, allocate, and verify every item with full accountability and chain-of-custody visibility.',
+    icon: <InventoryIcon />,
+  },
+  {
+    title: 'Secure Infrastructure',
+    description:
+      'Encryption at rest and in transit, with role-based access and tamper-evident audit logs.',
+    icon: <SecurityIcon />,
+  },
+  {
+    title: 'Reliable Supply Chain',
+    description:
+      'Ensure every request, shipment, and delivery meets military standards for precision and reliability.',
+    icon: <LocalShippingIcon />,
+  },
 ];
 
 function HeroPage() {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const selectedFeature = features[selectedIndex];
+  const theme = useTheme();
+  const downSm = useMediaQuery(theme.breakpoints.down('sm'));
+  const [accessOpen, setAccessOpen] = useState(false);
 
-  const [msg, setMsg] = useState('loading...');
-
-  useEffect(() => {
-    getHelloMessage()
-      .then(setMsg)
-      .catch(() => setMsg('API not running'));
-  }, []);
+  const heroBg = useMemo(() => ({ backgroundColor: '#F4F4F1' }), []);
+  const cardBorder = `1px solid ${alpha('#000', 0.08)}`;
 
   return (
     <div className="HeroPage">
-      <AppBar sx={{ bgcolor: 'primary.dark' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            App
-          </Typography>
-          <Button
-            component={Link}
-            to="/signin"
-            variant="contained"
-            sx={{ bgcolor: 'primary.main' }}
-          >
-            Sign In
-          </Button>
-          <Button
-            component={Link}
-            to="/signup"
-            variant="contained"
-            sx={{ bgcolor: 'secondary.dark', color: 'secondary.contrastText', marginLeft: 4}}
-          >
-            Sign Up
-          </Button>
+      {/* Header */}
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          bgcolor: '#283996',
+          color: '#F7F7F7',
+          borderBottom: `1px solid ${alpha('#000', 0.1)}`,
+        }}
+      >
+        <Toolbar sx={{ minHeight: { xs: 56, sm: 60 } }}>
+          <Stack direction="row" spacing={1.2} alignItems="center" sx={{ flexGrow: 1 }}>
+            <MilitaryTechIcon />
+            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.5 }}>
+              SupplyNet
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" spacing={1}>
+            <Button
+              component={Link}
+              to="/signin"
+              variant="contained"
+              startIcon={<SecurityIcon />}
+              sx={{
+                bgcolor: '#D0A139', // yellow
+                color: '#101214',
+                ':hover': { bgcolor: '#B58827' },
+                fontWeight: 800,
+              }}
+            >
+              Sign In
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setAccessOpen(true)}
+              sx={{
+                color: '#F7F7F7',
+                borderColor: alpha('#F7F7F7', 0.6),
+                ':hover': { borderColor: '#fff', bgcolor: alpha('#F7F7F7', 0.1) },
+                fontWeight: 800,
+              }}
+            >
+              Request Access
+            </Button>
+          </Stack>
         </Toolbar>
       </AppBar>
 
-      <Container sx={{ py: 15 }}>
-        <Typography
-          variant="h2"
-          sx={{
-            textAlign: 'center',
-          }}
-          gutterBottom
-        >
-          {' '}
-          File tracking made easy.
-        </Typography>
-        <Typography
-          variant="h5"
-          sx={{ textAlign: 'center', color: 'text.secondary', paddingBottom: 5 }}
-        >
-          {msg}
-        </Typography>
-        <Typography variant="h4" gutterBottom>
-          Product Features
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Key feature under text.
-        </Typography>
+      {/* HERO */}
+      <Box sx={{ ...heroBg }}>
+        <Container maxWidth="md" sx={{ py: { xs: 8, md: 12 }, textAlign: 'center' }}>
+          <Stack spacing={2.5} alignItems="center">
+            <Typography
+              component="h1"
+              sx={{
+                fontWeight: 900,
+                color: '#1F1F1F',
+                fontSize: { xs: '2.2rem', sm: '2.8rem', md: '3.2rem' },
+                letterSpacing: 0.2,
+                lineHeight: 1.1,
+              }}
+            >
+              Military Inventory & Supply Command Hub
+            </Typography>
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {/* Left side - buttons */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {features.map((feature, index) => (
+            <Typography
+              variant="body1"
+              sx={{
+                color: '#3A3A3A',
+                maxWidth: 760,
+                lineHeight: 1.6,
+              }}
+            >
+              Secure, accountable, ready. Encrypt every record, verify every transaction, and keep assets
+              mission-ready in perfect operational condition.
+            </Typography>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 3 }}>
               <Button
-                key={index}
-                variant={selectedIndex === index ? 'contained' : 'outlined'}
-                onClick={() => setSelectedIndex(index)}
+                component={Link}
+                to="/signin"
+                size={downSm ? 'medium' : 'large'}
+                variant="contained"
+                startIcon={<SecurityIcon />}
+                sx={{
+                  px: { xs: 2.25, sm: 3 },
+                  bgcolor: '#D0A139', // yellow button
+                  color: '#101214',
+                  ':hover': { bgcolor: '#B58827' },
+                  fontWeight: 900,
+                }}
               >
-                {feature.title}
+                Enter Secure Portal
               </Button>
-            ))}
-          </Box>
+              <Button
+                component={Link}
+                to="/about"
+                size={downSm ? 'medium' : 'large'}
+                variant="text"
+                sx={{
+                  color: '#1F1F1F',
+                  ':hover': { bgcolor: alpha('#283996', 0.08) },
+                  fontWeight: 800,
+                }}
+              >
+                Learn More
+              </Button>
+            </Stack>
+          </Stack>
 
-          {/* Right side - selected feature */}
-          <Card sx={{ flex: 1 }}>
-            <CardContent>
-              <Typography variant="h6">{selectedFeature.title}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                {selectedFeature.description}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
-      </Container>
+          {/* Features */}
+          <Grid container spacing={2.5} sx={{ mt: { xs: 6, md: 8 }, justifyContent: 'center' }}>
+            {features.map((f) => (
+              <Grid item xs={12} sm={6} key={f.title}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    height: '100%',
+                    border: cardBorder,
+                    bgcolor: '#FFFFFF',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                    transition: 'transform 160ms ease, box-shadow 160ms ease',
+                    '&:hover': {
+                      transform: 'translateY(-3px)',
+                      boxShadow: '0 3px 10px rgba(0,0,0,0.12)',
+                    },
+                  }}
+                >
+                  <CardContent
+                    sx={{
+                      textAlign: 'center',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 1,
+                      py: 3,
+                    }}
+                  >
+                    {/* changed icon color to blue */}
+                    <Box sx={{ color: '#283996', mb: 0.5 }}>{f.icon}</Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1F1F1F' }}>
+                      {f.title}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#3A3A3A', maxWidth: 340 }}>
+                      {f.description}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Box>
+
       <NavBar />
+
+      {/* Request Access Dialog */}
+      <Dialog
+        open={accessOpen}
+        onClose={() => setAccessOpen(false)}
+        aria-labelledby="request-access-title"
+        PaperProps={{
+          sx: {
+            bgcolor: '#FFFFFF',
+            border: `1px solid ${alpha('#000', 0.15)}`,
+          },
+        }}
+      >
+        <DialogTitle id="request-access-title" sx={{ fontWeight: 800, color: '#1F1F1F' }}>
+          Request Access
+        </DialogTitle>
+        <DialogContent dividers sx={{ color: '#3A3A3A' }}>
+          <Typography gutterBottom>
+            To obtain access, please coordinate through your chain of command.
+          </Typography>
+          <Typography gutterBottom>
+            Speak with your <strong>unit sergeant</strong> and request that they submit an approval on your behalf.
+            Once approved, you will receive a <strong>secure invitation link</strong> to complete enrollment.
+          </Typography>
+          <Typography>
+            For security reasons, self-registration is not available on this system.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setAccessOpen(false)}
+            variant="contained"
+            sx={{ bgcolor: '#283996', ':hover': { bgcolor: '#1D2D77' } }}
+          >
+            Understood
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
