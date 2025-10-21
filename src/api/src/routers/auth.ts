@@ -9,19 +9,18 @@ import {
   MessageActionType,
   AuthFlowType,
   ChallengeNameType,
-  InitiateAuthCommand
+  InitiateAuthCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import crypto from 'crypto';
-import { cognitoClient } from "../aws";
+import { cognitoClient } from '../aws';
 import { sendInviteEmail } from '../helpers/inviteEmail';
 import { setAuthCookies, clearAuthCookies } from '../helpers/cookies';
-import cookie from "cookie";
+import cookie from 'cookie';
 
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
 const USER_POOL_CLIENT_ID = process.env.COGNITO_CLIENT_ID || '6vk8qbvjv6hvb99a0jjcpbth9k';
 export const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
 const APP_SIGNIN_URL = process.env.APP_SIGNIN_URL || 'https://d2cktegyq4qcfk.cloudfront.net/signin';
-
 
 /**
  * Helper: Generate a random temporary password that satisfies Cognito's password policy
@@ -98,88 +97,33 @@ const signIn = async (params: { email: string; password: string }) => {
 const respondToChallenge = async (params: {
   challengeName: string;
   session: string;
-  newPassword: string;
+  newPassword?: string;
+  mfaCode?: string;
   email: string;
 }) => {
+  const challengeResponses: Record<string, string> = {
+    USERNAME: params.email,
+  };
+
+  // Handle different challenge types
+  if (params.challengeName === 'NEW_PASSWORD_REQUIRED' && params.newPassword) {
+    challengeResponses.NEW_PASSWORD = params.newPassword;
+  } else if (params.challengeName === 'EMAIL_OTP' && params.mfaCode) {
+    challengeResponses.EMAIL_OTP_CODE = params.mfaCode;
+  }
+
   const command = new AdminRespondToAuthChallengeCommand({
     UserPoolId: USER_POOL_ID,
     ClientId: USER_POOL_CLIENT_ID,
     ChallengeName: params.challengeName as ChallengeNameType,
     Session: params.session,
-    ChallengeResponses: {
-      USERNAME: params.email,
-      NEW_PASSWORD: params.newPassword,
-    },
+    ChallengeResponses: challengeResponses,
   });
 
   return await cognitoClient.send(command);
 };
 
 export const authRouter = router({
-  me: publicProcedure.query(async ({ ctx }) => {
-    const cookieHeader =
-      ctx.req?.headers?.cookie ??
-      ctx.event?.headers?.cookie ??
-      (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
-      "";
-    const cookies = cookie.parse(cookieHeader);
-
-    const hasSession =
-      Boolean(cookies.auth_access) ||
-      Boolean(cookies.auth_id) ||
-      Boolean(cookies.auth_refresh);
-
-    if (hasSession) {
-      return { authenticated: true, message: "User session found" };
-    } else {
-      return { authenticated: false, message: "No session" };
-    }
-  }),
-  refresh: publicProcedure.mutation(async ({ ctx }) => {
-    try {
-      const cookieHeader =
-        ctx.req?.headers?.cookie ??
-        ctx.event?.headers?.cookie ??
-        (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
-        "";
-      const cookies = cookie.parse(cookieHeader);
-      const refreshToken = cookies["auth_refresh"];
-
-      if (!refreshToken) {
-        return { refreshed: false, message: "No refresh token" };
-      }
-
-      const cmd = new InitiateAuthCommand({
-        ClientId: USER_POOL_CLIENT_ID,
-        AuthFlow: AuthFlowType.REFRESH_TOKEN_AUTH,
-        AuthParameters: {
-          REFRESH_TOKEN: refreshToken,
-        },
-      });
-
-      const result = await cognitoClient.send(cmd);
-
-      if (!result.AuthenticationResult) {
-        // Cognito replied but without tokens: treat as a soft failure (200 + message)
-        return { refreshed: false, message: "Token refresh failed" };
-      }
-
-      if (ctx.res) {
-        setAuthCookies(ctx.res, {
-          AccessToken: result.AuthenticationResult.AccessToken ?? null,
-          IdToken: result.AuthenticationResult.IdToken ?? null,
-          ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-        });
-      }
-
-      return { refreshed: true, expiresIn: result.AuthenticationResult.ExpiresIn };
-    } catch (err) {
-      // Any unexpected error (mock oddities, header parsing, etc.) -> soft failure
-      console.error("refresh error:", err);
-      return { refreshed: false, message: "Token refresh failed" };
-    }
-  }),
-
   /**
    * Invite a new user by sending them an email (admin only)
    */
@@ -200,8 +144,7 @@ export const authRouter = router({
         return {
           success: true,
           userEmail: result.email,
-          message:
-            'User invited successfully - a custom SES email with credentials was sent.',
+          message: 'User invited successfully - a custom SES email with credentials was sent.',
         };
       } catch (error: any) {
         console.error('Error inviting user:', error);
@@ -237,8 +180,30 @@ export const authRouter = router({
           password: input.password,
         });
 
-        // Handle authentication challenges (e.g., first-time login)
+        // Handle authentication challenges
         if (result.ChallengeName) {
+          // Handle password change challenge
+          if (result.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
+            return {
+              success: false,
+              challengeName: result.ChallengeName,
+              challengeParameters: result.ChallengeParameters,
+              session: result.Session,
+              message: 'Password change required',
+            };
+          }
+
+          // Handle email MFA challenge from Cognito
+          if (result.ChallengeName === 'EMAIL_OTP') {
+            return {
+              success: false,
+              challengeName: result.ChallengeName,
+              challengeParameters: result.ChallengeParameters,
+              session: result.Session,
+              message: 'MFA code sent to your email by Cognito',
+            };
+          }
+
           return {
             success: false,
             challengeName: result.ChallengeName,
@@ -248,6 +213,7 @@ export const authRouter = router({
           };
         }
 
+        // Successful authentication - return tokens immediately
         if (result.AuthenticationResult) {
           if (ctx.res) {
             setAuthCookies(ctx.res, {
@@ -258,7 +224,6 @@ export const authRouter = router({
             });
           }
 
-          // (Optional) You can stop returning tokens once frontend uses cookies
           return {
             success: true,
             accessToken: result.AuthenticationResult.AccessToken,
@@ -269,6 +234,8 @@ export const authRouter = router({
             message: 'Sign in successful',
           };
         }
+
+        throw new Error('Unexpected authentication result');
       } catch (error: any) {
         console.error('Error signing in user:', error);
 
@@ -295,12 +262,31 @@ export const authRouter = router({
    */
   respondToChallenge: publicProcedure
     .input(
-      z.object({
-        challengeName: z.string(),
-        session: z.string(),
-        newPassword: z.string().min(10),
-        email: z.string(),
-      }),
+      z
+        .object({
+          challengeName: z.string(),
+          session: z.string(),
+          newPassword: z.string().min(10).optional(),
+          mfaCode: z.string().optional(),
+          email: z.string(),
+        })
+        .refine(
+          (data) => {
+            // Require newPassword for NEW_PASSWORD_REQUIRED challenge
+            if (data.challengeName === 'NEW_PASSWORD_REQUIRED') {
+              return !!data.newPassword;
+            }
+            // Require mfaCode for EMAIL_OTP challenge
+            if (data.challengeName === 'EMAIL_OTP') {
+              return !!data.mfaCode;
+            }
+            return true;
+          },
+          {
+            message:
+              'newPassword required for NEW_PASSWORD_REQUIRED, mfaCode required for EMAIL_OTP',
+          },
+        ),
     )
     .mutation(async ({ input, ctx }) => {
       try {
@@ -308,8 +294,20 @@ export const authRouter = router({
           challengeName: input.challengeName,
           session: input.session,
           newPassword: input.newPassword,
+          mfaCode: input.mfaCode,
           email: input.email,
         });
+
+        // Handle case where another challenge is required (e.g., MFA after password change)
+        if (result.ChallengeName) {
+          return {
+            success: false,
+            challengeName: result.ChallengeName,
+            challengeParameters: result.ChallengeParameters,
+            session: result.Session,
+            message: 'Additional authentication step required',
+          };
+        }
 
         if (result.AuthenticationResult) {
           if (ctx.res) {
@@ -328,22 +326,94 @@ export const authRouter = router({
             refreshToken: result.AuthenticationResult.RefreshToken,
             tokenType: result.AuthenticationResult.TokenType,
             expiresIn: result.AuthenticationResult.ExpiresIn,
-            message: 'Password updated and sign in successful',
+            message:
+              input.challengeName === 'EMAIL_OTP'
+                ? 'MFA verification successful'
+                : 'Password updated and sign in successful',
           };
         }
-
 
         throw new Error('Failed to respond to challenge');
       } catch (error: any) {
         console.error('Error responding to challenge:', error);
+
+        // Handle specific MFA errors
+        if (error.name === 'CodeMismatchException') {
+          throw new Error('Invalid MFA code');
+        }
+        if (error.name === 'ExpiredCodeException') {
+          throw new Error('MFA code has expired');
+        }
+
         throw new Error(`Challenge response failed: ${error.message}`);
       }
     }),
-    logout: publicProcedure
-        .mutation(async ({ ctx }) => {
-          if (ctx.res) {
-            clearAuthCookies(ctx.res);
-          }
-          return { success: true, message: "Signed out" };
-        }),
+
+  me: publicProcedure.query(async ({ ctx }) => {
+    const cookieHeader =
+      ctx.req?.headers?.cookie ??
+      ctx.event?.headers?.cookie ??
+      (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
+      '';
+    const cookies = cookie.parse(cookieHeader);
+
+    const hasSession =
+      Boolean(cookies.auth_access) || Boolean(cookies.auth_id) || Boolean(cookies.auth_refresh);
+
+    if (hasSession) {
+      return { authenticated: true, message: 'User session found' };
+    } else {
+      return { authenticated: false, message: 'No session' };
+    }
+  }),
+
+  refresh: publicProcedure.mutation(async ({ ctx }) => {
+    try {
+      const cookieHeader =
+        ctx.req?.headers?.cookie ??
+        ctx.event?.headers?.cookie ??
+        (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
+        '';
+      const cookies = cookie.parse(cookieHeader);
+      const refreshToken = cookies['auth_refresh'];
+
+      if (!refreshToken) {
+        return { refreshed: false, message: 'No refresh token' };
+      }
+
+      const cmd = new InitiateAuthCommand({
+        ClientId: USER_POOL_CLIENT_ID,
+        AuthFlow: AuthFlowType.REFRESH_TOKEN_AUTH,
+        AuthParameters: {
+          REFRESH_TOKEN: refreshToken,
+        },
+      });
+
+      const result = await cognitoClient.send(cmd);
+
+      if (!result.AuthenticationResult) {
+        return { refreshed: false, message: 'Token refresh failed' };
+      }
+
+      if (ctx.res) {
+        setAuthCookies(ctx.res, {
+          AccessToken: result.AuthenticationResult.AccessToken ?? null,
+          IdToken: result.AuthenticationResult.IdToken ?? null,
+          ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+        });
+      }
+
+      return { refreshed: true, expiresIn: result.AuthenticationResult.ExpiresIn };
+    } catch (err) {
+      console.error('refresh error:', err);
+      return { refreshed: false, message: 'Token refresh failed' };
+    }
+  }),
+
+  logout: publicProcedure.mutation(async ({ ctx }) => {
+    if (ctx.res) {
+      clearAuthCookies(ctx.res);
+    }
+    return { success: true, message: 'Signed out' };
+  }),
 });
