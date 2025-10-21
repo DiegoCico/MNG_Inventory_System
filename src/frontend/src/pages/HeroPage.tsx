@@ -21,7 +21,6 @@ import SecurityIcon from '@mui/icons-material/Security';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import VerifiedIcon from '@mui/icons-material/Verified';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -59,13 +58,7 @@ function HeroPage() {
   const downSm = useMediaQuery(theme.breakpoints.down('sm'));
   const [accessOpen, setAccessOpen] = useState(false);
 
-  const heroBg = useMemo(
-    () => ({
-      backgroundColor: '#F4F4F1',
-    }),
-    []
-  );
-
+  const heroBg = useMemo(() => ({ backgroundColor: '#F4F4F1' }), []);
   const cardBorder = `1px solid ${alpha('#000', 0.08)}`;
 
   return (
@@ -95,9 +88,9 @@ function HeroPage() {
               variant="contained"
               startIcon={<SecurityIcon />}
               sx={{
-                bgcolor: '#6A973C',
-                color: '#fff',
-                ':hover': { bgcolor: '#5A8434' },
+                bgcolor: '#D0A139', // yellow
+                color: '#101214',
+                ':hover': { bgcolor: '#B58827' },
                 fontWeight: 800,
               }}
             >
@@ -157,9 +150,9 @@ function HeroPage() {
                 startIcon={<SecurityIcon />}
                 sx={{
                   px: { xs: 2.25, sm: 3 },
-                  bgcolor: '#283996',
-                  color: '#fff',
-                  ':hover': { bgcolor: '#1D2D77' },
+                  bgcolor: '#D0A139', // yellow button
+                  color: '#101214',
+                  ':hover': { bgcolor: '#B58827' },
                   fontWeight: 900,
                 }}
               >
@@ -209,7 +202,8 @@ function HeroPage() {
                       py: 3,
                     }}
                   >
-                    <Box sx={{ color: '#6A973C', mb: 0.5 }}>{f.icon}</Box>
+                    {/* changed icon color to blue */}
+                    <Box sx={{ color: '#283996', mb: 0.5 }}>{f.icon}</Box>
                     <Typography variant="h6" sx={{ fontWeight: 800, color: '#1F1F1F' }}>
                       {f.title}
                     </Typography>
