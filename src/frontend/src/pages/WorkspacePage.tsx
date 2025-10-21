@@ -22,7 +22,6 @@ export default function TeamsPage() {
   const navigate = useNavigate();
   const downSm = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Match HeroPage palette
   const heroBg = useMemo(() => ({ backgroundColor: '#F4F4F1' }), []);
   const appBarBlue = '#283996';
   const appBarText = '#F7F7F7';
@@ -55,21 +54,7 @@ export default function TeamsPage() {
           </Stack>
 
           <Stack direction="row" spacing={1}>
-            <Button
-              component={Link}
-              to="/signin"
-              variant="contained"
-              startIcon={<GroupAddIcon />}
-              sx={{
-                bgcolor: ctaYellow,
-                color: '#101214',
-                ':hover': { bgcolor: ctaYellowHover },
-                fontWeight: 800,
-                textTransform: 'none',
-              }}
-            >
-              Join or Create Team
-            </Button>
+             {/* INCLUDE PROFILE USER */}
           </Stack>
         </Toolbar>
       </AppBar>
