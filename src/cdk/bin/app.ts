@@ -69,9 +69,12 @@ const fromEnvList = (raw: string) =>
 const envCallbackUrls = fromEnvList(process.env.COGNITO_CALLBACK_URLS ?? "");
 const envLogoutUrls = fromEnvList(process.env.COGNITO_LOGOUT_URLS ?? "");
 
-// Stacks
+// ---------------- Stacks ----------------
 
-// Auth
+const sesFromAddress = "cicotoste.d@northeastern.edu"; 
+const sesIdentityArn = `arn:aws:ses:${region}:${account}:identity/${sesFromAddress}`;
+
+// Auth (Cognito) — use Cognito email channel for verification codes
 const auth = new AuthStack(app, `MngAuth-${cfg.name}`, {
   env: { account, region },
   stage: cfg.name,
@@ -79,6 +82,12 @@ const auth = new AuthStack(app, `MngAuth-${cfg.name}`, {
   webOrigins: finalAuthWebOrigins,
   callbackUrls: envCallbackUrls.length ? envCallbackUrls : undefined,
   logoutUrls: envLogoutUrls.length ? envLogoutUrls : undefined,
+
+  sesFromAddress,
+  sesIdentityArn,
+
+  // "ON" => MFA for all; "OPTIONAL" => you can set EmailMfa preferred per-user
+  mfaMode: "ON",
 });
 
 // Dynamo
@@ -117,57 +126,67 @@ const api = new ApiStack(app, `MngApi-${cfg.name}`, {
   serviceName: "mng-api",
 });
 
-// Inject Cognito env automatically into API Lambda
+// Compute a default sign-in URL from WEB_ORIGINS (first origin)/signin
+const defaultSigninUrl = `${(webOrigins[0] ?? "http://localhost:5173").replace(/\/$/, "")}/signin`;
+
+// Inject Cognito + SES env into API Lambda
 api.apiFn.addEnvironment("COGNITO_USER_POOL_ID", auth.userPool.userPoolId);
 api.apiFn.addEnvironment("COGNITO_CLIENT_ID", auth.webClient.userPoolClientId);
+api.apiFn.addEnvironment("APP_SIGNIN_URL", process.env.APP_SIGNIN_URL ?? defaultSigninUrl);
 
-// Least-privilege IAM for Cognito admin flows
-api.apiFn.addToRolePolicy(new iam.PolicyStatement({
-  actions: [
-    "cognito-idp:AdminCreateUser",
-    "cognito-idp:AdminSetUserPassword",
-    "cognito-idp:AdminUpdateUserAttributes",
-    "cognito-idp:AdminConfirmSignUp",
-    "cognito-idp:AdminAddUserToGroup",
-    "cognito-idp:AdminGetUser",
-    "cognito-idp:ListUsers",
-    "cognito-idp:AdminInitiateAuth",
-    "cognito-idp:AdminRespondToAuthChallenge",
-    "cognito-idp:DescribeUserPool",
-  ],
-  resources: [auth.userPool.userPoolArn],
-}));
+// Least-privilege IAM for Cognito admin & MFA setup flows
+api.apiFn.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "cognito-idp:AdminCreateUser",
+      "cognito-idp:AdminSetUserPassword",
+      "cognito-idp:AdminUpdateUserAttributes",
+      "cognito-idp:AdminConfirmSignUp",
+      "cognito-idp:AdminAddUserToGroup",
+      "cognito-idp:AdminGetUser",
+      "cognito-idp:ListUsers",
+      "cognito-idp:AdminInitiateAuth",
+      "cognito-idp:AdminRespondToAuthChallenge",
+      "cognito-idp:DescribeUserPool",
+      "cognito-idp:AssociateSoftwareToken",
+      "cognito-idp:VerifySoftwareToken",
+      "cognito-idp:AdminSetUserMFAPreference",
+    ],
+    resources: [auth.userPool.userPoolArn],
+  })
+);
 
-// ---- SES
+// SES stack (for custom invite emails)
 const ses = new SesStack(app, `MngSes-${cfg.name}`, {
   env: { account, region },
   stage: cfg.name,
-  rootDomain: "example.com", // TODO: set main domain later
+  rootDomain: "example.com", // optional domain infra if/when you use it
   fromLocalPart: "noreply",
   createFeedbackTopic: true,
+  // Use a verified identity you already have:
   emailFrom: "cicotoste.d@northeastern.edu",
 });
 
-// Grant API Lambda SES send permissions/vars
+// Grant API Lambda SES send permissions + envs
 api.apiFn.role?.addManagedPolicy(ses.node.tryFindChild("SesSendPolicy") as iam.ManagedPolicy);
 api.apiFn.addEnvironment("SES_FROM_ADDRESS", ses.fromAddress);
-api.apiFn.addEnvironment("SES_CONFIG_SET", ses.configurationSetName);
+if (ses.configurationSetName) {
+  api.apiFn.addEnvironment("SES_CONFIG_SET", ses.configurationSetName);
+}
 
-// SES least-privilege IAM
-api.apiFn.addToRolePolicy(new iam.PolicyStatement({
-  sid: "AllowSesSendFromVerifiedFromAddress",
-  actions: ["ses:SendEmail", "ses:SendRawEmail"],
-  resources: ["*"],
-  conditions: {
-    StringEquals: {
-      "ses:FromAddress": ses.fromAddress,
-    },
-  },
-}));
+// SES least-privilege (scoped to from-address)
+api.apiFn.addToRolePolicy(
+  new iam.PolicyStatement({
+    sid: "AllowSesSendFromVerifiedFromAddress",
+    actions: ["ses:SendEmail", "ses:SendRawEmail"],
+    resources: ["*"], // SESv2 send-email is resource-agnostic; gate with condition:
+    conditions: { StringEquals: { "ses:FromAddress": ses.fromAddress } },
+  })
+);
 
-// Wire API → Web
-const apiEndpoint = api.httpApi.apiEndpoint; // https://abc123.execute-api.us-east-1.amazonaws.com
-const apiDomainName = cdk.Fn.select(2, cdk.Fn.split("/", apiEndpoint)); // abc123.execute-api.us-east-1.amazonaws.com
+// Wire API → Web (so the frontend can call /trpc/* through CF if needed)
+const apiEndpoint = api.httpApi.apiEndpoint; // https://{apiId}.execute-api.{region}.amazonaws.com
+const apiDomainName = cdk.Fn.select(2, cdk.Fn.split("/", apiEndpoint)); // {apiId}.execute-api.{region}.amazonaws.com
 
 // Web
 const web = new WebStack(app, `MngWeb-${cfg.name}`, {

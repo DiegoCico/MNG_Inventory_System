@@ -1,13 +1,9 @@
 import { fromIni } from "@aws-sdk/credential-provider-ini";
-import { 
-  CognitoIdentityProviderClient 
+import {
+  CognitoIdentityProviderClient,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { 
-  SESv2Client 
-} from "@aws-sdk/client-sesv2";
-import { 
-  S3Client 
-} from "@aws-sdk/client-s3";
+import { SESv2Client } from "@aws-sdk/client-sesv2";
+import { S3Client } from "@aws-sdk/client-s3";
 
 // Hardcode region; change if needed
 const AWS_REGION = "us-east-1";
@@ -34,8 +30,8 @@ export const s3Client = new S3Client({
   credentials,
 });
 
-export const AWS_CONFIG = { 
-  region: AWS_REGION, 
-  isLambda, 
-  profile: isLambda ? "lambda-role" : "mng" 
+export const AWS_CONFIG = {
+  region: AWS_REGION,
+  isLambda,
+  profile: isLambda ? "lambda-role" : "mng",
 };
