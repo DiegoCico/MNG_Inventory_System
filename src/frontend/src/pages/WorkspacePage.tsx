@@ -8,14 +8,15 @@ import {
   Stack,
   Toolbar,
   Typography,
+  TextField,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
-import { useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import TeamIcon from '../components/TeamsComponent'; 
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import TeamIcon from '../components/TeamsComponent';
 
 export default function TeamsPage() {
   const theme = useTheme();
@@ -28,14 +29,24 @@ export default function TeamsPage() {
   const ctaYellow = '#D0A139';
   const ctaYellowHover = '#B58827';
 
+  // Mock data
   const teams = [
     { id: '1', name: 'Supply Trace', role: 'OWNER' },
     { id: '2', name: 'CS4535 (Fall 2025)', role: 'STUDENT' },
+    { id: '3', name: 'NEU Hackathon', role: 'OWNER' },
+    { id: '4', name: 'MNG Inventory', role: 'MEMBER' },
   ];
+
+  /* ----------------------------- Filter states ----------------------------- */
+  const [search, setSearch] = useState('');
+
+  const filteredTeams = teams.filter((team) =>
+    team.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: heroBg.backgroundColor }}>
-      {/* Header (same style as Hero) */}
+      {/* Header */}
       <AppBar
         position="sticky"
         elevation={0}
@@ -52,15 +63,12 @@ export default function TeamsPage() {
               SupplyNet
             </Typography>
           </Stack>
-
-          <Stack direction="row" spacing={1}>
-             {/* INCLUDE PROFILE USER */}
-          </Stack>
         </Toolbar>
       </AppBar>
 
       {/* Body */}
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
+        {/* Header Row */}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
@@ -98,19 +106,45 @@ export default function TeamsPage() {
           </Button>
         </Stack>
 
+        {/* Search Bar */}
+        <Stack
+          direction="row"
+          sx={{
+            mb: 3,
+            bgcolor: '#fff',
+            p: 2,
+            borderRadius: 2,
+            border: `1px solid ${alpha('#000', 0.1)}`,
+          }}
+        >
+          <TextField
+            label="Search Teams"
+            variant="outlined"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            fullWidth
+            InputProps={{
+              sx: { color: '#000' }, // make input text black
+            }}
+            InputLabelProps={{
+              sx: { color: '#000' }, // make label text black
+            }}
+          />
+        </Stack>
+
         <Divider sx={{ mb: 3, borderColor: alpha('#000', 0.1) }} />
 
+        {/* Teams Grid */}
         <Grid container spacing={2.5}>
-          {teams.map((team) => (
+          {filteredTeams.map((team) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={team.id}>
-              {/* Your icon card component (click -> /teams/:id) */}
               <TeamIcon {...team} />
             </Grid>
           ))}
         </Grid>
 
-        {/* Optional: empty state */}
-        {teams.length === 0 && (
+        {/* Empty State */}
+        {filteredTeams.length === 0 && (
           <Box
             sx={{
               mt: 6,
@@ -123,23 +157,11 @@ export default function TeamsPage() {
             }}
           >
             <Typography variant="h6" sx={{ fontWeight: 800, color: '#1F1F1F', mb: 1 }}>
-              No teams yet
+              No matching teams
             </Typography>
-            <Typography variant="body2" sx={{ color: '#3A3A3A', mb: 2 }}>
-              Create or join a team to get started.
+            <Typography variant="body2" sx={{ color: '#3A3A3A' }}>
+              Try a different search.
             </Typography>
-            <Button
-              variant="contained"
-              onClick={() => navigate('/teams/new')}
-              sx={{
-                bgcolor: ctaYellow,
-                color: '#101214',
-                ':hover': { bgcolor: ctaYellowHover },
-                fontWeight: 800,
-              }}
-            >
-              Join or Create Team
-            </Button>
           </Box>
         )}
       </Container>
