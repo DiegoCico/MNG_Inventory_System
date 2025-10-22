@@ -77,44 +77,12 @@ const inviteUser = async (params: { email: string }) => {
 };
 
 const signIn = async (params: { email: string; password: string }) => {
-  const command = new AdminInitiateAuthCommand({
+    const command = new AdminInitiateAuthCommand({
     UserPoolId: USER_POOL_ID,
-    ClientId: USER_POOL_CLIENT_ID,
+    ClientId: USER_POOL_CLIENT_ID,             // must be your current no-secret client
     AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
-    AuthParameters: {
-      USERNAME: params.email,
-      PASSWORD: params.password,
-    },
+    AuthParameters: { USERNAME: params.email, PASSWORD: params.password },
   });
-  return await cognitoClient.send(command);
-};
-
-const respondToChallenge = async (params: {
-  challengeName: string;
-  session: string;
-  newPassword?: string;
-  mfaCode?: string;
-  email: string;
-}) => {
-  const challengeResponses: Record<string, string> = {
-    USERNAME: params.email,
-  };
-
-  // Handle different challenge types
-  if (params.challengeName === 'NEW_PASSWORD_REQUIRED' && params.newPassword) {
-    challengeResponses.NEW_PASSWORD = params.newPassword;
-  } else if (params.challengeName === 'EMAIL_OTP' && params.mfaCode) {
-    challengeResponses.EMAIL_OTP_CODE = params.mfaCode;
-  }
-
-  const command = new AdminRespondToAuthChallengeCommand({
-    UserPoolId: USER_POOL_ID,
-    ClientId: USER_POOL_CLIENT_ID,
-    ChallengeName: params.challengeName as ChallengeNameType,
-    Session: params.session,
-    ChallengeResponses: challengeResponses,
-  });
-
   return await cognitoClient.send(command);
 };
 

@@ -10,7 +10,6 @@ import {
   Stack,
   Alert,
   LinearProgress,
-  Tooltip,
 } from "@mui/material";
 import { Visibility, VisibilityOff, CheckCircle, Cancel, Lock } from "@mui/icons-material";
 import { completeNewPassword, me, refresh, loginUser } from "../api/auth";
@@ -42,9 +41,13 @@ function scorePassword(pw: string): { score: number; label: string } {
 
 function Req({ label, met }: { label: string; met: boolean }) {
   return (
-    <Box display="flex" alignItems="center" gap={1}>
-      {met ? <CheckCircle fontSize="small" color="success" /> : <Cancel fontSize="small" color="error" />}
-      <Typography variant="body2" color={met ? "success.main" : "text.secondary"}>
+    <Box display="flex" alignItems="center" gap={0.7}>
+      {met ? <CheckCircle fontSize="small" color="success" /> : <Cancel fontSize="small" color="disabled" />}
+      <Typography
+        variant="body2"
+        color={met ? "success.main" : "text.secondary"}
+        sx={{ fontSize: "0.8rem" }}
+      >
         {label}
       </Typography>
     </Box>
@@ -62,7 +65,6 @@ function getErrorMessage(err: unknown, fallback = "Something went wrong"): strin
 }
 
 export default function SignUpComponent({ onComplete }: { onComplete: () => void }) {
-  // Email comes from SignIn step; user cannot change it here.
   const presetEmail = useMemo(() => localStorage.getItem("cognitoEmail") || "", []);
   const [email] = useState(presetEmail);
 
@@ -79,7 +81,6 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
   const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // OTP UI state
   const [otpUI, setOtpUI] = useState<{
     visible: boolean;
     challengeName?: OtpChallengeName;
@@ -87,22 +88,15 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
     email?: string;
   }>({ visible: false });
 
-  // If already signed in via cookie, finish immediately.
   useEffect(() => {
     (async () => {
       try {
         const m1 = await me();
-        if (m1.authenticated) {
-          onComplete();
-          return;
-        }
+        if (m1.authenticated) return onComplete();
         const r = await refresh().catch(() => ({ refreshed: false as const }));
         if (r?.refreshed) {
           const m2 = await me();
-          if (m2.authenticated) {
-            onComplete();
-            return;
-          }
+          if (m2.authenticated) return onComplete();
         }
       } finally {
         setCheckingSession(false);
@@ -110,7 +104,6 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
     })();
   }, [onComplete]);
 
-  // Live validation state
   const emailValid = /\S+@\S+\.\S+/.test(email);
   const reqs = {
     minLength: password.length >= 10,
@@ -123,29 +116,20 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
 
   const { score, label } = scorePassword(password);
 
-  /** Re-check cookies and finish if a session is present. */
   const confirmCookiesAndFinish = async () => {
     const m1 = await me();
-    if (m1.authenticated) {
-      onComplete();
-      return;
-    }
+    if (m1.authenticated) return onComplete();
     const r = await refresh().catch(() => ({ refreshed: false as const }));
     if (r?.refreshed) {
       const m2 = await me();
-      if (m2.authenticated) {
-        onComplete();
-        return;
-      }
+      if (m2.authenticated) return onComplete();
     }
     throw new Error("Session cookie not detected.");
   };
 
-  /** Submit handler — validates on click; button stays visible/enabled. */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (submitting) return;
-
     if (!emailValid || !allPasswordValid || !passwordsMatch) {
       setError("Please fix the highlighted fields before continuing.");
       return;
@@ -160,8 +144,6 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
 
     try {
       setSubmitting(true);
-
-      // Finish NEW_PASSWORD_REQUIRED
       const res = (await completeNewPassword(session, password, email)) as CompleteNewPasswordResponse;
 
       if (res?.success) {
@@ -169,7 +151,7 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
           await confirmCookiesAndFinish();
           return;
         } catch {
-          /* continue to OTP path if needed */
+          // fallback to OTP flow below if session cookie not found
         }
       }
 
@@ -191,31 +173,8 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
     }
   };
 
-  /** Resend OTP by re-triggering sign-in with the new password we just set. */
-  const handleResendCode = async () => {
-    try {
-      setSubmitting(true);
-      const res = (await loginUser(email, password)) as LoginUserResponse;
-      if (res?.session && res?.challengeName) {
-        setOtpUI({
-          visible: true,
-          challengeName: res.challengeName as OtpChallengeName,
-          session: res.session,
-          email,
-        });
-      } else {
-        setError("Could not resend code. Try again shortly.");
-      }
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, "Could not resend code. Please try again."));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   if (checkingSession) return null;
 
-  // OTP step UI
   if (otpUI.visible && otpUI.session && otpUI.email) {
     return (
       <EmailOtpCard
@@ -227,7 +186,7 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
             ? "We sent a verification code to your email."
             : "Enter the verification code from your device."
         }
-        onResend={handleResendCode}
+        onResend={() => {}}
         onBack={() => setOtpUI({ visible: false })}
       />
     );
@@ -237,17 +196,17 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
     <Box component="form" onSubmit={handleSubmit} noValidate>
       <Stack spacing={3}>
         <Box textAlign="center">
-          <Typography variant="h4" sx={{ fontWeight: 900, color: "#1F1F1F", mb: 0.5, letterSpacing: 0.3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 900, color: "#1F1F1F", mb: 0.5 }}>
             Complete Your Registration
           </Typography>
-          <Typography variant="body1" sx={{ color: "#3A3A3A" }}>
+          <Typography variant="body1" color="text.secondary">
             Set your password to finish signing in
           </Typography>
         </Box>
 
         {error && <Alert severity="error">{error}</Alert>}
 
-        {/* EMAIL (locked) */}
+        {/* EMAIL */}
         <TextField
           label="Email (locked)"
           type="email"
@@ -261,99 +220,89 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
                 <Lock fontSize="small" />
               </InputAdornment>
             ),
-            sx: { backgroundColor: "#F3F3F3", borderRadius: 2, color: "#000", input: { color: "#000" } },
+            sx: { backgroundColor: "#F3F3F3", borderRadius: 2, input: { color: "#000" } },
           }}
-          helperText="This email was set by your invite and cannot be changed here."
-          InputLabelProps={{ sx: { color: "#555" } }}
+          helperText="This email was set by your invite and cannot be changed."
         />
 
-        {/* PASSWORD */}
-        <TextField
-          label="New Password"
-          type={showPassword ? "text" : "password"}
-          fullWidth
-          required
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
-            setCapsOnPwd(e.getModifierState?.("CapsLock") ?? false)
-          }
-          error={password !== "" && !allPasswordValid}
-          helperText={password === "" ? "" : allPasswordValid ? "" : "Password must meet all requirements"}
-          InputProps={{
-            sx: { backgroundColor: "#FAFAFA", borderRadius: 2, color: "#000", input: { color: "#000" } },
-            endAdornment: (
-              <InputAdornment position="end">
-                <Tooltip title={showPassword ? "Hide password" : "Show password"}>
-                  <IconButton onClick={() => setShowPassword((p) => !p)} edge="end" aria-label="toggle password visibility">
+        {/* PASSWORD FIELDS */}
+        <Stack spacing={2}>
+          <TextField
+            label="Password"
+            type={showPassword ? "text" : "password"}
+            fullWidth
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyUp={(e) => setCapsOnPwd(e.getModifierState?.("CapsLock") ?? false)}
+            InputProps={{
+              sx: {
+                backgroundColor: "#FAFAFA",
+                borderRadius: 2,
+                input: { color: "#000" },
+              },
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowPassword((p) => !p)} edge="end">
                     {showPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
-                </Tooltip>
-              </InputAdornment>
-            ),
-          }}
-          InputLabelProps={{ sx: { color: "#555" } }}
-        />
+                </InputAdornment>
+              ),
+            }}
+          />
 
-        {/* Strength meter + caps-lock warning */}
-        <Box>
-          <Box display="flex" justifyContent="space-between" mb={0.5}>
-            <Typography variant="caption" color="text.secondary">Password strength: {label}</Typography>
-            {capsOnPwd && <Typography variant="caption" color="warning.main">Caps Lock is ON</Typography>}
-          </Box>
-          <LinearProgress variant="determinate" value={score} />
-        </Box>
-
-        {/* Requirements list */}
-        <Box sx={{ ml: 1, mt: -1 }}>
-          <Req label="At least 10 characters" met={reqs.minLength} />
-          <Req label="At least one uppercase letter" met={reqs.uppercase} />
-          <Req label="At least one lowercase letter" met={reqs.lowercase} />
-          <Req label="At least one number" met={reqs.number} />
-        </Box>
-
-        {/* CONFIRM PASSWORD */}
-        <TextField
-          label="Confirm New Password"
-          type={showConfirmPassword ? "text" : "password"}
-          fullWidth
-          required
-          autoComplete="new-password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          onPaste={(e) => e.preventDefault()}
-          onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
-            setCapsOnConfirm(e.getModifierState?.("CapsLock") ?? false)
-          }
-          error={confirmPassword !== "" && !passwordsMatch}
-          helperText={confirmPassword === "" ? "" : passwordsMatch ? "" : "Passwords do not match"}
-          InputProps={{
-            sx: { backgroundColor: "#FAFAFA", borderRadius: 2, color: "#000", input: { color: "#000" } },
-            endAdornment: (
-              <InputAdornment position="end">
-                <Tooltip title={showConfirmPassword ? "Hide password" : "Show password"}>
-                  <IconButton onClick={() => setShowConfirmPassword((p) => !p)} edge="end" aria-label="toggle confirm password visibility">
+          <TextField
+            label="Confirm Password"
+            type={showConfirmPassword ? "text" : "password"}
+            fullWidth
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            onKeyUp={(e) => setCapsOnConfirm(e.getModifierState?.("CapsLock") ?? false)}
+            InputProps={{
+              sx: {
+                backgroundColor: "#FAFAFA",
+                borderRadius: 2,
+                input: { color: "#000" },
+              },
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowConfirmPassword((p) => !p)} edge="end">
                     {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
-                </Tooltip>
-              </InputAdornment>
-            ),
-          }}
-          InputLabelProps={{ sx: { color: "#555" } }}
-        />
+                </InputAdornment>
+              ),
+            }}
+            error={confirmPassword !== "" && !passwordsMatch}
+            helperText={confirmPassword && !passwordsMatch ? "Passwords do not match" : ""}
+          />
+        </Stack>
 
-        {/* Match indicator + caps-lock warning */}
-        <Box sx={{ ml: 1, mt: -1 }}>
-          <Req label="Passwords match" met={passwordsMatch} />
-          {capsOnConfirm && (
-            <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 0.5 }}>
-              Caps Lock is ON
-            </Typography>
-          )}
+        {/* Strength + Requirements BELOW BOTH FIELDS */}
+        <Box mt={1}>
+          <LinearProgress
+            variant="determinate"
+            value={score}
+            sx={{
+              height: 8,
+              borderRadius: 4,
+              "& .MuiLinearProgress-bar": {
+                backgroundColor:
+                  score < 40 ? "#d32f2f" : score < 70 ? "#f57c00" : score < 100 ? "#fbc02d" : "#2e7d32",
+              },
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Strength: {label}
+          </Typography>
+
+          <Box mt={1}>
+            <Req label="At least 10 characters" met={reqs.minLength} />
+            <Req label="At least one uppercase letter" met={reqs.uppercase} />
+            <Req label="At least one lowercase letter" met={reqs.lowercase} />
+            <Req label="At least one number" met={reqs.number} />
+            <Req label="Passwords match" met={passwordsMatch} />
+          </Box>
         </Box>
 
-        {/* CTA: always visible/enabled unless actually submitting */}
         <Button
           type="submit"
           variant="contained"

@@ -19,22 +19,28 @@ function resolveAllowedOrigin(originHeader: string | undefined): string {
   return allow[0] ?? originHeader ?? "*";
 }
 
-/** Build CORS headers */
 function buildCorsHeaders(
   originHeader: string | undefined,
   includeCreds = true,
-  includeMethodsHeaders = false
+  includeMethodsHeaders = true
 ): Record<string, string> {
   const allowOrigin = resolveAllowedOrigin(originHeader);
+
   const h: Record<string, string> = {
     "access-control-allow-origin": allowOrigin,
     vary: "Origin",
   };
-  if (includeCreds) h["access-control-allow-credentials"] = "true";
+
+  if (includeCreds) {
+    h["access-control-allow-credentials"] = "true";
+  }
+
   if (includeMethodsHeaders) {
     h["access-control-allow-methods"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
-    h["access-control-allow-headers"] = "content-type,authorization";
+    h["access-control-allow-headers"] =
+      "content-type,authorization,x-requested-with";
   }
+
   return h;
 }
 
