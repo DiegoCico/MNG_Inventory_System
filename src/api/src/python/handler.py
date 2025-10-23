@@ -65,7 +65,6 @@ def draw_wrapped_text(c, x, y_top, text, max_width, line_gap, max_lines=None, fo
             lines.append(current)
             current = w
             if max_lines and len(lines) >= max_lines:
-                # optional: add "…" if you want to signal truncation
                 break
 
     if current and (not max_lines or len(lines) < max_lines):
