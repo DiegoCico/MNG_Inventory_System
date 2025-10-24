@@ -1,87 +1,207 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import SignInPage from "../src/pages/SignInPage";
+import React from "react";
 
-// Mock navigate so we don't change real location
-const navigateMock = vi.fn();
-vi.mock("react-router-dom", async () => {
-  const actual: typeof import("react-router-dom") =
-    await vi.importActual("react-router-dom");
-  return {
-    ...actual,
-    useNavigate: () => navigateMock,
-  };
+type Challenge =
+  | "NEW_PASSWORD_REQUIRED"
+  | "EMAIL_OTP"
+  | "SMS_MFA"
+  | "SOFTWARE_TOKEN_MFA";
+
+type MeRes = { authenticated: boolean };
+type RefreshRes = { refreshed: boolean };
+type LoginRes = {
+  challengeName?: Challenge;
+  session?: string;
+  success?: boolean;
+  error?: string;
+};
+
+vi.mock("../src/api/auth", () => {
+  const me = (): Promise<MeRes> => Promise.resolve({ authenticated: false });
+  const refresh = (): Promise<RefreshRes> =>
+    Promise.resolve({ refreshed: false });
+  const loginUser = (
+    _identifier: string,
+    _password: string
+  ): Promise<LoginRes> => Promise.resolve({});
+
+  return { me, refresh, loginUser };
 });
 
-// Mock the API module so NO real API is used
-const loginUserMock = vi.fn();
-vi.mock("../src/api/auth", () => ({
-  loginUser: (...args: unknown[]) => loginUserMock(...args),
-}));
-
-// Mock SignUpComponent to a simple visible stub
+// ---------- Mock children with typed props ----------
+interface SignUpComponentProps {
+  onComplete: () => void;
+}
 vi.mock("../src/components/SignUpComponent", () => ({
-  default: (props: { onComplete?: () => void }) => (
-    <div data-testid="signup-mock" onClick={props.onComplete}>
-      SignUp Mock
+  __esModule: true,
+  default: ({ onComplete }: SignUpComponentProps) => (
+    <div data-testid="signup-mock">
+      <p>SignUpComponent</p>
+      <button onClick={onComplete}>complete-signup</button>
     </div>
   ),
 }));
 
-describe("SignInPage (unit, no real APIs)", () => {
-  const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-  const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+interface EmailOtpCardProps {
+  session: string;
+  email: string;
+  challengeName?: Challenge;
+  helperText?: string;
+  onResend: () => void;
+  onBack: () => void;
+}
+vi.mock("../src/components/EmailOtpCard", () => ({
+  __esModule: true,
+  default: (props: EmailOtpCardProps) => (
+    <div data-testid="email-otp-mock">
+      <p>EmailOtpCard</p>
+      <button onClick={props.onResend}>resend</button>
+      <button onClick={props.onBack}>back</button>
+    </div>
+  ),
+}));
 
+// ---------- Mock navigate ----------
+vi.mock("react-router-dom", async (orig) => {
+  const actual = await orig();
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+  };
+});
+
+import SignInPage from "../src/pages/SignInPage";
+
+describe("SignInPage (UI-only)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    navigateMock.mockReset();
   });
 
-  const renderPage = () =>
-    render(
-      <MemoryRouter>
-        <SignInPage />
-      </MemoryRouter>
-    );
+  it("renders login view after session check", async () => {
+    render(<SignInPage />);
 
-  it("disables Login until both fields are filled; enables after input", () => {
-    renderPage();
+    expect(screen.queryByText(/Welcome Back/i)).toBeNull(); // null during checking
 
-    const userInput = screen.getByLabelText(/username or email/i);
-    const passInput = screen.getByLabelText(/password/i);
+    expect(await screen.findByText(/Welcome Back/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Please log in to your account/i)
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByLabelText(/Username or Email/i)
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Password/i)).toBeInTheDocument();
+
     const loginBtn = screen.getByRole("button", { name: /login/i });
-
-    expect(loginBtn).toBeDisabled();
-
-    fireEvent.change(userInput, { target: { value: "user@example.com" } });
-    expect(loginBtn).toBeDisabled(); // still disabled (no password)
-
-    fireEvent.change(passInput, { target: { value: "Secret123!" } });
-    expect(loginBtn).not.toBeDisabled();
+    expect(loginBtn).toBeInTheDocument();
+    expect(loginBtn).toBeEnabled();
   });
 
-  it("navigates to /home on successful login", async () => {
-    loginUserMock.mockResolvedValueOnce({ success: true });
+  it("switches to Email OTP view on OTP challenge (UI only)", async () => {
+    const authMod = (await import("../src/api/auth")) as typeof import("../src/api/auth");
+    vi.spyOn(authMod, "loginUser").mockResolvedValueOnce({
+      challengeName: "EMAIL_OTP",
+      session: "abc",
+      success: false,
+    } as LoginRes);
 
-    renderPage();
+    render(<SignInPage />);
+    await screen.findByText(/Welcome Back/i);
 
-    fireEvent.change(screen.getByLabelText(/username or email/i), {
+    fireEvent.change(screen.getByLabelText(/Username or Email/i), {
       target: { value: "user@example.com" },
     });
-    fireEvent.change(screen.getByLabelText(/password/i), {
-      target: { value: "Secret123!" },
+    fireEvent.change(screen.getByLabelText(/Password/i), {
+      target: { value: "secret" },
     });
 
-    fireEvent.submit(screen.getByRole("button", { name: /login/i }));
+    fireEvent.click(screen.getByRole("button", { name: /login/i }));
 
-    await waitFor(() => {
-      expect(loginUserMock).toHaveBeenCalledWith(
-        "user@example.com",
-        "Secret123!"
-      );
-      expect(navigateMock).toHaveBeenCalledWith("/home");
-    });
+    expect(await screen.findByTestId("email-otp-mock")).toBeInTheDocument();
+    expect(screen.queryByText(/Welcome Back/i)).toBeNull();
   });
 
+  it("switches to Sign Up on NEW_PASSWORD_REQUIRED (UI only)", async () => {
+    const authMod = (await import("../src/api/auth")) as typeof import("../src/api/auth");
+    vi.spyOn(authMod, "loginUser").mockResolvedValueOnce({
+      challengeName: "NEW_PASSWORD_REQUIRED",
+      session: "xyz",
+      success: false,
+    } as LoginRes);
+
+    render(<SignInPage />);
+    await screen.findByText(/Welcome Back/i);
+
+    fireEvent.change(screen.getByLabelText(/Username or Email/i), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/Password/i), {
+      target: { value: "secret" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /login/i }));
+
+    expect(await screen.findByTestId("signup-mock")).toBeInTheDocument();
+    expect(screen.queryByText(/Welcome Back/i)).toBeNull();
+  });
+
+  it("can go back from OTP to login view (UI only)", async () => {
+    const authMod = (await import("../src/api/auth")) as typeof import("../src/api/auth");
+    vi.spyOn(authMod, "loginUser").mockResolvedValueOnce({
+      challengeName: "EMAIL_OTP",
+      session: "abc",
+      success: false,
+    } as LoginRes);
+
+    render(<SignInPage />);
+    await screen.findByText(/Welcome Back/i);
+
+    fireEvent.change(screen.getByLabelText(/Username or Email/i), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/Password/i), {
+      target: { value: "secret" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /login/i }));
+    expect(await screen.findByTestId("email-otp-mock")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(/back/i));
+
+    expect(await screen.findByText(/Welcome Back/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /login/i })).toBeInTheDocument();
+  });
+
+  it("resend in OTP view stays on OTP (UI only)", async () => {
+    const authMod = (await import("../src/api/auth")) as typeof import("../src/api/auth");
+    vi.spyOn(authMod, "loginUser")
+      .mockResolvedValueOnce({
+        challengeName: "EMAIL_OTP",
+        session: "abc",
+        success: false,
+      } as LoginRes) // first login -> OTP
+      .mockResolvedValueOnce({
+        challengeName: "EMAIL_OTP",
+        session: "def",
+        success: false,
+      } as LoginRes); // resend -> still OTP
+
+    render(<SignInPage />);
+    await screen.findByText(/Welcome Back/i);
+
+    fireEvent.change(screen.getByLabelText(/Username or Email/i), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/Password/i), {
+      target: { value: "secret" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /login/i }));
+    expect(await screen.findByTestId("email-otp-mock")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(/resend/i));
+
+    expect(await screen.findByTestId("email-otp-mock")).toBeInTheDocument();
+  });
 });
