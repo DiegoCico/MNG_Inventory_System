@@ -3,7 +3,6 @@ import cors from "cors";
 import * as trpcExpress from "@trpc/server/adapters/express";
 import { appRouter } from "./routers";
 import { createContext } from "./routers/trpc";
-import imageServiceRouter from "./routers/image_service";
 
 const app = express();
 
@@ -12,9 +11,6 @@ app.use(express.json());
 
 // Health check endpoint
 app.get("/health", (_req, res) => res.status(200).send("ok"));
-
-// Images endpoint
-app.use("/images", imageServiceRouter);
 
 // tRPC endpoint
 app.use(
