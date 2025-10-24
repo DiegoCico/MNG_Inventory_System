@@ -14,6 +14,63 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 
+/**
+ * ---------------------------------------------------------------------------
+ * S3 Router — Unified Image and File Upload Service
+ * ---------------------------------------------------------------------------
+ * This router handles all S3 interactions for the Inventory Management System:
+ *
+ * **Endpoints (tRPC procedures)**
+ *   • `s3Health` — quick service ping returning `{ ok, scope: "s3" }`
+ *   • `uploadImage` — accepts a base64 Data URL and uploads it to S3 under a
+ *       structured key: `teams/<teamId>/<scope>/items/.../<uuid>_<hint>.<ext>`
+ *       Returns `{ key, contentType, size, headUrl }`.
+ *   • `getSignedUrl` — generates a short-lived presigned URL for secure object access.
+ *   • `deleteObject` — deletes an object by S3 key (and optionally removes DB metadata).
+ *   • `listImages` — lists all objects under a given team/scope/item prefix.
+ *
+ * **Usage**
+ *   1. The router is registered under the app’s tRPC endpoint:
+ *        `app.use("/trpc", trpcExpress.createExpressMiddleware({ router: appRouter }))`
+ *      ...where `appRouter` includes `s3Router` as a merged feature router.
+ *
+ *   2. Client calls (via tRPC or HTTP) use:
+ *        • POST `/trpc/s3.uploadImage`
+ *        • GET  `/trpc/s3.getSignedUrl?input=...`
+ *        • GET  `/trpc/s3.listImages?input=...`
+ *        • POST `/trpc/s3.deleteObject`
+ *
+ * **Behavior**
+ *   • Objects are **private** by default; access only through presigned URLs.
+ *   • Automatically saves optional metadata through `ctx.repos.images` if available.
+ *   • Auto-generates organized, time-based S3 keys for efficient listing and cleanup.
+ *   • In test environments (`NODE_ENV=test`), a dummy bucket name is used.
+ *
+ * **Example upload input**
+ * ```json
+ * {
+ *   "scope": "item",
+ *   "teamId": "alpha",
+ *   "serialNumber": "SN123",
+ *   "filenameHint": "front-view.png",
+ *   "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA...",
+ *   "alt": "Front view of inventory item"
+ * }
+ * ```
+ *
+ * **Return example**
+ * ```json
+ * {
+ *   "key": "teams/alpha/item/items/serial-SN123/2025/10/24/<uuid>_front-view.png",
+ *   "contentType": "image/png",
+ *   "size": 18432,
+ *   "headUrl": "https://mock-s3-url.com/fake-object"
+ * }
+ * ```
+ *
+ * ---------------------------------------------------------------------------
+ */
+
 /* ------------------------- Local Context Typing ------------------------- */
 
 type ImageRepo = {
