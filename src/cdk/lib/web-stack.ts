@@ -10,9 +10,9 @@ import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 export interface WebStackProps extends cdk.StackProps {
   stage: { name: string };
   serviceName?: string;
-  frontendBuildPath?: string;          // "../../frontend/dist"
-  apiDomainName?: string;              // "abc123.execute-api.us-east-1.amazonaws.com"
-  apiPaths?: string[];                 // which paths to send to API, default: ["/trpc/*", "/health", "/hello"]
+  frontendBuildPath?: string;     // "../../frontend/dist"
+  apiDomainName?: string;         // e.g. "q2pt62gzbh.execute-api.us-east-1.amazonaws.com"
+  apiPaths?: string[];            // default: ["/trpc/*", "/health", "/hello"]
 }
 
 export class WebStack extends cdk.Stack {
@@ -25,65 +25,89 @@ export class WebStack extends cdk.Stack {
     const stageName = props.stage.name;
     const serviceName = props.serviceName ?? "mng-web";
 
-    // Static bucket
+    // S3 bucket for static site
     this.bucket = new s3.Bucket(this, "WebBucket", {
-      // NOTE: Avoid hard-coding bucketName with unresolved account/region tokens to prevent synth errors.
-      // bucketName: `${serviceName}-${stageName}-${this.account}-${this.region}`.toLowerCase(),
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
-      removalPolicy: stageName === "prod" ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy:
+        stageName === "prod"
+          ? cdk.RemovalPolicy.RETAIN
+          : cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: stageName !== "prod",
     });
 
-    // OAI to read S3
+    // CloudFront -> S3 access identity
     const oai = new cloudfront.OriginAccessIdentity(this, "OAI", {
       comment: `${serviceName}-${stageName}-oai`,
     });
-
-    // Grant CloudFront OAI read access to the bucket
     this.bucket.grantRead(oai);
 
-    // S3 origin (behind OAI)
     const s3Origin = new origins.S3Origin(this.bucket, {
       originAccessIdentity: oai,
     });
 
-    // Optional API origin
+    // API origin (your HttpApi / API Gateway domain)
     const apiDomainName = props.apiDomainName;
     const apiPaths =
       props.apiPaths && props.apiPaths.length
         ? props.apiPaths
         : ["/trpc/*", "/health", "/hello"];
 
-    // Build additional behaviors if API is provided
+    const originRequestPolicyForApi = new cloudfront.OriginRequestPolicy(
+      this,
+      "ForwardApiRequest",
+      {
+        comment:
+          "Forward all headers EXCEPT host, plus all cookies/query, so API Gateway can auth",
+        cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
+        queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
+        headerBehavior: cloudfront.OriginRequestHeaderBehavior.denyList(
+          "host"
+        ),
+      }
+    );
+
     const additionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
+
     if (apiDomainName) {
+      // Origin that points at API Gateway
       const apiOrigin = new origins.HttpOrigin(apiDomainName, {
         protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
         originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
       });
 
+      // Attach CloudFront behaviors for dynamic API paths
       for (const p of apiPaths) {
         additionalBehaviors[p] = {
           origin: apiOrigin,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          originRequestPolicy: originRequestPolicyForApi,
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         };
       }
     }
 
+    // CloudFront Distribution
     this.distribution = new cloudfront.Distribution(this, "Distribution", {
       comment: `${serviceName}-${stageName}`,
+
       defaultRootObject: "index.html",
+
+      // Default: serve static app shell from S3
       defaultBehavior: {
         origin: s3Origin,
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        viewerProtocolPolicy:
+          cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
+
+      // Dynamic behaviors: /trpc/*, /health, /hello -> API Gateway
       additionalBehaviors,
+
+      // SPA fallback so client-side routing works
       errorResponses: [
         {
           httpStatus: 404,
@@ -94,7 +118,7 @@ export class WebStack extends cdk.Stack {
       ],
     });
 
-    // Deploy static assets if present
+    //. Upload frontend build into S3 + invalidate CF cache on deploy
     if (props.frontendBuildPath) {
       const resolved = path.resolve(__dirname, props.frontendBuildPath);
       if (fs.existsSync(resolved)) {
@@ -106,11 +130,14 @@ export class WebStack extends cdk.Stack {
           prune: true,
         });
       } else {
-        console.warn(`[WebStack] Skipping asset deploy — not found: ${resolved}`);
+        console.warn(
+          `[WebStack] Skipping deploy — not found: ${resolved}`
+        );
       }
     }
 
     new cdk.CfnOutput(this, "Stage", { value: stageName });
+
     new cdk.CfnOutput(this, "SiteUrl", {
       value: `https://${this.distribution.distributionDomainName}`,
     });
