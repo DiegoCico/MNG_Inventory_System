@@ -1,0 +1,4 @@
+{
+  "requestContext": { "http": { "method": "POST" } },
+  "body": "{\"action\":\"download\",\"orgName\":\"Local Test Unit\",\"unitId\":\"W123AA\",\"nomenclature\":\"Humvee M1151A1\",\"model\":\"M1151A1\",\"serial\":\"HMMWV-0001\",\"inspectionType\":\"Weekly PMCS\",\"tmNumber\":\"TM 9-2320-280-10\",\"tmDate\":\"2024-02-01\",\"milesHours\":\"12,345 mi\",\"location\":\"Barnes ANGB\",\"reporterName\":\"Sgt. Jane Doe\",\"reporterRank\":\"E5\",\"faultText\":\"Left marker light out. Oil seepage at rear diff.\"}"
+}
