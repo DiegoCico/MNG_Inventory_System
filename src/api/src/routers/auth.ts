@@ -178,14 +178,12 @@ export const authRouter = router({
 
         // Successful authentication - return tokens immediately
         if (result.AuthenticationResult) {
-          if (ctx.res) {
             setAuthCookies(ctx.res, {
               AccessToken: result.AuthenticationResult.AccessToken ?? null,
               IdToken: result.AuthenticationResult.IdToken ?? null,
               RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
               ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
             });
-          }
 
           return {
             success: true,
@@ -224,115 +222,140 @@ export const authRouter = router({
    * Handle authentication challenges (e.g., setting new password on first login)
    */
   respondToChallenge: publicProcedure
-    .input(
-      z
-        .object({
-          challengeName: z.string(),
-          session: z.string(),
-          newPassword: z.string().min(10).optional(),
-          mfaCode: z.string().optional(),
-          email: z.string(),
-        })
-        .refine(
-          (data) => {
-            const mfaChallenges = new Set(['EMAIL_OTP', 'SMS_MFA', 'SOFTWARE_TOKEN_MFA']);
-            if (data.challengeName === 'NEW_PASSWORD_REQUIRED') {
-              return !!data.newPassword;
-            }
-            if (mfaChallenges.has(data.challengeName)) {
-              return !!data.mfaCode;
-            }
-            return true;
-          },
-          {
-            message:
-              'newPassword required for NEW_PASSWORD_REQUIRED; mfaCode required for EMAIL_OTP/SMS_MFA/SOFTWARE_TOKEN_MFA',
-          },
-        ),
-    )
-    .mutation(async ({ input, ctx }) => {
-      try {
-        // Map the right response key based on challenge
-        const responses: Record<string, string> = { USERNAME: input.email };
-        switch (input.challengeName) {
-          case 'NEW_PASSWORD_REQUIRED':
-            responses.NEW_PASSWORD = input.newPassword!;
-            break;
-          case 'EMAIL_OTP':
-            responses.EMAIL_OTP_CODE = input.mfaCode!;
-            break;
-          case 'SMS_MFA':
-            responses.SMS_MFA_CODE = input.mfaCode!;
-            break;
-          case 'SOFTWARE_TOKEN_MFA':
-            responses.SOFTWARE_TOKEN_MFA_CODE = input.mfaCode!;
-            break;
-          default:
-            // leave as-is for other challenges (e.g., SELECT_MFA_TYPE/MFA_SETUP)
-            break;
-        }
-
-        const command = new AdminRespondToAuthChallengeCommand({
-          UserPoolId: USER_POOL_ID,
-          ClientId: USER_POOL_CLIENT_ID,
-          ChallengeName: input.challengeName as ChallengeNameType,
-          Session: input.session,
-          ChallengeResponses: responses,
-        });
-
-        const result = await cognitoClient.send(command);
-
-        // Another challenge? Surface it
-        if (result.ChallengeName) {
-          return {
-            success: false,
-            challengeName: result.ChallengeName,
-            challengeParameters: result.ChallengeParameters,
-            session: result.Session,
-            message: 'Additional authentication step required',
-          };
-        }
-
-        // Success → set cookies
-        if (result.AuthenticationResult) {
-          if (ctx.res) {
-            setAuthCookies(ctx.res, {
-              AccessToken: result.AuthenticationResult.AccessToken ?? null,
-              IdToken: result.AuthenticationResult.IdToken ?? null,
-              RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
-              ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-            });
+  .input(
+    z
+      .object({
+        challengeName: z.string(),
+        session: z.string(),
+        newPassword: z.string().min(10).optional(),
+        mfaCode: z.string().optional(),
+        email: z.string(),
+      })
+      .refine(
+        (data) => {
+          const mfaChallenges = new Set([
+            "EMAIL_OTP",
+            "SMS_MFA",
+            "SOFTWARE_TOKEN_MFA",
+          ]);
+          if (data.challengeName === "NEW_PASSWORD_REQUIRED") {
+            return !!data.newPassword;
           }
-
-          return {
-            success: true,
-            accessToken: result.AuthenticationResult.AccessToken,
-            idToken: result.AuthenticationResult.IdToken,
-            refreshToken: result.AuthenticationResult.RefreshToken,
-            tokenType: result.AuthenticationResult.TokenType,
-            expiresIn: result.AuthenticationResult.ExpiresIn,
-            message:
-              input.challengeName === 'NEW_PASSWORD_REQUIRED'
-                ? 'Password updated and sign in successful'
-                : 'MFA/OTP verification successful',
-          };
-        }
-
-        throw new Error('Failed to respond to challenge');
-      } catch (error: any) {
-        console.error('Error responding to challenge:', error);
-
-        // fine-grained MFA errors
-        if (error.name === 'CodeMismatchException') {
-          throw new Error('Invalid code');
-        }
-        if (error.name === 'ExpiredCodeException') {
-          throw new Error('Code expired');
-        }
-
-        throw new Error(`Challenge response failed: ${error.message}`);
+          if (mfaChallenges.has(data.challengeName)) {
+            return !!data.mfaCode;
+          }
+          return true;
+        },
+        {
+          message:
+            "newPassword required for NEW_PASSWORD_REQUIRED; mfaCode required for EMAIL_OTP/SMS_MFA/SOFTWARE_TOKEN_MFA",
+        },
+      ),
+  )
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const responses: Record<string, string> = { USERNAME: input.email };
+      switch (input.challengeName) {
+        case "NEW_PASSWORD_REQUIRED":
+          responses.NEW_PASSWORD = input.newPassword!;
+          break;
+        case "EMAIL_OTP":
+          responses.EMAIL_OTP_CODE = input.mfaCode!;
+          break;
+        case "SMS_MFA":
+          responses.SMS_MFA_CODE = input.mfaCode!;
+          break;
+        case "SOFTWARE_TOKEN_MFA":
+          responses.SOFTWARE_TOKEN_MFA_CODE = input.mfaCode!;
+          break;
+        default:
+          break;
       }
-    }),
+
+      const command = new AdminRespondToAuthChallengeCommand({
+        UserPoolId: USER_POOL_ID,
+        ClientId: USER_POOL_CLIENT_ID,
+        ChallengeName: input.challengeName as ChallengeNameType,
+        Session: input.session,
+        ChallengeResponses: responses,
+      });
+
+      const result = await cognitoClient.send(command);
+
+      if (result.ChallengeName) {
+        return {
+          success: false,
+          challengeName: result.ChallengeName,
+          challengeParameters: result.ChallengeParameters,
+          session: result.Session,
+          message: "Additional authentication step required",
+        };
+      }
+
+      if (result.AuthenticationResult) {
+        if (ctx.res) {
+          setAuthCookies(ctx.res, {
+            AccessToken: result.AuthenticationResult.AccessToken ?? null,
+            IdToken: result.AuthenticationResult.IdToken ?? null,
+            RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+            ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+          });
+        } else {
+          const fakeRes: any = {
+            _cookies: [] as string[],
+            getHeader() {
+              return this._cookies;
+            },
+            setHeader(name: string, value: string[] | string) {
+              if (name.toLowerCase() === "set-cookie") {
+                const arr = Array.isArray(value) ? value : [value];
+                this._cookies.push(...arr);
+              }
+            },
+          };
+
+          setAuthCookies(fakeRes as any, {
+            AccessToken: result.AuthenticationResult.AccessToken ?? null,
+            IdToken: result.AuthenticationResult.IdToken ?? null,
+            RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+            ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+          });
+
+          ctx.responseCookies = [
+            ...(ctx.responseCookies ?? []),
+            ...fakeRes._cookies,
+          ];
+        }
+
+        return {
+          success: true,
+          accessToken: result.AuthenticationResult.AccessToken,
+          idToken: result.AuthenticationResult.IdToken,
+          refreshToken: result.AuthenticationResult.RefreshToken,
+          tokenType: result.AuthenticationResult.TokenType,
+          expiresIn: result.AuthenticationResult.ExpiresIn,
+          message:
+            input.challengeName === "NEW_PASSWORD_REQUIRED"
+              ? "Password updated and sign in successful"
+              : "MFA/OTP verification successful",
+        };
+      }
+
+      throw new Error("Failed to respond to challenge");
+    } catch (error: any) {
+      console.error("Error responding to challenge:", error);
+
+      if (error.name === "CodeMismatchException") {
+        throw new Error("Invalid code");
+      }
+      if (error.name === "ExpiredCodeException") {
+        throw new Error("Code expired");
+      }
+
+      throw new Error(`Challenge response failed: ${error.message}`);
+    }
+  }),
+
 
 
   me: publicProcedure.query(async ({ ctx }) => {
@@ -381,13 +404,11 @@ export const authRouter = router({
         return { refreshed: false, message: 'Token refresh failed' };
       }
 
-      if (ctx.res) {
         setAuthCookies(ctx.res, {
           AccessToken: result.AuthenticationResult.AccessToken ?? null,
           IdToken: result.AuthenticationResult.IdToken ?? null,
           ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
         });
-      }
 
       return { refreshed: true, expiresIn: result.AuthenticationResult.ExpiresIn };
     } catch (err) {
@@ -397,9 +418,7 @@ export const authRouter = router({
   }),
 
   logout: publicProcedure.mutation(async ({ ctx }) => {
-    if (ctx.res) {
-      clearAuthCookies(ctx.res);
-    }
+    clearAuthCookies(ctx.res);
     return { success: true, message: 'Signed out' };
   }),
 });

@@ -24,6 +24,7 @@ export class WebStack extends cdk.Stack {
 
     const stageName = props.stage.name;
     const serviceName = props.serviceName ?? "mng-web";
+    const siteOriginForCors = "https://d2cktegyq4qcfk.cloudfront.net";
 
     // S3 bucket for static site
     this.bucket = new s3.Bucket(this, "WebBucket", {
@@ -54,6 +55,7 @@ export class WebStack extends cdk.Stack {
         ? props.apiPaths
         : ["/trpc/*", "/health", "/hello"];
 
+    // Forward all request headers (except Host), cookies, query string
     const originRequestPolicyForApi = new cloudfront.OriginRequestPolicy(
       this,
       "ForwardApiRequest",
@@ -68,22 +70,40 @@ export class WebStack extends cdk.Stack {
       }
     );
 
+const responseHeadersPolicyForApi = new cloudfront.ResponseHeadersPolicy(
+  this,
+  "AllowSetCookie",
+  {
+    corsBehavior: {
+      accessControlAllowOrigins: [siteOriginForCors],
+      accessControlAllowCredentials: true,
+      accessControlAllowMethods: ["GET", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"],
+      accessControlAllowHeaders: [
+        "content-type",
+        "authorization",
+        "x-requested-with",
+      ],
+      originOverride: false,
+    },
+  }
+);
+
+
     const additionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
 
     if (apiDomainName) {
-      // Origin that points at API Gateway
       const apiOrigin = new origins.HttpOrigin(apiDomainName, {
         protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
         originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
       });
 
-      // Attach CloudFront behaviors for dynamic API paths
       for (const p of apiPaths) {
         additionalBehaviors[p] = {
           origin: apiOrigin,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: originRequestPolicyForApi,
+          responseHeadersPolicy: responseHeadersPolicyForApi,
           viewerProtocolPolicy:
             cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         };
@@ -96,7 +116,6 @@ export class WebStack extends cdk.Stack {
 
       defaultRootObject: "index.html",
 
-      // Default: serve static app shell from S3
       defaultBehavior: {
         origin: s3Origin,
         viewerProtocolPolicy:
@@ -104,10 +123,8 @@ export class WebStack extends cdk.Stack {
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
 
-      // Dynamic behaviors: /trpc/*, /health, /hello -> API Gateway
       additionalBehaviors,
 
-      // SPA fallback so client-side routing works
       errorResponses: [
         {
           httpStatus: 404,
@@ -118,7 +135,6 @@ export class WebStack extends cdk.Stack {
       ],
     });
 
-    //. Upload frontend build into S3 + invalidate CF cache on deploy
     if (props.frontendBuildPath) {
       const resolved = path.resolve(__dirname, props.frontendBuildPath);
       if (fs.existsSync(resolved)) {
