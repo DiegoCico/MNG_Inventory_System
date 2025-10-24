@@ -59,7 +59,7 @@ FIELD_COORDS = {
 
 # multi-line area for remarks: (x, y_top, max_width, line_gap, max_lines)
 WRAP_AREAS = {
-    "REMARKS": (110, 350, 468, 11, 14),
+    "REMARKS": (110, 355, 468, 11, 14),
 }
 
 # placeholders so test PDFs aren’t empty
