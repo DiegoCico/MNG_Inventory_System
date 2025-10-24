@@ -41,42 +41,62 @@ def ses_client():
 
 # field positions (points). origin bottom-left on 8.5x11 (612x792)
 FIELD_COORDS = {
-    "ORG_NAME":           (72, 708),
-    "UIC":                (430, 708),
-    "NOMENCLATURE":       (72, 684),
-    "MODEL":              (300, 684),
-    "SERIAL_NUMBER":      (450, 684),
-    "TYPE_OF_INSPECTION": (72, 660),
-    "TM_NUMBER":          (300, 660),
-    "TM_DATE":            (450, 660),
-    "MILES_HOURS":        (72, 636),
-    "LOCATION":           (300, 636),
-    "DATE":               (450, 636),
-    "INSPECTOR_NAME":     (72, 612),
-    "INSPECTOR_RANK":     (300, 612),
+    "ORGANIZATION":       (90, 720),
+    "NOMENCLATURE":       (390, 720),
+    "MODEL":              (500, 720),
+    "SERIAL_NUMBER":      (90, 690),
+    "TYPE_OF_INSPECTION": (490, 690),
+    "TM_NUMBER":          (90, 660),
+    "TM_DATE":            (220, 660),
+    "MILES":              (190, 690),
+    "HOURS":              (250, 690),
+    "ROUNDS":             (290, 690),
+    "HOTSTARTS":          (340, 690),
+    "DATE":               (440, 690),
+    "TM2_NUMBER":         (330, 660),
+    "TM2_DATE":           (500, 660),
 }
 
 # multi-line area for remarks: (x, y_top, max_width, line_gap, max_lines)
 WRAP_AREAS = {
-    "REMARKS": (72, 560, 468, 11, 14),
+    "REMARKS": (110, 350, 468, 11, 14),
 }
 
 # placeholders so test PDFs aren’t empty
 PLACEHOLDERS = {
-    "ORG_NAME":           "<orgName>",
-    "UIC":                "<unitId>",
-    "NOMENCLATURE":       "<nomenclature/freeTextItem>",
+    "ORGANIZATION":       "<organization>",
+    "NOMENCLATURE":       "<nomenclature>",
     "MODEL":              "<model>",
     "SERIAL_NUMBER":      "<serial>",
+    "MILES":              "<miles>",
+    "HOURS":              "<hours>",
+    "ROUNDS":             "<rounds>",
+    "HOTSTARTS":          "<hotstarts>",
+    "DATE":               "<yyyy-mm-dd>",
     "TYPE_OF_INSPECTION": "<inspectionType>",
     "TM_NUMBER":          "<tmNumber>",
     "TM_DATE":            "<tmDate>",
-    "MILES_HOURS":        "<milesHours>",
-    "LOCATION":           "<location>",
-    "DATE":               "<yyyy-mm-dd>",
-    "INSPECTOR_NAME":     "<reporterName>",
-    "INSPECTOR_RANK":     "<reporterRank>",
-    "REMARKS":            "<faultText>",
+    "TM2_NUMBER":         "<tm2Number>",
+    "TM2_DATE":           "<tm2Date>",
+    "REMARKS":            "<remarks>",
+}
+
+LABELS = {
+    "ORGANIZATION":       "ORGANIZATION",
+    "NOMENCLATURE":       "NOMENCLATURE",
+    "MODEL":              "MODEL",
+    "SERIAL_NUMBER":      "SERIAL NUMBER",
+    "MILES":              "MILES",
+    "HOURS":              "HOURS",
+    "ROUNDS":             "ROUNDS",
+    "HOTSTARTS":          "HOTSTARTS",
+    "DATE":               "DATE",
+    "TYPE_OF_INSPECTION": "TYPE OF INSPECTION",
+    "TM_NUMBER":          "TM NUMBER",
+    "TM_DATE":            "TM DATE",
+    "TM2_NUMBER":         "TM2 NUMBER",
+    "TM2_DATE":           "TM2 DATE",
+    "REMARKS":            "REMARKS",
 }
 
 def draw_wrapped_text(c, x, y_top, text, max_width, line_gap, max_lines=None, font="Helvetica", size=9):
@@ -123,15 +143,23 @@ def make_overlay(page_w, page_h, values, font="Helvetica", size=9):
 def stamp(template_bytes, values, font="Helvetica", size=9):
     tmpl = PdfReader(io.BytesIO(template_bytes))
     writer = PdfWriter()
+
+    # build overlay sized to page 1
     mb = tmpl.pages[0].mediabox
-    overlay = make_overlay(float(mb.width), float(mb.height), values, font, size)
-    for page in tmpl.pages:
-        page.merge_page(overlay.pages[0])
+    page_w, page_h = float(mb.width), float(mb.height)
+    overlay = make_overlay(page_w, page_h, values, font, size)
+
+    # merge on the first page; copy the rest untouched
+    for i, page in enumerate(tmpl.pages):
+        if i == 0:
+            page.merge_page(overlay.pages[0])
         writer.add_page(page)
+
     out = io.BytesIO()
     writer.write(out)
     out.seek(0)
     return out.getvalue()
+
 
 def read_template_bytes():
     if not TEMPLATE_PATH:
@@ -142,25 +170,37 @@ def read_template_bytes():
         return f.read()
 
 def to_pdf_values(payload):
-    def pick(name, placeholder_key):
+    # labels mode: show field names instead of real values
+    if payload.get("_labels"):
+        keys = list(FIELD_COORDS.keys()) + list(WRAP_AREAS.keys())
+        return { k: LABELS.get(k, k) for k in keys }
+
+    def pick(name, key):
         v = (payload.get(name) or "").strip()
-        return v if v else PLACEHOLDERS[placeholder_key]
+        return v if v else PLACEHOLDERS[key]
+
     return {
-        "ORG_NAME":           pick("orgName", "ORG_NAME"),
-        "UIC":                pick("unitId", "UIC"),
-        "NOMENCLATURE":       (payload.get("nomenclature") or payload.get("freeTextItem") or PLACEHOLDERS["NOMENCLATURE"]),
+        "ORGANIZATION":       pick("organization", "ORGANIZATION"),
+        "NOMENCLATURE":       pick("nomenclature", "NOMENCLATURE"),
         "MODEL":              pick("model", "MODEL"),
         "SERIAL_NUMBER":      pick("serial", "SERIAL_NUMBER"),
+
+        "MILES":              pick("miles", "MILES"),
+        "HOURS":              pick("hours", "HOURS"),
+        "ROUNDS":             pick("rounds", "ROUNDS"),
+        "HOTSTARTS":          pick("hotstarts", "HOTSTARTS"),
+
+        "DATE":               (payload.get("date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")),
         "TYPE_OF_INSPECTION": pick("inspectionType", "TYPE_OF_INSPECTION"),
+
         "TM_NUMBER":          pick("tmNumber", "TM_NUMBER"),
         "TM_DATE":            pick("tmDate", "TM_DATE"),
-        "MILES_HOURS":        pick("milesHours", "MILES_HOURS"),
-        "LOCATION":           pick("location", "LOCATION"),
-        "DATE":               datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        "INSPECTOR_NAME":     pick("reporterName", "INSPECTOR_NAME"),
-        "INSPECTOR_RANK":     pick("reporterRank", "INSPECTOR_RANK"),
-        "REMARKS":            pick("faultText", "REMARKS"),
+        "TM2_NUMBER":         pick("tm2Number", "TM2_NUMBER"),
+        "TM2_DATE":           pick("tm2Date", "TM2_DATE"),
+
+        "REMARKS":            pick("remarks", "REMARKS"),  # your “table” for now
     }
+
 
 def send_pdf_email(to_addr, from_addr, subject, body_text, pdf_bytes, filename):
     msg = MIMEMultipart()

@@ -1,0 +1,4 @@
+{
+  "requestContext": { "http": { "method": "POST" } },
+  "body": "{\"action\":\"download\",\"_labels\":true,\"_debug\":{\"grid\":true,\"markers\":true}}"
+}
