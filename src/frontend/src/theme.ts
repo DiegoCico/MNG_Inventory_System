@@ -1,33 +1,39 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme, ThemeOptions } from '@mui/material/styles';
 
-const theme = createTheme({
+// Shared color palette for both light and dark modes
+const paletteBase = {
+  primary: {
+    main: '#243061',       // command navy
+    dark: '#1B244A',
+    contrastText: '#EDEFF2',
+  },
+  success: {
+    main: '#6A973C',       // olive
+    dark: '#567C31',
+    contrastText: '#0E0F10',
+  },
+  warning: {
+    main: '#D0A139',       // medal gold
+    dark: '#B58827',
+    contrastText: '#101214',
+  },
+  divider: 'rgba(255,255,255,0.08)',
+};
+
+// Function that generates theme tokens based on mode
+const getDesignTokens = (mode: 'light' | 'dark'): ThemeOptions => ({
   palette: {
-    mode: 'dark',
-    primary: {
-      main: '#243061',       // command navy (for AppBar / links)
-      dark: '#1B244A',
-      contrastText: '#EDEFF2',
-    },
-    success: {
-      main: '#6A973C',       // olive (tactical)
-      dark: '#567C31',
-      contrastText: '#0E0F10',
-    },
-    warning: {
-      main: '#D0A139',       // medal gold (sparingly)
-      dark: '#B58827',
-      contrastText: '#101214',
-    },
+    mode,
+    ...paletteBase,
     background: {
-      default: '#0F1114',    // deeper, cleaner base
-      paper: '#171A1F',      // card/panel
+      default: mode === 'dark' ? '#0F1114' : '#F7F8FA',
+      paper: mode === 'dark' ? '#171A1F' : '#FFFFFF',
     },
     text: {
-      primary: '#EEF1F3',
-      secondary: '#A9B0B6',
-      disabled: '#6D747A',
+      primary: mode === 'dark' ? '#EEF1F3' : '#0F1114',
+      secondary: mode === 'dark' ? '#A9B0B6' : '#4B5563',
+      disabled: mode === 'dark' ? '#6D747A' : '#9CA3AF',
     },
-    divider: 'rgba(255,255,255,0.08)',
   },
   typography: {
     fontFamily: '"Roboto Condensed","Inter","Helvetica","Arial",sans-serif',
@@ -40,18 +46,22 @@ const theme = createTheme({
   components: {
     MuiAppBar: {
       styleOverrides: {
-        root: { height: 56, boxShadow: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)' },
+        root: {
+          height: 56,
+          boxShadow: 'none',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        },
       },
     },
     MuiContainer: {
-      defaultProps: { maxWidth: 'lg' },
+      defaultProps: { maxWidth: 'lg' as 'lg' }, // ✅ Type-safe cast
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          backgroundColor: '#171A1F',
+          backgroundColor: mode === 'dark' ? '#171A1F' : '#FFFFFF',
           border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
+          boxShadow: '0 1px 0 rgba(0,0,0,0.1)',
         },
       },
     },
@@ -76,4 +86,9 @@ const theme = createTheme({
   },
 });
 
+// Create your default (dark) theme
+const theme = createTheme(getDesignTokens('light'));
 export default theme;
+
+// Optional: export the function for a light/dark toggle feature
+export { getDesignTokens };
