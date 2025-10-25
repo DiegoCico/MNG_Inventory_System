@@ -99,7 +99,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
               component="h2"
               sx={{
                 fontWeight: 500,
-                color: '#333',
+                color: 'priamry.main',
                 fontSize: { xs: '0.75', sm: '0.825rem' },
                 marginBottom: '0.4rem'
               }}
@@ -111,7 +111,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
             <Typography
               variant="body2"
               sx={{
-                color: 'primary.main',
+                color: '#333',
                 fontSize: { xs: '0.8rem', sm: '0.875rem' },
               }}
             >

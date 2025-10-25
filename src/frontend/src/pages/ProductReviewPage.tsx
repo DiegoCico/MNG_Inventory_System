@@ -32,6 +32,16 @@ interface ProductCardProps {
   product: ItemViewModel;
 }
 
+const FAKE_ITEM: ItemViewModel = {
+  productName: "M4 Carbine Rifle",
+  actualName: "5.56mm Rifle, M4A1",
+  level: "Sensitive",
+  description: "Standard issue carbine rifle for infantry units. Regular maintenance required.",
+  imageLink: "https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=800",
+  serialNumber: "W123456789",
+  AuthQuantity: 1
+};
+
 const ProductCard = ({ product }: ProductCardProps) => {
   const [status, setStatus] = React.useState('Found');
   const [notes, setNotes] = React.useState(product.description);
@@ -40,16 +50,22 @@ const ProductCard = ({ product }: ProductCardProps) => {
     <div>
       <PercentageBar />
       <Container maxWidth="md" sx={{
-        px: { xs: 0, sm: 2, md: 3 }
+        px: { xs: 0, sm: 2, md: 3 },
+        pb: 10,
       }}>
-        <Card>
+        <Card sx={{
+          '&:hover': {
+            transform: 'none',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+          }
+        }}>
           {/* Product Image */}
           <CardMedia
             component="img"
             image={product.imageLink}
             alt={product.productName}
             sx={{
-              maxHeight: '40vh',
+              maxHeight: '45vh',
               objectFit: 'contain'
             }}
           />
@@ -122,13 +138,14 @@ const ProductCard = ({ product }: ProductCardProps) => {
               fullWidth
               sx={{
                 mt: 2,
-                bgcolor: '#81c784',
-                '&:hover': { bgcolor: '#66bb6a' },
+                bgcolor: '#6ec972',
+                '&:hover': { bgcolor: '#39c03f' },
                 textTransform: 'none',
                 fontWeight: 'bold'
               }}
             >
-              Complete
+
+              Save
             </Button>
           </CardContent>
         </Card>
@@ -149,11 +166,13 @@ const ProductDisplay = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch item data
-        const itemData = await getItem();
-        if (itemData) {
-          setProduct(itemData);
-        }
+        setProduct(FAKE_ITEM);
+
+        // Fetch item data (TODO comment back in when api works!)
+        // const itemData = await getItem();
+        // if (itemData) {
+        //   setProduct(itemData);
+        // }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch data');
       } finally {
@@ -189,9 +208,7 @@ const ProductDisplay = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
       <ProductCard product={product} />
-    </Box>
   );
 };
 
