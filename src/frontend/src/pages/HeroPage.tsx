@@ -218,6 +218,9 @@ function HeroPage() {
         </Container>
       </Box>
 
+      {/* Left for testing purposes. */}
+      <NavBar />
+
       {/* Request Access Dialog */}
       <Dialog
         open={accessOpen}
