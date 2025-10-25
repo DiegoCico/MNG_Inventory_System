@@ -218,9 +218,6 @@ function HeroPage() {
         </Container>
       </Box>
 
-      {/* Hero Page will not have NavBar, testing purposes we might have here just in case. */}
-      {/* <NavBar /> */}
-
       {/* Request Access Dialog */}
       <Dialog
         open={accessOpen}
