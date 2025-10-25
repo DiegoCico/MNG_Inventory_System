@@ -43,8 +43,19 @@ const app = express();
  * Then JSON parser, then routes.
  */
 app.use(corsMiddleware);
+/**
+ * We mount CORS first so preflight OPTIONS is handled.
+ * Then JSON parser, then routes.
+ */
+app.use(corsMiddleware);
 app.use(express.json());
 
+/**
+ * Health check
+ */
+app.get("/health", (_req: Request, res: Response) => {
+  res.status(200).send("ok");
+});
 /**
  * Health check
  */
@@ -59,6 +70,7 @@ app.use(
     router: appRouter,
     createContext: createExpressContext,
     onError({ error, path, type }) {
+      // Helpful detail in dev
       // Helpful detail in dev
       console.error(`[tRPC] ${type} ${path} failed`, {
         code: error.code,
@@ -88,9 +100,16 @@ app.use(
 /**
  * Start server unless we're under tests.
  */
+/**
+ * Start server unless we're under tests.
+ */
 const PORT = Number(process.env.PORT) || 3001;
 
 if (process.env.NODE_ENV !== "test") {
+  const server = app.listen(PORT, () => {
+    console.log(`API running on http://localhost:${PORT}`);
+    console.log("Allowed CORS origins:", CANONICAL_ALLOWED_ORIGINS);
+  });
   const server = app.listen(PORT, () => {
     console.log(`API running on http://localhost:${PORT}`);
     console.log("Allowed CORS origins:", CANONICAL_ALLOWED_ORIGINS);
