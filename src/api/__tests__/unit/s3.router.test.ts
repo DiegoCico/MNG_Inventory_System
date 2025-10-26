@@ -123,9 +123,7 @@ describe("tRPC s3 router", () => {
 
     const input = {
       scope: "item" as const,
-      teamId: "alpha",
       serialNumber: "SN1",
-      filenameHint: "foo.png",
       dataUrl,
       alt: "demo",
     };
@@ -148,9 +146,8 @@ describe("tRPC s3 router", () => {
     const putIn = calls[0].args[0].input as any;
     expect(putIn.Bucket).toBe(process.env.S3_BUCKET);
     expect(putIn.ContentType).toBe("image/png");
-    // s3 key format: teams/<teamId>/<scope>/items/(serial-...|item-...)/YYYY/MM/DD/<uuid>_hint.png
     expect(String(putIn.Key)).toMatch(
-      /^teams\/alpha\/item\/items\/(serial-SN1|item-[A-Za-z0-9._-]+)\/\d{4}\/\d{2}\/\d{2}\/[0-9a-f-]{36}_foo\.png$/i
+      /^teams\/alpha\/item\/items\/(serial-SN1|item-[A-Za-z0-9._-]+)\/\d{4}\/\d{2}\/\d{2}\/[0-9a-f-]{36}_SN1\.png$/i
     );
   });
 
@@ -164,7 +161,6 @@ describe("tRPC s3 router", () => {
       .send({
         input: {
           scope: "team",
-          teamId: "alpha",
           dataUrl: "data:application/pdf;base64,JVBERi0xLjQK",
         },
       });
@@ -207,7 +203,6 @@ describe("tRPC s3 router", () => {
     const res = await request(app).get(
       `/trpc/s3.listImages?input=${enc({
         scope: "item",
-        teamId: "alpha",
         serialNumber: "SN1",
         limit: 10,
       })}`

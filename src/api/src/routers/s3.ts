@@ -18,56 +18,15 @@ import { randomUUID } from "crypto";
  * ---------------------------------------------------------------------------
  * S3 Router — Unified Image and File Upload Service
  * ---------------------------------------------------------------------------
- * This router handles all S3 interactions for the Inventory Management System:
- *
- * **Endpoints (tRPC procedures)**
- *   • `s3Health` — quick service ping returning `{ ok, scope: "s3" }`
- *   • `uploadImage` — accepts a base64 Data URL and uploads it to S3 under a
- *       structured key: `teams/<teamId>/<scope>/items/.../<uuid>_<hint>.<ext>`
- *       Returns `{ key, contentType, size, headUrl }`.
- *   • `getSignedUrl` — generates a short-lived presigned URL for secure object access.
- *   • `deleteObject` — deletes an object by S3 key (and optionally removes DB metadata).
- *   • `listImages` — lists all objects under a given team/scope/item prefix.
- *
- * **Usage**
- *   1. The router is registered under the app’s tRPC endpoint:
- *        `app.use("/trpc", trpcExpress.createExpressMiddleware({ router: appRouter }))`
- *      ...where `appRouter` includes `s3Router` as a merged feature router.
- *
- *   2. Client calls (via tRPC or HTTP) use:
- *        • POST `/trpc/s3.uploadImage`
- *        • GET  `/trpc/s3.getSignedUrl?input=...`
- *        • GET  `/trpc/s3.listImages?input=...`
- *        • POST `/trpc/s3.deleteObject`
- *
- * **Behavior**
- *   • Objects are **private** by default; access only through presigned URLs.
- *   • Automatically saves optional metadata through `ctx.repos.images` if available.
- *   • Auto-generates organized, time-based S3 keys for efficient listing and cleanup.
- *   • In test environments (`NODE_ENV=test`), a dummy bucket name is used.
- *
- * **Example upload input**
- * ```json
- * {
- *   "scope": "item",
- *   "teamId": "alpha",
- *   "serialNumber": "SN123",
- *   "filenameHint": "front-view.png",
- *   "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA...",
- *   "alt": "Front view of inventory item"
- * }
- * ```
- *
- * **Return example**
- * ```json
- * {
- *   "key": "teams/alpha/item/items/serial-SN123/2025/10/24/<uuid>_front-view.png",
- *   "contentType": "image/png",
- *   "size": 18432,
- *   "headUrl": "https://mock-s3-url.com/fake-object"
- * }
- * ```
- *
+ * Endpoints
+ *   • `s3health` — ping
+ *   • `uploadImage` — upload from data URL; server derives teamId and uses serialNumber as filename
+ *   • `getSignedUrl` — presigned HEAD URL
+ *   • `deleteObject` — delete by key (+ optional DB cleanup)
+ *   • `listImages` — list objects under team/scope/item prefix (teamId derived server-side)
+ * Behavior
+ *   • Objects private by default; presign to access.
+ *   • In tests, a dummy bucket is used.
  * ---------------------------------------------------------------------------
  */
 
@@ -90,7 +49,17 @@ type ImageRepo = {
 };
 
 type AppLogger = { warn?: (meta: any, msg?: string) => void };
-type S3Ctx = { repos?: { images?: ImageRepo }; logger?: AppLogger };
+
+// Your app likely provides teamId on the context via session/auth.
+// We support several common locations; customize if needed.
+type S3Ctx = {
+  repos?: { images?: ImageRepo };
+  logger?: AppLogger;
+  teamId?: string;
+  user?: { teamId?: string };
+  session?: { teamId?: string };
+  auth?: { teamId?: string };
+};
 type ProcArgs<T> = { input: T; ctx: S3Ctx };
 
 /* ------------------------- Env / Client ------------------------- */
@@ -98,11 +67,9 @@ type ProcArgs<T> = { input: T; ctx: S3Ctx };
 const REGION = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1";
 const s3 = new S3Client({ region: REGION });
 
-// Defer S3 bucket presence check until runtime (prevents import-time crashes in tests)
 function requireBucket(): string {
   const bucket =
     process.env.S3_BUCKET ||
-    // allow tests to run without env var
     (process.env.NODE_ENV === "test" ? "unit-test-bucket" : "");
   if (!bucket) throw new Error("S3_BUCKET env var is required");
   return bucket;
@@ -112,12 +79,12 @@ function requireBucket(): string {
 
 const Scope = z.enum(["item", "team", "report"]);
 
+// NOTE: teamId REMOVED (derived from ctx)
+// NOTE: filenameHint REMOVED (we use serialNumber as filename)
 export const UploadInput = z.object({
   scope: Scope,
-  teamId: z.string().min(1, "teamId is required"),
   serialNumber: z.string().optional(),
   itemId: z.string().optional(),
-  filenameHint: z.string().optional(),
   dataUrl: z.string().url().or(z.string().startsWith("data:")).describe("RFC2397 data URL"),
   alt: z.string().max(200).optional(),
 });
@@ -129,13 +96,13 @@ const GetUrlInput = z.object({
 
 const DeleteInput = z.object({ key: z.string().min(3) });
 
+// NOTE: teamId REMOVED (derived from ctx)
 const ListInput = z.object({
   scope: Scope,
-  teamId: z.string(),
   serialNumber: z.string().optional(),
   itemId: z.string().optional(),
   limit: z.number().int().positive().max(1000).default(50),
-  cursor: z.string().optional(), // S3 ContinuationToken
+  cursor: z.string().optional(),
 });
 
 /* ------------------------- Utils ------------------------- */
@@ -178,8 +145,29 @@ const datePath = () => {
   return `${y}/${m}/${d}`;
 };
 
-function prefixFor(args: z.infer<typeof UploadInput>): string {
-  const parts = ["teams", sanitizeFilename(args.teamId), args.scope];
+// Pull team id from context in a flexible way (customize as needed for your app)
+function getTeamId(ctx: S3Ctx): string {
+  const fromCtx =
+    ctx?.teamId ??
+    ctx?.session?.teamId ??
+    ctx?.user?.teamId ??
+    ctx?.auth?.teamId;
+
+  // Allow tests to run without wiring a full auth context.
+  const fallbackForTests =
+    process.env.NODE_ENV === "test"
+      ? (process.env.TEST_TEAM_ID ?? "alpha")
+      : undefined;
+
+  const teamId = fromCtx ?? fallbackForTests;
+
+  if (!teamId) throw new Error("Missing teamId in server context");
+  return sanitizeFilename(teamId);
+}
+
+// Build the prefix using explicit teamId
+function prefixFor(teamId: string, args: Pick<z.infer<typeof UploadInput>, "scope" | "itemId" | "serialNumber">): string {
+  const parts = ["teams", teamId, args.scope];
   if (args.scope === "item") {
     const itemPart = args.itemId
       ? `item-${sanitizeFilename(args.itemId)}`
@@ -195,17 +183,22 @@ function prefixFor(args: z.infer<typeof UploadInput>): string {
 
 const stripExt = (name: string) => name.replace(/\.[a-z0-9]+$/i, "");
 
-// s3://<bucket>/teams/<teamId>/<scope>/[items/item-...|serial-...|reports]/YYYY/MM/DD/<uuid>_<hint>.<ext>
-function buildKey(args: z.infer<typeof UploadInput>, mime: string): string {
+// s3://<bucket>/teams/<teamId>/<scope>/.../YYYY/MM/DD/<uuid>_<hint>.<ext>
+// Hint selection: serialNumber (preferred) → itemId → "image"
+function buildKey(
+  teamId: string,
+  args: z.infer<typeof UploadInput>,
+  mime: string
+): string {
   const id = randomUUID();
-  const baseHint = args.filenameHint ?? args.itemId ?? args.serialNumber ?? "image";
-  const hint = sanitizeFilename(stripExt(baseHint));   // <-- strip extension here
-  return `${prefixFor(args)}/${datePath()}/${id}_${hint}${extFromMime(mime)}`;
+  const baseHint = args.serialNumber ?? args.itemId ?? "image";
+  const hint = sanitizeFilename(stripExt(baseHint));
+  return `${prefixFor(teamId, args)}/${datePath()}/${id}_${hint}${extFromMime(mime)}`;
 }
 
-async function headObjectExists(key: string): Promise<boolean> {
+async function headObjectExists(bucket: string, key: string): Promise<boolean> {
   try {
-    await s3.send(new HeadObjectCommand({ Bucket: requireBucket(), Key: key }));
+    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
     return true;
   } catch {
     return false;
@@ -217,14 +210,18 @@ async function headObjectExists(key: string): Promise<boolean> {
 export const s3Router = router({
   s3health: publicProcedure.query(() => ({ ok: true, scope: "s3" })),
 
+  // FRONTEND INPUT NOW: { scope, serialNumber?, itemId?, dataUrl, alt? }
+  // - teamId is derived from ctx
+  // - filename uses serialNumber (or itemId) automatically
   uploadImage: publicProcedure
     .input(UploadInput)
     .mutation(async (opts) => {
       const { input, ctx } = opts as ProcArgs<z.infer<typeof UploadInput>>;
       const BUCKET = requireBucket();
+      const teamId = getTeamId(ctx);
 
       const { mime, buffer } = parseDataUrl(input.dataUrl);
-      const Key = buildKey(input, mime);
+      const Key = buildKey(teamId, input, mime);
 
       await s3.send(
         new PutObjectCommand({
@@ -234,7 +231,7 @@ export const s3Router = router({
           ContentType: mime,
           Metadata: {
             alt: input.alt ?? "",
-            teamId: input.teamId,
+            teamId,
             scope: input.scope,
             itemId: input.itemId ?? "",
             serialNumber: input.serialNumber ?? "",
@@ -245,7 +242,7 @@ export const s3Router = router({
       const { repos, logger } = ctx ?? {};
       try {
         await repos?.images?.save?.({
-          teamId: input.teamId,
+          teamId,
           scope: input.scope,
           itemId: input.itemId,
           serialNumber: input.serialNumber,
@@ -260,7 +257,7 @@ export const s3Router = router({
       }
 
       const headUrl = await getSignedUrl(
-        s3,
+        s3 as unknown as any, // guard against AWS v3 minor skew in types
         new HeadObjectCommand({ Bucket: BUCKET, Key }),
         { expiresIn: 60 }
       );
@@ -274,11 +271,11 @@ export const s3Router = router({
       const { input } = opts as ProcArgs<z.infer<typeof GetUrlInput>>;
       const BUCKET = requireBucket();
 
-      const exists = await headObjectExists(input.key);
+      const exists = await headObjectExists(BUCKET, input.key);
       if (!exists) throw new Error("Object not found");
 
       const url = await getSignedUrl(
-        s3,
+        s3 as unknown as any,
         new HeadObjectCommand({ Bucket: BUCKET, Key: input.key }),
         { expiresIn: input.expiresIn }
       );
@@ -300,21 +297,20 @@ export const s3Router = router({
       return { ok: true };
     }),
 
+  // FRONTEND INPUT NOW: { scope, serialNumber?, itemId?, limit?, cursor? }
+  // - teamId derived from ctx
   listImages: publicProcedure
     .input(ListInput)
     .query(async (opts) => {
-      const { input } = opts as ProcArgs<z.infer<typeof ListInput>>;
+      const { input, ctx } = opts as ProcArgs<z.infer<typeof ListInput>>;
       const BUCKET = requireBucket();
+      const teamId = getTeamId(ctx);
 
-      const basePrefix = prefixFor({
+      const basePrefix = prefixFor(teamId, {
         scope: input.scope,
-        teamId: input.teamId,
         itemId: input.itemId,
         serialNumber: input.serialNumber,
-        filenameHint: undefined,
-        dataUrl: "data:image/png;base64,x", // satisfies type; unused
-        alt: undefined,
-      } as z.infer<typeof UploadInput>);
+      });
 
       const resp = await s3.send(
         new ListObjectsV2Command({
