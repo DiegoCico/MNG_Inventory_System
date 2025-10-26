@@ -1,3 +1,6 @@
+
+// modify to match dynamo schema
+
 export interface WorkspaceEntity {
   PK: `WORKSPACE#${string}`;
   SK: "METADATA";
