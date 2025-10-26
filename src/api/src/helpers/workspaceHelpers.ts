@@ -1,72 +1,76 @@
-import { QueryCommand } from "@aws-sdk/client-dynamodb";
-import { ddb } from "../aws"
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import crypto from 'crypto';
+import { doc } from '../aws';
+import { WorkspaceEntity, WorkspaceMemberEntity } from '../dynamo-types';
 
-const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'mng-dev-data';
+const TABLE_NAME = process.env.TABLE_NAME || 'mng-dev-data';
 
-
-/**
- * Get all the child items that belong to parent item
- * 
- * @param parentItemId - The ID of the parent item
- * @returns Array of child items
- */
-export const getItemsByParent = async (params: { parentItemId: string }) => {
-    const { parentItemId } = params;
-    const command = new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: 'GSI_ItemsByParent',
-        KeyConditionExpression: 'GSI2PK = :parentKey',
-        ExpressionAttributeValues: {
-            ':parentKey': {S: `PARENT#${parentItemId}`}
-        }
-    });
-    try {
-        const result = await ddb.send(command);
-
-        return result.Items || [];
-    } catch (error) {
-        console.error('Error fetching items by parent: ', error);
-        throw new Error('Failed to fetch child items');
-    }
+export const id = (n = 10): string => {
+  return crypto
+    .randomBytes(n)
+    .toString('base64')
+    .replace(/[+/=]/g, (c) => ({ '+': '-', '/': '_', '=': '' })[c] as string);
 };
 
-// getItemsByProfile
+/** Get workspace metadata */
+export const getWorkspace = async (workspaceId: string): Promise<WorkspaceEntity | null> => {
+  const res = await doc.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `WORKSPACE#${workspaceId}`, SK: 'METADATA' },
+    }),
+  );
+  return (res.Item as WorkspaceEntity) ?? null;
+};
 
-// getLocationsByParent
+/** Get user's role in a workspace */
+export const getUserRoleInWorkspace = async (
+  userId: string,
+  workspaceId: string,
+): Promise<string | null> => {
+  const res = await doc.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `WORKSPACE#${workspaceId}`, SK: `MEMBER#${userId}` },
+    }),
+  );
+  return (res.Item as WorkspaceMemberEntity)?.roleId ?? null;
+};
 
-// getReportsByItem
+/** Get role permissions */
+export const getRolePermissions = async (roleId: string): Promise<string[]> => {
+  const res = await doc.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `ROLE#${roleId}`, SK: 'METADATA' },
+    }),
+  );
+  return (res.Item as any)?.permissions ?? [];
+};
 
-// getReportsByUser
+/** Check if user has required permission in workspace */
+export const checkPermission = async (
+  userId: string,
+  workspaceId: string,
+  requiredPermission: string,
+): Promise<{ allowed: boolean; reason?: string }> => {
+  // Get user's role in workspace
+  const roleId = await getUserRoleInWorkspace(userId, workspaceId);
 
+  if (!roleId) {
+    return { allowed: false, reason: 'You are not a member of this workspace' };
+  }
 
-/**
- * Look up a user by their Cognito ID
- * 
- * @param uid - Cognito user ID from JWT Token
- * @returns User object or null if not found
- */
-export const getUserByUid = async (params: { uid: string }) => {
-    const { uid } = params;
+  // Get role permissions
+  const permissions = await getRolePermissions(roleId);
 
-    const command = new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: 'GSI_UsersByUid',
-        KeyConditionExpression: 'GSI6PK = :uidKey',
-        ExpressionAttributeValues: {
-            ':uidKey': { S: `UID#${uid}` }
-        },
-        Limit: 1,
-    });
+  // Check if user has the required permission
+  if (!permissions.includes(requiredPermission)) {
+    return {
+      allowed: false,
+      reason: `You don't have permission to perform this action (requires: ${requiredPermission})`,
+    };
+  }
 
-    try {
-        const result = await ddb.send(command);
-
-        if (!result.Items || result.Items.length === 0) {
-            return null;
-        }
-        return result.Items[0];
-    } catch (error) {
-        console.error('Error fetching user by UID: ', error);
-        throw new Error('Failed to fetch user')
-    }
+  return { allowed: true };
 };
