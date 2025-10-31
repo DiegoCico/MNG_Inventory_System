@@ -5,6 +5,8 @@ import { router, publicProcedure, mergeRouters } from "./trpc";
 import { helloRouter } from "./hello";
 import { s3Router } from "./s3";
 import { authRouter } from "./auth";
+import { workspaceRouter } from "./workspace";
+import { rolesRouter } from "./roles";
 
 // Core/health router
 const coreRouter = router({
@@ -12,7 +14,7 @@ const coreRouter = router({
 });
 
 // Merge all routers
-export const appRouter = mergeRouters(coreRouter, helloRouter, s3Router, authRouter);
+export const appRouter = mergeRouters(coreRouter, helloRouter, s3Router, authRouter, workspaceRouter, rolesRouter);
 
 // Export type for client
 export type AppRouter = typeof appRouter;
