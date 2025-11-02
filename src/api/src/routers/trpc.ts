@@ -86,3 +86,5 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
     throw new Error('INVALID_TOKEN');
   }
 });
+
+export const protectedProcedure = t.procedure.use(isAuthed);
