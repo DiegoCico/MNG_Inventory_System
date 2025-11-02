@@ -46,7 +46,7 @@ export function buildAuthSetCookies(tokens: AuthTokens): string[] {
   const headers: string[] = [];
   const accessTtl = tokens.ExpiresIn ?? 3600; // seconds
   const idTtl = tokens.ExpiresIn ?? 3600; // seconds
-  const refreshTtl = 60 * 60 * 24 * 30; // 30 days
+  const refreshTtl = 60 * 60 * 24; // 1 day
 
   if (tokens.AccessToken) {
     headers.push(serializeCookie(COOKIE_ACCESS, tokens.AccessToken, accessTtl));
