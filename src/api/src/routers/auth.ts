@@ -14,7 +14,12 @@ import {
 import crypto from 'crypto';
 import { cognitoClient } from '../aws';
 import { sendInviteEmail } from '../helpers/inviteEmail';
-import { setAuthCookies, clearAuthCookies, parseCookiesFromCtx, emitCookiesToLambda } from '../helpers/cookies';
+import {
+  setAuthCookies,
+  clearAuthCookies,
+  parseCookiesFromCtx,
+  emitCookiesToLambda,
+} from '../helpers/cookies';
 import cookie from 'cookie';
 
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
@@ -86,13 +91,11 @@ const signIn = async (params: { email: string; password: string }) => {
   return await cognitoClient.send(command);
 };
 
-
-
 export const authRouter = router({
   /**
    * Invite a new user by sending them an email (admin only)
    */
-  inviteUser: publicProcedure
+  inviteUser: protectedProcedure
     .input(
       z.object({
         email: z.string(),
@@ -337,7 +340,7 @@ export const authRouter = router({
     }),
 
   me: publicProcedure.query(async ({ ctx }) => {
-  const cookies = parseCookiesFromCtx(ctx);
+    const cookies = parseCookiesFromCtx(ctx);
 
     const hasSession =
       Boolean(cookies.auth_access) || Boolean(cookies.auth_id) || Boolean(cookies.auth_refresh);
@@ -351,7 +354,7 @@ export const authRouter = router({
 
   refresh: publicProcedure.mutation(async ({ ctx }) => {
     try {
-  const cookies = parseCookiesFromCtx(ctx);
+      const cookies = parseCookiesFromCtx(ctx);
       const refreshToken = cookies['auth_refresh'];
 
       if (!refreshToken) {
