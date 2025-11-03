@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, publicProcedure } from './trpc';
+import { router, publicProcedure, protectedProcedure } from './trpc';
 import {
   AdminCreateUserCommand,
   AdminInitiateAuthCommand,
@@ -90,7 +90,7 @@ export const authRouter = router({
   /**
    * Invite a new user by sending them an email (admin only)
    */
-  inviteUser: publicProcedure
+  inviteUser: protectedProcedure
     .input(
       z.object({
         email: z.string(),
@@ -396,7 +396,7 @@ export const authRouter = router({
     }
   }),
 
-  logout: publicProcedure.mutation(async ({ ctx }) => {
+  logout: protectedProcedure.mutation(async ({ ctx }) => {
     if (ctx.res) {
       clearAuthCookies(ctx.res);
     }
