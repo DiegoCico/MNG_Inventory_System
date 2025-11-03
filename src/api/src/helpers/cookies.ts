@@ -12,12 +12,18 @@ export const COOKIE_ACCESS = "auth_access";
 export const COOKIE_ID = "auth_id";
 export const COOKIE_REFRESH = "auth_refresh";
 
+// Choose safe defaults:
+// - production: cross-site → SameSite=None + Secure=true (required by browsers)
+// - development: http://localhost same-site → SameSite=Lax + Secure=false
+const IS_PROD = (process.env.NODE_ENV ? process.env.NODE_ENV : 'production')  === "production";
+const DEFAULT_SAMESITE = (IS_PROD ? "none" : "lax") as "none" | "lax" | "strict";
+const DEFAULT_SECURE = IS_PROD;
 
 function baseCookieOpts(maxAge?: number) {
   return {
     httpOnly: true as const,
-    secure: true as const,
-    sameSite: "none" as const,
+    secure: DEFAULT_SECURE,
+    sameSite: DEFAULT_SAMESITE,
     path: "/" as const,
     ...(typeof maxAge === "number" ? { maxAge } : {}),
   };
@@ -40,7 +46,7 @@ function serializeClear(name: string) {
 /**
  * Build Set-Cookie headers for a successful sign-in.
  * - Access/ID cookies live for ExpiresIn (default 3600s).
- * - Refresh cookie (if provided) lives for 30 days.
+ * - Refresh cookie (if provided) lives for 1 day.
  */
 export function buildAuthSetCookies(tokens: AuthTokens): string[] {
   const headers: string[] = [];
