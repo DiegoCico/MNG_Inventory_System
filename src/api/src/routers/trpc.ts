@@ -76,14 +76,24 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
   try {
     const decode = await verifier.verify(accessToken);
 
+    // Query DynamoDB to get user's info like team
+    // const user = await dynamoDB.getUser(decoded.sub);
+
     return next({
       ctx: {
         ...ctx,
-        user: { decode },
+        user: {
+          // teamId: user.teamId,
+          teamId: decode.sub, // TODO link with Dynamo later, this is literally just the user id again
+          userId: decode.sub,
+          email: decode.email,
+          username: decode['cognito:username'],
+          decode, // Keep full token for other uses
+        },
       },
     });
   } catch (err) {
-    throw new Error(`INVALID_TOKEN: ${(err instanceof Error ? err.message : String(err))}`);
+    throw new Error(`INVALID_TOKEN: ${err instanceof Error ? err.message : String(err)}`);
   }
 });
 
