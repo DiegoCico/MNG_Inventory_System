@@ -71,7 +71,7 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
     throw new Error('UNAUTHORIZED: No auth cookie found');
   }
 
-  // veryify JWT with aws-jwt-verify and
+  // verify JWT with aws-jwt-verify and
   // pass user info to the next procedure
   try {
     const decode = await verifier.verify(accessToken);
@@ -83,7 +83,7 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
       },
     });
   } catch (err) {
-    throw new Error('INVALID_TOKEN');
+    throw new Error(`INVALID_TOKEN: ${(err instanceof Error ? err.message : String(err))}`);
   }
 });
 
