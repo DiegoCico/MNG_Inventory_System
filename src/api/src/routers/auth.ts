@@ -92,7 +92,7 @@ export const authRouter = router({
   /**
    * Invite a new user by sending them an email (admin only)
    */
-  inviteUser: protectedProcedure
+  inviteUser: publicProcedure
     .input(
       z.object({
         email: z.string(),
@@ -386,7 +386,7 @@ export const authRouter = router({
     }
   }),
 
-  logout: protectedProcedure.mutation(async ({ ctx }) => {
+  logout: publicProcedure.mutation(async ({ ctx }) => {
     const headers = clearAuthCookies(ctx.res);
     emitCookiesToLambda(ctx, headers);
     return { success: true, message: 'Signed out' };
