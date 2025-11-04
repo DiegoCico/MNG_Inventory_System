@@ -1,62 +1,99 @@
 /**
  * Item Profiles Router
  * ============================================================================
- * Overview:
+ * Purpose
  * ----------------------------------------------------------------------------
- * This router manages Item Profiles within the Inventory Management System.
- * Item Profiles represent detailed metadata about inventory items scoped per team,
- * including identifiers like NSN (National Stock Number), descriptions, images,
- * hierarchical relationships, and location data.
- * 
- * This router provides a set of CRUD and listing endpoints that enforce authentication,
- * team-based scoping, and data integrity. It integrates with other system components
- * such as S3 for image storage (via imageKey references) and supports pagination
- * and filtering for efficient data retrieval.
+ * Server-side tRPC router for managing **Item Profiles**. An Item Profile is a
+ * per-workspace (team) record that describes an inventory item and includes:
+ *   - `nsn` (required): National Stock Number (or org-specific catalog #)
+ *   - `name` (required)
+ *   - `description` (optional)
+ *   - `imageKey` (optional): S3 key for the item's image
+ *   - `parentItemId` (optional): hierarchical parent (same team)
+ *   - `lastKnownLocation` (optional)
+ * The router enforces auth, workspace scoping, S3 image validation, and
+ * DynamoDB-backed CRUD with pagination and filtering.
  *
- * Quickstart for developers:
+ * How this router is mounted
  * ----------------------------------------------------------------------------
- * - Mount the router in your main API router:
- *     import { itemProfilesRouter } from "./itemProfiles";
- *     export const appRouter = router({
- *       itemProfiles: itemProfilesRouter,
- *       // other routers...
- *     });
+ *   import { itemProfilesRouter } from "./itemProfiles";
+ *   export const appRouter = router({
+ *     itemProfiles: itemProfilesRouter,
+ *     // ...
+ *   });
  *
- * - Calling from a tRPC client:
- *     // Example: create a new item profile
- *     const newItem = await trpc.itemProfiles.create.mutate({
- *       nsn: "1234-5678-90",
- *       name: "Widget A",
- *       description: "A standard widget",
- *       imageKey: "teams/<teamId>/images/widget-a.jpg", // key from S3 presigned upload
- *       parentItemId: undefined,
- *       lastKnownLocation: "Warehouse 5",
- *     });
- *
- *     // Example: get by id
- *     const byId = await trpc.itemProfiles.getById.query({ id: "..." });
- *
- *     // Example: find by NSN
- *     const byNsn = await trpc.itemProfiles.findByNSN.query({ nsn: "1234-5678-90" });
- *
- * - Typical request/response structure:
- *     Input: JSON object with required fields (nsn, name) and optional metadata.
- *     Output: Full ItemProfileRecord including generated IDs and audit fields.
- *
- * - Image handling:
- *     This router validates the key prefix (teams/{teamId}/) and verifies the object exists in S3 via HeadObject before saving.
- *
- * Environment:
- *   - Requires process.env.DDB_TABLE and process.env.S3_BUCKET to be set. The router throws at startup if missing.
- * 
- * Authentication & Team Scoping:
+ * How callers authenticate & scope requests
  * ----------------------------------------------------------------------------
- * - All endpoints require:
- *     - x-user-id header (string)
- *     - team/workspace id from URL param `:workspaceId` (preferred) or legacy `x-team-id` header
- * - Missing user → UNAUTHORIZED; missing team/workspace → FORBIDDEN.
- * - All operations are scoped to teamId to prevent cross-team access.
+ * - **User**: `x-user-id` header is required. Missing → `UNAUTHORIZED`.
+ * - **Workspace/Team**: resolved from Express route param `:workspaceId`
+ *   (preferred), or from legacy header `x-team-id`. Missing → `FORBIDDEN`.
+ * - All reads/writes are performed **within** the resolved teamId; cross-team
+ *   access is not permitted.
+ *
+ * Image handling (S3)
+ * ----------------------------------------------------------------------------
+ * - `imageKey` must be under the team prefix: `teams/{teamId}/...`.
+ * - On create/update, we perform an S3 `HeadObject` for the key to ensure the
+ *   object already exists (the upload is handled by the dedicated S3 router).
+ * - If `imageKey` is provided and does not exist or has the wrong prefix,
+ *   the request fails with `BAD_REQUEST`.
+ *
+ * Storage layout (DynamoDB)
+ * ----------------------------------------------------------------------------
+ * Table (env: `DDB_TABLE`) stores records using:
+ *   - PK = `TEAM#{teamId}`
+ *   - SK = `ITEM#{id}`
+ *   - GSI_ItemsByNSN:
+ *       * GSI7PK = `TEAM#{teamId}#NSN`
+ *       * GSI7SK = `{nsn}`
+ *     Used for NSN uniqueness checks and direct lookup by NSN within a team.
+ *   - GSI_ItemsByParent:
+ *       * GSI2PK = `TEAM#{teamId}#PARENT#{parentItemId|ROOT}`
+ *       * GSI2SK = `{updatedAt ISO}`
+ *     Used to list children of a parent item quickly.
+ *
+ * Runtime configuration (required environment)
+ * ----------------------------------------------------------------------------
+ * - `DDB_TABLE`: DynamoDB table name
+ * - `S3_BUCKET`: S3 bucket that stores item images
+ * - `AWS_REGION`: (optional) region; defaults to `"us-east-1"` elsewhere
+ * Router throws during module load if required env vars are missing.
+ *
+ * Typical usage (tRPC client)
+ * ----------------------------------------------------------------------------
+ *   // Create
+ *   await trpc.itemProfiles.create.mutate({
+ *     nsn: "1234-5678-90",
+ *     name: "Widget A",
+ *     imageKey: "teams/alpha/images/widget-a.jpg",
+ *     description: "A standard widget",
+ *     lastKnownLocation: "Aisle 5",
+ *   });
+ *
+ *   // Read
+ *   const one = await trpc.itemProfiles.getById.query({ id: "..." });
+ *   const byNsn = await trpc.itemProfiles.findByNSN.query({ nsn: "1234-5678-90" });
+ *
+ *   // Update
+ *   await trpc.itemProfiles.update.mutate({ id: "...", patch: { name: "New name" } });
+ *
+ *   // Delete (soft by default; set hard=true for hard-delete)
+ *   await trpc.itemProfiles.delete.mutate({ id: "...", hard: false });
+ *
+ * Error model
+ * ----------------------------------------------------------------------------
+ * - Known validation/auth conditions throw TRPCError with appropriate codes:
+ *   `UNAUTHORIZED`, `FORBIDDEN`, `BAD_REQUEST`, `NOT_FOUND`.
+ * - Unknown errors are mapped to `INTERNAL_SERVER_ERROR` via `mapRepoError`.
+ *
+ * Notes for contributors
+ * ----------------------------------------------------------------------------
+ * - Keep header/param resolution aligned with S3/workspace routers.
+ * - Avoid in-memory storage; all persistence is through the shared `doc` client.
+ * - If you add new query patterns, prefer new GSIs over table scans.
+ * - Keep audit stamping (`createdAt/By`, `updatedAt/By`) centralized here.
  */
+
 
 import { z } from "zod";
 import { router, publicProcedure } from "./trpc";
@@ -98,7 +135,14 @@ function requireUserId(ctx: Ctx): string {
   return userId;
 }
 
-/** Resolve team/workspace id from URL (preferred) or headers as a fallback */
+/**
+ * Resolve the workspace/team identifier for scoping.
+ * Priority:
+ *   1) Express route param `:workspaceId`
+ *   2) Lambda `event.pathParameters.workspaceId`
+ *   3) Legacy header `x-team-id` (backward compatibility)
+ * Throws FORBIDDEN if none is provided.
+ */
 function requireTeamId(ctx: Ctx): string {
   // Express route param: /api/workspaces/:workspaceId/...
   const expressParam = (ctx.req as any)?.params?.workspaceId as string | undefined;
@@ -112,7 +156,10 @@ function requireTeamId(ctx: Ctx): string {
   return teamId;
 }
 
-/** Assert imageKey lives under this team's prefix so S3 objects can't be spoofed across teams */
+/**
+ * Validate that the provided S3 key is under the team's namespace.
+ * Prevents cross-team key spoofing by enforcing prefix: `teams/{teamId}/`.
+ */
 function assertValidImageKey(teamId: string, imageKey?: string) {
   if (!imageKey) return;
   const allowedPrefix = `teams/${teamId}/`;
@@ -128,7 +175,11 @@ function normalizeImageKey(key?: string): string | undefined {
   return trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
 }
 
-/** Ensure the referenced S3 object exists; throws BAD_REQUEST if it does not. */
+/**
+ * Ensure the referenced S3 object exists in the configured bucket.
+ * Also enforces the team prefix validation via `assertValidImageKey`.
+ * @throws TRPCError(BAD_REQUEST) if the key is missing or outside the team prefix.
+ */
 async function ensureImageObjectExists(teamId: string, rawKey?: string): Promise<string | undefined> {
   const imageKey = normalizeImageKey(rawKey);
   if (!imageKey) return undefined;
@@ -195,10 +246,13 @@ function mapRepoError(e: unknown): TRPCError {
 const IdSchema = z.string().min(1, "required");
 
 /**
- * Base schema for ItemProfile input.
- * - nsn and name are required non-empty strings.
- * - description, imageKey, parentItemId, lastKnownLocation are optional.
- * - imageKey represents an S3 object key for associated images.
+ * Base schema for ItemProfile input
+ * - `nsn` (required): string; unique per team (enforced via GSI query)
+ * - `name` (required): string
+ * - `description` (optional): string
+ * - `imageKey` (optional): string; S3 object key under `teams/{teamId}/...`
+ * - `parentItemId` (optional): string; must point to an item in the same team
+ * - `lastKnownLocation` (optional): string
  */
 const ItemProfileBase = z.object({
   nsn: z.string().min(1),                     // REQUIRED
@@ -281,12 +335,25 @@ export type ItemProfileRecord = z.infer<typeof ItemProfileBase> & {
 };
 
 /**
- * Repository layer implementing CRUD and list operations for Item Profiles using DynamoDB.
- * Assumes table with PK/SK and two GSIs:
- *  - GSI_ItemsByNSN (NSN uniqueness):  GSI7PK = TEAM#{teamId}#NSN, GSI7SK = nsn
- *  - GSI_ItemsByParent (Parent listing):  GSI2PK = TEAM#{teamId}#PARENT#{parent|ROOT}, GSI2SK = updatedAt ISO
+ * Repository: DynamoDB implementation (no in-memory state)
+ * ----------------------------------------------------------------------------
+ * Keys:
+ *   - PK = TEAM#{teamId}
+ *   - SK = ITEM#{id}
+ * GSIs:
+ *   - GSI_ItemsByNSN:
+ *       GSI7PK = TEAM#{teamId}#NSN
+ *       GSI7SK = {nsn}
+ *     Used for uniqueness checks and direct lookup by NSN.
+ *   - GSI_ItemsByParent:
+ *       GSI2PK = TEAM#{teamId}#PARENT#{parent|ROOT}
+ *       GSI2SK = {updatedAt ISO}
+ *     Used for listing children by parent item.
+ * Notes:
+ *   - All date fields are stored as ISO strings.
+ *   - `deletedAt` is used for soft delete and excluded by `fromDb`.
  */
-/** Fetch required env var or throw at startup to avoid silent misconfig. */
+// --- Environment guards: fail fast on missing required configuration ------
 function requiredEnv(name: string): string {
   const v = process.env[name];
   if (!v || !v.trim()) {
@@ -298,7 +365,7 @@ function requiredEnv(name: string): string {
 const DDB_TABLE = requiredEnv("DDB_TABLE");
 const S3_BUCKET = requiredEnv("S3_BUCKET");
 
-// Key builders
+// --- Key builders (keep in sync with table/CDK) ----------------------------
 const pk = (teamId: string) => `TEAM#${teamId}`;
 const sk = (id: string) => `ITEM#${id}`;
 
@@ -556,7 +623,7 @@ export const itemProfilesRepo = {
 export const itemProfilesRouter = router({
   /**
    * Create a new Item Profile.
-   * - Requires x-user-id and x-team-id headers.
+   * - Requires `x-user-id` header and workspace/team id (from route param `:workspaceId` or legacy `x-team-id` header).
    * - Input: CreateItemProfileInput (nsn, name required; others optional).
    * - Output: Created ItemProfileRecord with audit fields.
    * - Errors:
@@ -591,7 +658,7 @@ export const itemProfilesRouter = router({
 
   /**
    * Update an existing Item Profile by ID.
-   * - Requires x-user-id and x-team-id headers.
+   * - Requires `x-user-id` header and workspace/team id (from route param `:workspaceId` or legacy `x-team-id` header).
    * - Input: UpdateItemProfileInput (id and non-empty patch).
    * - Output: Updated ItemProfileRecord.
    * - Errors:
@@ -633,7 +700,7 @@ export const itemProfilesRouter = router({
   /**
    * Delete an Item Profile by ID.
    * - Supports soft delete (default) and hard delete via input.hard flag.
-   * - Requires x-user-id and x-team-id headers.
+   * - Requires `x-user-id` header and workspace/team id (from route param `:workspaceId` or legacy `x-team-id` header).
    * - Input: DeleteItemProfileInput (id, optional hard boolean).
    * - Output: Object with deleted id.
    * - Errors:
@@ -641,6 +708,7 @@ export const itemProfilesRouter = router({
    *    - FORBIDDEN if team header missing.
    *    - NOT_FOUND if record does not exist.
    *    - INTERNAL_SERVER_ERROR on unexpected errors.
+   *    - BAD_REQUEST if parentItemId refers to a non-existent item in the team.
    * 
    * Example usage:
    *   trpc.itemProfiles.delete.mutate({ id: "...", hard: false });
@@ -661,7 +729,7 @@ export const itemProfilesRouter = router({
 
   /**
    * Retrieve an Item Profile by ID.
-   * - Requires x-user-id and x-team-id headers.
+   * - Requires `x-user-id` header and workspace/team id (from route param `:workspaceId` or legacy `x-team-id` header).
    * - Input: Object with id string.
    * - Output: ItemProfileRecord if found.
    * - Errors:
@@ -689,7 +757,7 @@ export const itemProfilesRouter = router({
 
   /**
    * Retrieve an Item Profile by NSN (within a team/workspace).
-   * - Requires x-user-id and team/workspace id.
+   * Requires x-user-id header and workspace/team id (from route param :workspaceId or legacy x-team-id header).
    * - Input: { nsn: string }
    * - Output: ItemProfileRecord if found, NOT_FOUND otherwise.
    */
@@ -709,7 +777,7 @@ export const itemProfilesRouter = router({
 
   /**
    * List Item Profiles with optional filters, pagination, and ordering.
-   * - Requires x-user-id and x-team-id headers.
+   * - Requires x-user-id header and workspace/team id (from route param :workspaceId or legacy x-team-id header).
    * - Input: ListItemProfilesInput (q, parentItemId, limit, cursor, orderBy, order).
    * - Output: Object with items array and optional nextCursor string.
    * - Errors:
