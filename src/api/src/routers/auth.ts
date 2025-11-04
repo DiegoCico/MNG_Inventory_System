@@ -14,11 +14,13 @@ import {
 import crypto from 'crypto';
 import { cognitoClient } from '../aws';
 import { sendInviteEmail } from '../helpers/inviteEmail';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import {
   setAuthCookies,
   clearAuthCookies,
   parseCookiesFromCtx,
   emitCookiesToLambda,
+  COOKIE_ACCESS,
 } from '../helpers/cookies';
 import cookie from 'cookie';
 
@@ -26,6 +28,12 @@ const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
 const USER_POOL_CLIENT_ID = process.env.COGNITO_CLIENT_ID || '6vk8qbvjv6hvb99a0jjcpbth9k';
 // export const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
 const APP_SIGNIN_URL = process.env.APP_SIGNIN_URL || 'https://d2cktegyq4qcfk.cloudfront.net/signin';
+
+const verifier = CognitoJwtVerifier.create({
+  userPoolId: USER_POOL_ID,
+  clientId: USER_POOL_CLIENT_ID,
+  tokenUse: 'access',
+});
 
 /**
  * Helper: Generate a random temporary password that satisfies Cognito's password policy
@@ -341,14 +349,27 @@ export const authRouter = router({
 
   me: publicProcedure.query(async ({ ctx }) => {
     const cookies = parseCookiesFromCtx(ctx);
+    const accessToken = cookies[COOKIE_ACCESS];
 
-    const hasSession =
-      Boolean(cookies.auth_access) || Boolean(cookies.auth_id) || Boolean(cookies.auth_refresh);
-
-    if (hasSession) {
-      return { authenticated: true, message: 'User session found' };
-    } else {
+    if (!accessToken) {
       return { authenticated: false, message: 'No session' };
+    }
+
+    // TODO Link with DynamoDB and abstract the method so isAuthed and this use the same function
+    
+    // Verify and decode the access token to get user info
+    try {
+      const decoded = await verifier.verify(accessToken);
+      return {
+        authenticated: true,
+        message: 'User session found',
+        userId: decoded.sub,
+        email: decoded.email,
+        username: decoded['cognito:username'],
+      };
+    } catch (err) {
+      // Token is invalid or expired
+      return { authenticated: false, message: 'Invalid or expired token' };
     }
   }),
 
