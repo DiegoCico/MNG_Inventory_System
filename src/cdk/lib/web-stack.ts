@@ -10,9 +10,9 @@ import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 export interface WebStackProps extends cdk.StackProps {
   stage: { name: string };
   serviceName?: string;
-  frontendBuildPath?: string;     // "../../frontend/dist"
-  apiDomainName?: string;         // e.g. "q2pt62gzbh.execute-api.us-east-1.amazonaws.com"
-  apiPaths?: string[];            // default: ["/trpc/*", "/health", "/hello"]
+  frontendBuildPath?: string;
+  apiDomainName?: string;
+  apiPaths?: string[];
 }
 
 export class WebStack extends cdk.Stack {
@@ -25,7 +25,7 @@ export class WebStack extends cdk.Stack {
     const stageName = props.stage.name;
     const serviceName = props.serviceName ?? "mng-web";
 
-    // S3 bucket for static site
+    // ===== S3 Bucket =====
     this.bucket = new s3.Bucket(this, "WebBucket", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -37,77 +37,67 @@ export class WebStack extends cdk.Stack {
       autoDeleteObjects: stageName !== "prod",
     });
 
-    // CloudFront -> S3 access identity
+    // ===== CloudFront OAI =====
     const oai = new cloudfront.OriginAccessIdentity(this, "OAI", {
       comment: `${serviceName}-${stageName}-oai`,
     });
     this.bucket.grantRead(oai);
-
     const s3Origin = new origins.S3Origin(this.bucket, {
       originAccessIdentity: oai,
     });
 
-    // API origin (your HttpApi / API Gateway domain)
+    // ===== API Origin =====
     const apiDomainName = props.apiDomainName;
-    const apiPaths =
-      props.apiPaths && props.apiPaths.length
-        ? props.apiPaths
-        : ["/trpc/*", "/health", "/hello"];
-
-    const originRequestPolicyForApi = new cloudfront.OriginRequestPolicy(
-      this,
-      "ForwardApiRequest",
-      {
-        comment:
-          "Forward all headers EXCEPT host, plus all cookies/query, so API Gateway can auth",
-        cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
-        queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
-        headerBehavior: cloudfront.OriginRequestHeaderBehavior.denyList(
-          "host"
-        ),
-      }
-    );
+    const apiPaths = props.apiPaths?.length
+      ? props.apiPaths
+      : ["/trpc/*", "/health", "/hello"];
 
     const additionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
 
     if (apiDomainName) {
-      // Origin that points at API Gateway
       const apiOrigin = new origins.HttpOrigin(apiDomainName, {
+        originPath: "",
         protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
-        originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
       });
 
-      // Attach CloudFront behaviors for dynamic API paths
-      for (const p of apiPaths) {
-        additionalBehaviors[p] = {
+      // Allow cookies, query strings, and safe headers
+      const apiRequestPolicy = new cloudfront.OriginRequestPolicy(this, "ApiRequestPolicy", {
+        comment: "Forward cookies and query strings for API requests",
+        cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
+        queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
+        headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
+          "Origin",
+          "Referer",
+          "Accept",
+          "Accept-Language",
+          "Content-Type"
+        ),
+      });
+
+      // Disable caching (CloudFront forwards everything, including Authorization)
+      const apiCachePolicy = cloudfront.CachePolicy.CACHING_DISABLED;
+
+      for (const pathPattern of apiPaths) {
+        additionalBehaviors[pathPattern] = {
           origin: apiOrigin,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-          originRequestPolicy: originRequestPolicyForApi,
-          viewerProtocolPolicy:
-            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: apiCachePolicy,
+          originRequestPolicy: apiRequestPolicy,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         };
       }
     }
 
-    // CloudFront Distribution
+    // ===== CloudFront Distribution =====
     this.distribution = new cloudfront.Distribution(this, "Distribution", {
       comment: `${serviceName}-${stageName}`,
-
       defaultRootObject: "index.html",
-
-      // Default: serve static app shell from S3
       defaultBehavior: {
         origin: s3Origin,
-        viewerProtocolPolicy:
-          cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
-
-      // Dynamic behaviors: /trpc/*, /health, /hello -> API Gateway
       additionalBehaviors,
-
-      // SPA fallback so client-side routing works
       errorResponses: [
         {
           httpStatus: 404,
@@ -118,11 +108,11 @@ export class WebStack extends cdk.Stack {
       ],
     });
 
-    //. Upload frontend build into S3 + invalidate CF cache on deploy
+    // ===== Deploy Frontend =====
     if (props.frontendBuildPath) {
       const resolved = path.resolve(__dirname, props.frontendBuildPath);
       if (fs.existsSync(resolved)) {
-        new s3deploy.BucketDeployment(this, "DeploySite", {
+        new s3deploy.BucketDeployment(this, "DeployFrontend", {
           sources: [s3deploy.Source.asset(resolved)],
           destinationBucket: this.bucket,
           distribution: this.distribution,
@@ -130,16 +120,16 @@ export class WebStack extends cdk.Stack {
           prune: true,
         });
       } else {
-        console.warn(
-          `[WebStack] Skipping deploy — not found: ${resolved}`
-        );
+        console.warn(`[WebStack] Skipping deployment — path not found: ${resolved}`);
       }
     }
 
-    new cdk.CfnOutput(this, "Stage", { value: stageName });
-
+    // ===== Outputs =====
     new cdk.CfnOutput(this, "SiteUrl", {
       value: `https://${this.distribution.distributionDomainName}`,
+    });
+    new cdk.CfnOutput(this, "ApiDomainName", {
+      value: apiDomainName ?? "No API domain provided",
     });
   }
 }

@@ -1,7 +1,14 @@
-import { Stack, StackProps, CfnOutput, RemovalPolicy } from "aws-cdk-lib";
+import {
+  Stack,
+  StackProps,
+  CfnOutput,
+  RemovalPolicy,
+} from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as kms from "aws-cdk-lib/aws-kms";
+import * as cr from "aws-cdk-lib/custom-resources";
+import * as iam from "aws-cdk-lib/aws-iam";
 
 export interface DynamoStackProps extends StackProps {
   stage: string;
@@ -18,31 +25,37 @@ export class DynamoStack extends Stack {
     const stage = props.stage.toLowerCase();
     const isProd = stage === "prod";
 
-    // KMS key for encryption 
-    // TABLE IS ONLY FOR US-EAST-1 REGION
+    /* =========================================================================
+       KMS Key
+    ========================================================================= */
     const key = new kms.Key(this, "TableKey", {
       alias: `${service}-${stage}-dynamodb-key`,
       enableKeyRotation: true,
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     });
 
-    // DynamoDB main table definition
+    /* =========================================================================
+       DynamoDB Table
+    ========================================================================= */
     this.table = new dynamodb.Table(this, "Table", {
       tableName: `${service}-${stage}-data`,
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING }, //  "ITEM#123" or "USER#u456"
-      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },       // "METADATA" or "REPORT#2025-10-13T00:00Z"
-      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED, // uses CMK
+      partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: key,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       contributorInsightsSpecification: { enabled: true },
-      deletionProtection: isProd,       // protect prod from deletes
-      timeToLiveAttribute: "ttl",  
+      deletionProtection: isProd,
+      timeToLiveAttribute: "ttl",
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     });
 
-    // This index allows us to query by normalized workspace name quickly.
-    // When creating a new workspace, we check if the name already exists here.
+    /* =========================================================================
+       Global Secondary Indexes
+    ========================================================================= */
+
+    // Team / Workspace uniqueness by name
     this.table.addGlobalSecondaryIndex({
       indexName: "GSI_WorkspaceByName",
       partitionKey: { name: "GSI_NAME", type: dynamodb.AttributeType.STRING },
@@ -51,64 +64,7 @@ export class DynamoStack extends Stack {
       contributorInsightsSpecification: { enabled: true },
     });
 
-    // GSI1 — Items by Item Profile (list all items of a given item type)
-    //   GSI1PK: "ITEM_PROFILE#<profileId>"
-    //   GSI1SK: "ITEM#<itemId>"
-    this.table.addGlobalSecondaryIndex({
-      indexName: "GSI_ItemsByProfile",
-      partitionKey: { name: "GSI1PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "GSI1SK", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-      contributorInsightsSpecification: { enabled: true },
-    });
-
-    // GSI2 — Items by Parent Item (used for kits/assemblies hierarchy)
-    //   GSI2PK: "PARENT#<parentItemId>"
-    //   GSI2SK: "ITEM#<itemId>"
-    this.table.addGlobalSecondaryIndex({
-      indexName: "GSI_ItemsByParent",
-      partitionKey: { name: "GSI2PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "GSI2SK", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-      contributorInsightsSpecification: { enabled: true },
-    });
-
-    // GSI3 — Reports by User (get all reports submitted by a user)
-    //   GSI3PK: "USER#<userId>"
-    //   GSI3SK: "REPORT#<isoTime>#ITEM#<itemId>"
-    this.table.addGlobalSecondaryIndex({
-      indexName: "GSI_ReportsByUser",
-      partitionKey: { name: "GSI3PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "GSI3SK", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-      contributorInsightsSpecification: { enabled: true },
-    });
-
-    // GSI4 — Reports by Item (alternative access pattern to fetch all reports for an item)
-    //   GSI4PK: "ITEM#<itemId>"
-    //   GSI4SK: "REPORT#<isoTime>"
-    this.table.addGlobalSecondaryIndex({
-      indexName: "GSI_ReportsByItem",
-      partitionKey: { name: "GSI4PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "GSI4SK", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-      contributorInsightsSpecification: { enabled: true },
-    });
-
-    // GSI5 — Locations by Parent (location tree traversal)
-    //   GSI5PK: "LOC_PARENT#<parentLocId|ROOT>"
-    //   GSI5SK: "LOCATION#<locId>"
-    this.table.addGlobalSecondaryIndex({
-      indexName: "GSI_LocationsByParent",
-      partitionKey: { name: "GSI5PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "GSI5SK", type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.ALL,
-      contributorInsightsSpecification: { enabled: true },
-    });
-
-    // GSI6 — Users by External UID (fast auth/user lookup)
-    //   GSI6PK: "UID#<cognitoUid>"
-    //   GSI6SK: "USER#<userId>"
+    // Users by Cognito UID (used by ensureUserRecord)
     this.table.addGlobalSecondaryIndex({
       indexName: "GSI_UsersByUid",
       partitionKey: { name: "GSI6PK", type: dynamodb.AttributeType.STRING },
@@ -117,20 +73,111 @@ export class DynamoStack extends Stack {
       contributorInsightsSpecification: { enabled: true },
     });
 
-    // Outputs for reference
+    // Roles by name (used by role resolver)
+    this.table.addGlobalSecondaryIndex({
+      indexName: "GSI_RolesByName",
+      partitionKey: { name: "ROLENAME", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+      contributorInsightsSpecification: { enabled: true },
+    });
+
+    // User → Team mapping (for getTeamspace queries)
+    this.table.addGlobalSecondaryIndex({
+      indexName: "GSI_UserTeams",
+      partitionKey: { name: "GSI1PK", type: dynamodb.AttributeType.STRING }, // USER#<userId>
+      sortKey: { name: "GSI1SK", type: dynamodb.AttributeType.STRING },       // TEAM#<teamId>
+      projectionType: dynamodb.ProjectionType.ALL,
+      contributorInsightsSpecification: { enabled: true },
+    });
+
+    const seedProvider = new cr.AwsCustomResource(this, "SeedDefaultRoles", {
+      onCreate: {
+        service: "DynamoDB",
+        action: "batchWriteItem",
+        parameters: {
+          RequestItems: {
+            [`${service}-${stage}-data`]: [
+              {
+                PutRequest: {
+                  Item: {
+                    PK: { S: "ROLENAME#owner" },
+                    SK: { S: "ROLE#OWNER" },
+                    name: { S: "Owner" },
+                    description: {
+                      S: "Full control over the team and its workspaces.",
+                    },
+                    permissions: {
+                      S: JSON.stringify([
+                        "team.create",
+                        "team.add_member",
+                        "team.remove_member",
+                        "workspace.create",
+                        "workspace.delete",
+                        "role.add",
+                        "role.modify",
+                        "role.remove",
+                      ]),
+                    },
+                    createdAt: { S: new Date().toISOString() },
+                  },
+                },
+              },
+              {
+                PutRequest: {
+                  Item: {
+                    PK: { S: "ROLENAME#manager" },
+                    SK: { S: "ROLE#MANAGER" },
+                    name: { S: "Manager" },
+                    description: {
+                      S: "Manage members and create workspaces.",
+                    },
+                    permissions: {
+                      S: JSON.stringify([
+                        "team.add_member",
+                        "team.remove_member",
+                        "workspace.create",
+                      ]),
+                    },
+                    createdAt: { S: new Date().toISOString() },
+                  },
+                },
+              },
+              {
+                PutRequest: {
+                  Item: {
+                    PK: { S: "ROLENAME#member" },
+                    SK: { S: "ROLE#MEMBER" },
+                    name: { S: "Member" },
+                    description: {
+                      S: "Basic access without administrative abilities.",
+                    },
+                    permissions: { S: JSON.stringify([]) },
+                    createdAt: { S: new Date().toISOString() },
+                  },
+                },
+              },
+            ],
+          },
+        },
+        physicalResourceId: cr.PhysicalResourceId.of("SeedRolesOnce"),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+        resources: [this.table.tableArn],
+      }),
+    });
+
+    // Allow custom resource to encrypt/decrypt items
+    key.grantEncryptDecrypt(seedProvider);
+
+    // Run seeder after table creation
+    seedProvider.node.addDependency(this.table);
+
+    /* =========================================================================
+        Outputs
+    ========================================================================= */
     new CfnOutput(this, "TableName", { value: this.table.tableName });
     new CfnOutput(this, "TableArn", { value: this.table.tableArn });
     new CfnOutput(this, "KmsKeyArn", { value: key.keyArn });
-    new CfnOutput(this, "Indexes", {
-      value: [
-        "GSI_WorkspaceByName",
-        "GSI_ItemsByProfile",
-        "GSI_ItemsByParent",
-        "GSI_ReportsByUser",
-        "GSI_ReportsByItem",
-        "GSI_LocationsByParent",
-        "GSI_UsersByUid",
-      ].join(", "),
-    });
   }
 }

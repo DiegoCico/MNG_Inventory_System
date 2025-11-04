@@ -81,7 +81,7 @@ export default function EmailOtpCard({
       )) as SubmitOtpResponse;
 
       if (res?.success) {
-        navigate("/workspace", { replace: true });
+        navigate("/teams", { replace: true });
         return;
       }
 

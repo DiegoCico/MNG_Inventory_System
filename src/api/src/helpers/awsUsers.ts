@@ -1,45 +1,51 @@
 import { fromIni } from "@aws-sdk/credential-provider-ini";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
-  DynamoDBClient,
+  DynamoDBDocumentClient,
   QueryCommand,
-  PutItemCommand,
-} from "@aws-sdk/client-dynamodb";
+  PutCommand,
+} from "@aws-sdk/lib-dynamodb";
 import crypto from "crypto";
 
+// ===== AWS CONFIG =====
 const AWS_REGION = "us-east-1";
 const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 const credentials = isLambda ? undefined : fromIni({ profile: "mng" });
 
-export const dynamoClient = new DynamoDBClient({
+// ===== DYNAMODB CLIENT (DocumentClient) =====
+const baseClient = new DynamoDBClient({
   region: AWS_REGION,
   credentials,
 });
 
-const USERS_TABLE = process.env.USERS_TABLE || "MNGMainTable";
+export const dynamoClient = DynamoDBDocumentClient.from(baseClient);
 
+const USERS_TABLE = process.env.USERS_TABLE || "mng-dev-data";
+
+// ===== HELPERS =====
 function newAccountId() {
   return crypto.randomUUID();
 }
 
 /**
  * ensureUserRecord
- * - lookup user by Cognito sub via GSI6_UsersByUid
- * - if missing, create a new user item
- * - always return { sub, email, accountId }
+ * - Checks for an existing user by Cognito sub via GSI_UsersByUid (UID#<sub>)
+ * - If missing, creates a new minimal user entry
+ * - Returns { sub, email, accountId }
  */
 export async function ensureUserRecord(user: { sub: string; email: string }) {
   const uid = user.sub;
   const pk = `USER#${uid}`;
-  const sk = pk;
+  const sk = "METADATA";
 
-  // Check if it already exists using the GSI6_UsersByUid index
+  // --- Check if user exists via GSI_UsersByUid ---
   const queryResp = await dynamoClient.send(
     new QueryCommand({
       TableName: USERS_TABLE,
-      IndexName: "GSI6_UsersByUid",
-      KeyConditionExpression: "GSI6PK = :gsi6pk",
+      IndexName: "GSI_UsersByUid",
+      KeyConditionExpression: "GSI6PK = :pk",
       ExpressionAttributeValues: {
-        ":gsi6pk": { S: `USER#${uid}` },
+        ":pk": `UID#${uid}`,
       },
       Limit: 1,
     })
@@ -49,39 +55,36 @@ export async function ensureUserRecord(user: { sub: string; email: string }) {
     const item = queryResp.Items[0];
     return {
       sub: uid,
-      email: item.email?.S ?? user.email,
-      accountId:
-        item.accountId?.S ??
-        item.PK?.S ?? // fallback, but we expect accountId
-        pk,
+      email: item.email ?? user.email,
+      accountId: item.accountId ?? uid,
     };
   }
 
-  // Not found -> create new user row
+  // --- Create new user record ---
   const accountId = newAccountId();
   const nowIso = new Date().toISOString();
 
+  const newUser = {
+    PK: pk,
+    SK: sk,
+    Type: "User",
+    sub: uid,
+    email: user.email,
+    accountId,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    GSI6PK: `UID#${uid}`,
+    GSI6SK: `USER#${uid}`,
+  };
+
   await dynamoClient.send(
-    new PutItemCommand({
+    new PutCommand({
       TableName: USERS_TABLE,
-      Item: {
-        PK: { S: pk },
-        SK: { S: sk },
-        Type: { S: "User" },
-
-        sub: { S: uid },
-        email: { S: user.email },
-        accountId: { S: accountId },
-
-        createdAt: { S: nowIso },
-        updatedAt: { S: nowIso },
-
-        // GSI6 so we can look up by UID quickly
-        GSI6PK: { S: `USER#${uid}` },
-        GSI6SK: { S: nowIso },
-      },
+      Item: newUser,
     })
   );
+
+  console.log(`✅ Created new user record for ${user.email}`);
 
   return {
     sub: uid,

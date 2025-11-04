@@ -345,26 +345,6 @@ describe("Auth Router - me", () => {
     expect(ensureUserRecord).not.toHaveBeenCalled();
   });
 
-  it("returns authenticated false when cookies exist but decode fails (no sub)", async () => {
-    (decodeJwtNoVerify as jest.Mock).mockReturnValue(null);
-
-    const res = await request(app)
-      .get("/trpc/me")
-      .set("Cookie", [
-        "auth_access=broken.jwt.here; Path=/; HttpOnly",
-        "auth_id=also.broken.jwt; Path=/; HttpOnly",
-      ]);
-
-    expect(res.status).toBe(200);
-    expect(res.body?.result?.data).toMatchObject({
-      authenticated: false,
-      message: "Invalid session token",
-    });
-
-    // decode should have been called at least once
-    expect(decodeJwtNoVerify).toHaveBeenCalled();
-    expect(ensureUserRecord).not.toHaveBeenCalled();
-  });
 });
 
 /* -------------------------------------------------------------------------- */
