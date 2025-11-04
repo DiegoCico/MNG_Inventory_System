@@ -1,11 +1,15 @@
+import React, { useState } from "react";
 import Grid from "@mui/material/Grid";
 import { useTheme, alpha } from "@mui/material/styles";
 import { Link, useParams } from "react-router-dom";
 import MilitaryTechIcon from "@mui/icons-material/MilitaryTech";
 import SecurityIcon from "@mui/icons-material/Security";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import { IconButton, Avatar } from "@mui/material";
 import CircularProgressBar from "../components/CircularProgressBar";
 import NavBar from "../components/NavBar";
 import RestartProcess from "../components/RestartProcess";
+import Profile from "../components/Profile";
 import {
   AppBar,
   Box,
@@ -34,6 +38,24 @@ export default function HomePage() {
   const theme = useTheme();
   const tasksCompleted = 30;
   const cardBorder = `1px solid ${theme.palette.divider}`;
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const name = "Ben Tran";
+  const email = "tran.b@northeastern.edu";
+  const team = "MNG INVENTORY";
+  const permissions = "Admin";
+
+  const handleProfileImageChange = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target && typeof e.target.result === "string") {
+        setProfileImage(e.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   console.log("Team Id", teamId);
 
@@ -66,15 +88,25 @@ export default function HomePage() {
             <Typography variant="h6">SupplyNet</Typography>
           </Stack>
 
-          <Button
-            component={Link}
-            to="/signin"
-            variant="contained"
-            color="warning"
-            startIcon={<SecurityIcon />}
+        
+          <IconButton
+            size="large"
+            sx={{
+              color: theme.palette.primary.contrastText,
+              "&:hover": {
+                bgcolor: theme.palette.primary.dark,
+              },
+            }}
+            onClick={() => setProfileOpen(true)}
           >
-            Sign In
-          </Button>
+            {profileImage ? (
+              <Avatar src={profileImage} alt="Profile" />
+            ) : (
+              <AccountCircleIcon fontSize="large" />
+            )}
+          </IconButton>
+
+
         </Toolbar>
       </AppBar>
 
@@ -338,6 +370,17 @@ export default function HomePage() {
           </Grid>
         </Grid>
       </Box>
+
+        <Profile
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        profileImage={profileImage}
+        onProfileImageChange={handleProfileImageChange}
+        name={name}
+        email={email}
+        team={team}
+        permissions={permissions}
+      />
 
       {/* Fixed Bottom Nav */}
       <Box sx={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>

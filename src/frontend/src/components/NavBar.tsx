@@ -11,7 +11,7 @@ export default function NavBar() {
   const location = useLocation();
 
   const currentValue =
-    location.pathname === "/home"
+    location.pathname === "/teams/home/:teamId"
       ? "home"
       : location.pathname === "/to-review"
       ? "toReview"
@@ -24,7 +24,7 @@ export default function NavBar() {
   const handleChange = (event: React.SyntheticEvent, newValue: string) => {
     switch (newValue) {
       case "home":
-        navigate("/home");
+        navigate("/teams/home/:teamId");
         break;
       case "toReview":
         navigate("/to-review");
