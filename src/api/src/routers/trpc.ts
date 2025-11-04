@@ -2,8 +2,7 @@ import { initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import type { Request, Response } from 'express';
 import type { APIGatewayProxyEventV2, Context as LambdaCtx } from 'aws-lambda';
-import cookie from 'cookie';
-import { COOKIE_ACCESS, COOKIE_ID } from '../helpers/cookies';
+import { COOKIE_ACCESS, parseCookiesFromCtx } from '../helpers/cookies';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 
 export type Context = {
@@ -56,14 +55,8 @@ const verifier = CognitoJwtVerifier.create({
 });
 
 const isAuthed = t.middleware(async ({ ctx, next }) => {
-  // parse cookies from request
-  const cookieHeader =
-    ctx.req?.headers?.cookie ??
-    ctx.event?.headers?.cookie ??
-    (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
-    '';
-
-  const cookies = cookie.parse(cookieHeader);
+  // parse cookies from request (Express or Lambda)
+  const cookies = parseCookiesFromCtx(ctx);
 
   // verify that access token exists
   const accessToken = cookies[COOKIE_ACCESS];

@@ -14,7 +14,7 @@ import {
 import crypto from 'crypto';
 import { cognitoClient } from '../aws';
 import { sendInviteEmail } from '../helpers/inviteEmail';
-import { setAuthCookies, clearAuthCookies } from '../helpers/cookies';
+import { setAuthCookies, clearAuthCookies, parseCookiesFromCtx, emitCookiesToLambda } from '../helpers/cookies';
 import cookie from 'cookie';
 
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
@@ -86,21 +86,7 @@ const signIn = async (params: { email: string; password: string }) => {
   return await cognitoClient.send(command);
 };
 
-/**
- * Build a single Cookie header string from either Express req or API Gateway v2 event.
- * - Supports event.cookies (array) and Cookie/cookie headers.
- */
-function cookieHeaderFromCtx(ctx: any): string {
-  const parts: string[] = [];
-  const fromArray = Array.isArray(ctx?.event?.cookies) ? ctx.event.cookies : [];
-  if (fromArray.length) parts.push(...fromArray);
-  const headerLower = ctx?.event?.headers?.cookie as string | undefined;
-  const headerUpper = (ctx?.event?.headers as Record<string, string> | undefined)?.Cookie;
-  const headerReq = ctx?.req?.headers?.cookie as string | undefined;
-  const header = headerLower ?? headerUpper ?? headerReq;
-  if (header) parts.push(header);
-  return parts.length ? parts.join('; ') : '';
-}
+
 
 export const authRouter = router({
   /**
@@ -202,9 +188,7 @@ export const authRouter = router({
             ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
           });
 
-          if (!ctx.res && ctx.responseCookies) {
-            ctx.responseCookies.push(...headers);
-          }
+          emitCookiesToLambda(ctx, headers);
 
           return {
             success: true,
@@ -320,9 +304,7 @@ export const authRouter = router({
             RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
             ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
           });
-          if (!ctx.res && ctx.responseCookies) {
-            ctx.responseCookies.push(...headers);
-          }
+          emitCookiesToLambda(ctx, headers);
 
           return {
             success: true,
@@ -355,8 +337,7 @@ export const authRouter = router({
     }),
 
   me: publicProcedure.query(async ({ ctx }) => {
-    const cookieHeader = cookieHeaderFromCtx(ctx);
-    const cookies = cookie.parse(cookieHeader);
+  const cookies = parseCookiesFromCtx(ctx);
 
     const hasSession =
       Boolean(cookies.auth_access) || Boolean(cookies.auth_id) || Boolean(cookies.auth_refresh);
@@ -370,8 +351,7 @@ export const authRouter = router({
 
   refresh: publicProcedure.mutation(async ({ ctx }) => {
     try {
-      const cookieHeader = cookieHeaderFromCtx(ctx);
-      const cookies = cookie.parse(cookieHeader);
+  const cookies = parseCookiesFromCtx(ctx);
       const refreshToken = cookies['auth_refresh'];
 
       if (!refreshToken) {
@@ -397,9 +377,7 @@ export const authRouter = router({
         IdToken: result.AuthenticationResult.IdToken ?? null,
         ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
       });
-      if (!ctx.res && ctx.responseCookies) {
-        ctx.responseCookies.push(...headers);
-      }
+      emitCookiesToLambda(ctx, headers);
 
       return { refreshed: true, expiresIn: result.AuthenticationResult.ExpiresIn };
     } catch (err) {
@@ -410,9 +388,7 @@ export const authRouter = router({
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {
     const headers = clearAuthCookies(ctx.res);
-    if (!ctx.res && ctx.responseCookies) {
-      ctx.responseCookies.push(...headers);
-    }
+    emitCookiesToLambda(ctx, headers);
     return { success: true, message: 'Signed out' };
   }),
 });

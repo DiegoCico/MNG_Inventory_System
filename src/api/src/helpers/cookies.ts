@@ -110,3 +110,43 @@ export function parseCookieHeader(header: string | undefined | null): Record<str
     return {};
   }
 }
+
+// ---- Helpers for Lambda/Express cookie parsing & emission ----
+
+export type CtxLike = {
+  req?: { headers?: Record<string, unknown> };
+  event?: { headers?: Record<string, string | undefined>; cookies?: string[] };
+  responseCookies?: string[];
+};
+
+/**
+ * Build a single Cookie header string from either Express req or API Gateway v2 event.
+ * Supports event.cookies array and Cookie/cookie headers.
+ */
+export function cookieHeaderFromCtx(ctx?: CtxLike): string {
+  const parts: string[] = [];
+  const fromArray = Array.isArray(ctx?.event?.cookies) ? ctx!.event!.cookies : [];
+  if (fromArray.length) parts.push(...fromArray);
+
+  const headerLower = ctx?.event?.headers?.cookie as string | undefined;
+  const headerUpper = (ctx?.event?.headers as Record<string, string> | undefined)?.Cookie;
+  const headerReq = ctx?.req && (ctx.req.headers as Record<string, string> | undefined)?.cookie;
+  const header = headerLower ?? headerUpper ?? headerReq;
+  if (header) parts.push(header);
+
+  return parts.length ? parts.join("; ") : "";
+}
+
+/** Parse cookies directly from context (Express or Lambda) */
+export function parseCookiesFromCtx(ctx?: CtxLike): Record<string, string> {
+  const header = cookieHeaderFromCtx(ctx);
+  return header ? parseCookieHeader(header) : {};
+}
+
+/** Utility to push Set-Cookie strings to Lambda adapter context */
+export function emitCookiesToLambda(ctx: CtxLike | undefined, headers: string[] | undefined) {
+  if (!headers || headers.length === 0) return;
+  ctx?.responseCookies?.push(...headers);
+}
+
+ 
