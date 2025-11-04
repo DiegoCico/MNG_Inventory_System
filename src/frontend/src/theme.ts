@@ -2,45 +2,50 @@ import { createTheme } from '@mui/material/styles';
 
 const theme = createTheme({
   palette: {
-    mode: 'dark',
+    mode: 'light',
     primary: {
-      main: '#243061',       // command navy (for AppBar / links)
-      dark: '#1B244A',
-      contrastText: '#EDEFF2',
+      main: '#283996',       // command blue (AppBar, buttons)
+      dark: '#1D2D77',
+      contrastText: '#F7F7F7',
     },
-    success: {
-      main: '#6A973C',       // olive (tactical)
-      dark: '#567C31',
-      contrastText: '#0E0F10',
+    secondary: {
+      main: '#3A3A3A',       // neutral text tone
+      contrastText: '#FFFFFF',
     },
     warning: {
-      main: '#D0A139',       // medal gold (sparingly)
+      main: '#D0A139',       // medal gold (buttons)
       dark: '#B58827',
       contrastText: '#101214',
     },
     background: {
-      default: '#0F1114',    // deeper, cleaner base
-      paper: '#171A1F',      // card/panel
+      default: '#F4F4F1',    // hero background
+      paper: '#FFFFFF',      // cards, dialogs
     },
     text: {
-      primary: '#EEF1F3',
-      secondary: '#A9B0B6',
-      disabled: '#6D747A',
+      primary: '#1F1F1F',    // main headings
+      secondary: '#3A3A3A',  // paragraphs
+      disabled: '#7A7A7A',
     },
-    divider: 'rgba(255,255,255,0.08)',
+    divider: 'rgba(0,0,0,0.1)',
   },
   typography: {
     fontFamily: '"Roboto Condensed","Inter","Helvetica","Arial",sans-serif',
-    h1: { fontWeight: 800, letterSpacing: '0.02em', lineHeight: 1.1 },
-    h2: { fontWeight: 700, letterSpacing: '0.01em' },
-    h5: { fontWeight: 700 },
-    button: { fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' },
+    h1: { fontWeight: 900, letterSpacing: '0.02em', lineHeight: 1.1 },
+    h2: { fontWeight: 800, letterSpacing: '0.01em' },
+    h6: { fontWeight: 800 },
+    button: { fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' },
   },
   shape: { borderRadius: 10 },
   components: {
     MuiAppBar: {
       styleOverrides: {
-        root: { height: 56, boxShadow: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)' },
+        root: {
+          backgroundColor: '#283996',
+          color: '#F7F7F7',
+          height: 56,
+          boxShadow: 'none',
+          borderBottom: '1px solid rgba(0,0,0,0.1)',
+        },
       },
     },
     MuiContainer: {
@@ -49,22 +54,49 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          backgroundColor: '#171A1F',
-          border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+          transition: 'transform 160ms ease, box-shadow 160ms ease',
+          '&:hover': {
+            transform: 'translateY(-3px)',
+            boxShadow: '0 3px 10px rgba(0,0,0,0.12)',
+          },
         },
       },
     },
     MuiButton: {
       styleOverrides: {
-        root: { borderRadius: 8 },
+        root: { borderRadius: 8, fontWeight: 800 },
         containedPrimary: {
-          backgroundColor: '#243061',
-          '&:hover': { backgroundColor: '#1B244A' },
+          backgroundColor: '#283996',
+          color: '#F7F7F7',
+          '&:hover': { backgroundColor: '#1D2D77' },
         },
         containedWarning: {
+          backgroundColor: '#D0A139',
           color: '#101214',
           '&:hover': { backgroundColor: '#B58827' },
+        },
+        outlined: {
+          color: '#F7F7F7',
+          borderColor: 'rgba(247,247,247,0.6)',
+          '&:hover': {
+            borderColor: '#FFFFFF',
+            backgroundColor: 'rgba(247,247,247,0.1)',
+          },
+        },
+        text: {
+          color: '#1F1F1F',
+          '&:hover': { backgroundColor: 'rgba(40,57,150,0.08)' },
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: '#FFFFFF',
+          border: '1px solid rgba(0,0,0,0.15)',
         },
       },
     },

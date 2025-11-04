@@ -1,27 +1,60 @@
-// src/server.ts
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import * as trpcExpress from "@trpc/server/adapters/express";
 import { appRouter } from "./routers";
 import { createExpressContext } from "./routers/trpc";
 
+const CANONICAL_ALLOWED_ORIGINS = [
+  process.env.LOCAL_WEB_ORIGIN ?? "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "https://d2cktegyq4qcfk.cloudfront.net",
+];
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true; // same-origin / curl cases
+  return CANONICAL_ALLOWED_ORIGINS.includes(origin);
+}
+
+const corsMiddleware = cors({
+  origin(origin, callback) {
+    if (!origin || isAllowedOrigin(origin)) {
+      // reflect requesting origin
+      return callback(null, origin || CANONICAL_ALLOWED_ORIGINS[0]);
+    }
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: true,
+  allowedHeaders: ["content-type", "authorization", "x-requested-with"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  maxAge: 60 * 60 * 12, // 12h like API Gateway
+});
+
 const app = express();
 
-// Adjust origins as needed for local dev
-const LOCAL_ORIGIN = process.env.LOCAL_WEB_ORIGIN ?? "http://localhost:5173";
-app.use(cors({ origin: LOCAL_ORIGIN, credentials: true }));
+/**
+ * We mount CORS first so preflight OPTIONS is handled.
+ * Then JSON parser, then routes.
+ */
+app.use(corsMiddleware);
 app.use(express.json());
 
-// Health check
-app.get("/health", (_req, res) => res.status(200).send("ok"));
+/**
+ * Health check
+ */
+app.get("/health", (_req: Request, res: Response) => {
+  res.status(200).send("ok");
+});
 
-// tRPC endpoint
+/**
+ * tRPC router
+ */
 app.use(
   "/trpc",
   trpcExpress.createExpressMiddleware({
     router: appRouter,
     createContext: createExpressContext,
     onError({ error, path, type }) {
+      // Helpful detail in dev
       console.error(`[tRPC] ${type} ${path} failed`, {
         code: error.code,
         message: error.message,
@@ -31,21 +64,34 @@ app.use(
   })
 );
 
-// Error handler so 500s show details in JSON
-app.use((err: any, _req: any, res: any, _next: any) => {
-  console.error("Unhandled error:", err);
-  res.status(500).json({
-    error: "Internal Server Error",
-    detail: String(err?.message ?? err),
-  });
-});
+/**
+ * Global error handler
+ */
+app.use(
+  (
+    err: any,
+    _req: Request,
+    res: Response,
+    _next: NextFunction // eslint-disable-line @typescript-eslint/no-unused-vars
+  ) => {
+    console.error("Unhandled error:", err);
+    res.status(500).json({
+      error: "Internal Server Error",
+      detail: String(err?.message ?? err),
+    });
+  }
+);
 
+/**
+ * Start server unless we're under tests.
+ */
 const PORT = Number(process.env.PORT) || 3001;
 
 if (process.env.NODE_ENV !== "test") {
-  const server = app.listen(PORT, () =>
-    console.log(`API running on http://localhost:${PORT}`)
-  );
+  const server = app.listen(PORT, () => {
+    console.log(`API running on http://localhost:${PORT}`);
+    console.log("Allowed CORS origins:", CANONICAL_ALLOWED_ORIGINS);
+  });
 
   server.on("error", (err: any) => {
     if (err?.code === "EADDRINUSE") {

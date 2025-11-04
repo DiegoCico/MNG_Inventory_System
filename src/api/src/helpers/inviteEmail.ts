@@ -7,6 +7,7 @@ export const sendInviteEmail = async (params: {
   signinUrl: string;
 }) => {
   const { to, tempPassword, signinUrl } = params;
+  const URL_signin = "https://d2cktegyq4qcfk.cloudfront.net/signin";
 
   const FROM = process.env.SES_FROM_ADDRESS || "cicotoste.d@northeastern.edu";
   const CONFIG_SET = process.env.SES_CONFIG_SET;
@@ -22,7 +23,7 @@ Login Credentials:
 • Temporary Password: ${tempPassword}
 
 Please sign in using the link below:
-${signinUrl}
+${URL_signin}
 
 Upon your first login, you will be prompted to create a new password for security purposes.
 
@@ -51,7 +52,7 @@ MNG Inventory Support`;
   </table>
 
   <p style="text-align:center;margin:24px 0;">
-    <a href="${signinUrl}" target="_blank" rel="noopener noreferrer"
+    <a href="${URL_signin}" target="_blank" rel="noopener noreferrer"
       style="background-color:#1d4ed8;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
       Sign In to MNG Inventory
     </a>
