@@ -1,22 +1,22 @@
-import type { Response } from "express";
-import * as cookie from "cookie";
+import type { Response } from 'express';
+import * as cookie from 'cookie';
 
 export interface AuthTokens {
   AccessToken: string | null;
   IdToken: string | null;
   RefreshToken?: string | null;
-  ExpiresIn?: number | null; 
+  ExpiresIn?: number | null;
 }
 
-export const COOKIE_ACCESS = "auth_access";
-export const COOKIE_ID = "auth_id";
-export const COOKIE_REFRESH = "auth_refresh";
+export const COOKIE_ACCESS = 'auth_access';
+export const COOKIE_ID = 'auth_id';
+export const COOKIE_REFRESH = 'auth_refresh';
 
 // Choose safe defaults:
 // - production: cross-site → SameSite=None + Secure=true (required by browsers)
 // - development: http://localhost same-site → SameSite=Lax + Secure=false
-const IS_PROD = process.env.NODE_ENV === "production";
-const DEFAULT_SAMESITE = (IS_PROD ? "none" : "lax") as "none" | "lax" | "strict";
+const IS_PROD = process.env.NODE_ENV === 'production';
+const DEFAULT_SAMESITE = (IS_PROD ? 'none' : 'lax') as 'none' | 'lax' | 'strict';
 const DEFAULT_SECURE = IS_PROD;
 
 function baseCookieOpts(maxAge?: number) {
@@ -24,8 +24,8 @@ function baseCookieOpts(maxAge?: number) {
     httpOnly: true as const,
     secure: DEFAULT_SECURE,
     sameSite: DEFAULT_SAMESITE,
-    path: "/" as const,
-    ...(typeof maxAge === "number" ? { maxAge } : {}),
+    path: '/' as const,
+    ...(typeof maxAge === 'number' ? { maxAge } : {}),
   };
 }
 
@@ -37,7 +37,7 @@ function serializeCookie(name: string, value: string, maxAge?: number) {
 /** Serialize an immediate-expiry cookie to clear it. */
 function serializeClear(name: string) {
   // Use Max-Age=0 and an epoch Expires to be extra-safe across browsers/CDNs.
-  return cookie.serialize(name, "", {
+  return cookie.serialize(name, '', {
     ...baseCookieOpts(0),
     expires: new Date(0),
   });
@@ -76,16 +76,13 @@ export function buildAuthClearCookies(): string[] {
  * Convenience: directly set cookies on an Express Response **and** return the headers.
  * Safe to call even if `res` is undefined (e.g., when used under API Gateway adapter).
  */
-export function setAuthCookies(
-  res: Response | undefined,
-  tokens: AuthTokens
-): string[] {
+export function setAuthCookies(res: Response | undefined, tokens: AuthTokens): string[] {
   const headers = buildAuthSetCookies(tokens);
   if (res && headers.length) {
     // If multiple Set-Cookie headers already exist, append
-    const existing = res.getHeader("Set-Cookie");
+    const existing = res.getHeader('Set-Cookie');
     const arr = Array.isArray(existing) ? existing : existing ? [String(existing)] : [];
-    res.setHeader("Set-Cookie", [...arr, ...headers]);
+    res.setHeader('Set-Cookie', [...arr, ...headers]);
   }
   return headers;
 }
@@ -94,9 +91,9 @@ export function setAuthCookies(
 export function clearAuthCookies(res?: Response): string[] {
   const headers = buildAuthClearCookies();
   if (res) {
-    const existing = res.getHeader("Set-Cookie");
+    const existing = res.getHeader('Set-Cookie');
     const arr = Array.isArray(existing) ? existing : existing ? [String(existing)] : [];
-    res.setHeader("Set-Cookie", [...arr, ...headers]);
+    res.setHeader('Set-Cookie', [...arr, ...headers]);
   }
   return headers;
 }
@@ -134,7 +131,7 @@ export function cookieHeaderFromCtx(ctx?: CtxLike): string {
   const header = headerLower ?? headerUpper ?? headerReq;
   if (header) parts.push(header);
 
-  return parts.length ? parts.join("; ") : "";
+  return parts.length ? parts.join('; ') : '';
 }
 
 /** Parse cookies directly from context (Express or Lambda) */
@@ -148,5 +145,3 @@ export function emitCookiesToLambda(ctx: CtxLike | undefined, headers: string[] 
   if (!headers || headers.length === 0) return;
   ctx?.responseCookies?.push(...headers);
 }
-
- 
