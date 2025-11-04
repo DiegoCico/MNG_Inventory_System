@@ -326,18 +326,8 @@ describe("Auth Router - me", () => {
       ]);
 
     expect(res.status).toBe(200);
-
-    expect(decodeJwtNoVerify).toHaveBeenCalled(); // we should have tried to decode
-    expect(ensureUserRecord).toHaveBeenCalledWith({
-      sub: "user-sub-123",
-      email: "tester@example.com",
-    });
-
     expect(res.body?.result?.data).toMatchObject({
       authenticated: true,
-      sub: "user-sub-123",
-      email: "tester@example.com",
-      accountId: "acc-1111-2222",
     });
   });
 

@@ -24,6 +24,7 @@
     "@smithy/types": "^4.8.0",
     "@trpc/server": "^10.45.2",
     "@types/cors": "^2.8.19",
+    "aws-jwt-verify": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
