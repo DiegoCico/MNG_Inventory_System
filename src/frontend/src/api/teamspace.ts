@@ -1,116 +1,94 @@
-export interface Team {
-  workspaceId: string;
-  name: string;
-  description?: string;
-  roleId: string;
-  permissions?: string[];
-  joinedAt?: string;
-}
-
 const TRPC = "/trpc";
 
-/* ---------------- FETCH USER TEAMS ---------------- */
-export async function fetchUserTeams(): Promise<Team[]> {
-  const meRes = await fetch(`${TRPC}/me?input=${encodeURIComponent("null")}`, {
-    method: "GET",
-    credentials: "include",
-  });
-  const meJson = await meRes.json();
-  const userId = meJson?.result?.data?.userId || meJson?.result?.data?.email;
-  if (!userId) throw new Error("User not authenticated");
-
-  const res = await fetch(`${TRPC}/getUserWorkspaces`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input: { userId } }),
-  });
-
-  const json = await res.json();
-  if (!json?.result?.data?.workspaces) {
-    throw new Error("Failed to fetch user workspaces");
-  }
-
-  return json.result.data.workspaces;
-}
-
-/* ---------------- CREATE WORKSPACE ---------------- */
-export async function createWorkspace(
-  userId: string,
+export async function createTeamspace(
   name: string,
-  description?: string
+  description: string,
+  userId: string
 ) {
-  const res = await fetch(`${TRPC}/createWorkspace`, {
+  const res = await fetch(`${TRPC}/createTeamspace`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      input: { userId, name, description },
-    }),
+    body: JSON.stringify({ name, description, userId }),
   });
 
+  if (!res.ok) throw new Error(`createTeamspace failed: ${res.status}`);
+
   const json = await res.json();
-  if (!json?.result?.data?.workspace)
-    throw new Error("Failed to create workspace");
-  return json.result.data.workspace;
+  const data = json?.result?.data;
+  if (!data) throw new Error("unexpected response from createTeamspace");
+  return data;
 }
 
-/* ---------------- ADD MEMBER (Invite) ---------------- */
-export async function addMemberToWorkspace(
+export async function getTeamspace(userId: string) {
+  const res = await fetch(
+    `${TRPC}/getTeamspace?input=${encodeURIComponent(JSON.stringify({ userId }))}`,
+    {
+      method: "GET",
+      credentials: "include",
+    }
+  );
+
+  if (!res.ok) throw new Error(`getTeamspace failed: ${res.status}`);
+
+  const json = await res.json();
+  const data = json?.result?.data;
+  if (!data) throw new Error("unexpected response from getTeamspace");
+  return data;
+}
+
+export async function addUserTeamspace(
   userId: string,
-  workspaceId: string,
-  newMemberId: string,
-  roleId: string = "member"
+  userEmail: string,
+  teamspaceId: string
 ) {
-  const res = await fetch(`${TRPC}/addMember`, {
+  const res = await fetch(`${TRPC}/addUserTeamspace`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      input: { userId, workspaceId, newMemberId, roleId },
-    }),
+    body: JSON.stringify({ userId, userEmail, teamspaceId }),
   });
 
+  if (!res.ok) throw new Error(`addUserTeamspace failed: ${res.status}`);
+
   const json = await res.json();
-  if (!json?.result?.data?.success)
-    throw new Error("Failed to add member");
-  return json.result.data;
+  const data = json?.result?.data;
+  if (!data) throw new Error("unexpected response from addUserTeamspace");
+  return data;
 }
 
-/* ---------------- REMOVE MEMBER ---------------- */
-export async function removeMemberFromWorkspace(
+export async function removeUserTeamspace(
   userId: string,
-  workspaceId: string,
-  memberId: string
+  userEmail: string,
+  teamspaceId: string
 ) {
-  const res = await fetch(`${TRPC}/removeMember`, {
+  const res = await fetch(`${TRPC}/removeUserTeamspace`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      input: { userId, workspaceId, memberId },
-    }),
+    body: JSON.stringify({ userId, userEmail, teamspaceId }),
   });
 
+  if (!res.ok) throw new Error(`removeUserTeamspace failed: ${res.status}`);
+
   const json = await res.json();
-  if (!json?.result?.data?.success)
-    throw new Error("Failed to remove member");
-  return json.result.data;
+  const data = json?.result?.data;
+  if (!data) throw new Error("unexpected response from removeUserTeamspace");
+  return data;
 }
 
-/* ---------------- DELETE WORKSPACE ---------------- */
-export async function deleteWorkspace(userId: string, workspaceId: string) {
-  const res = await fetch(`${TRPC}/deleteWorkspace`, {
+export async function deleteTeamspace(teamspaceId: string, userId: string) {
+  const res = await fetch(`${TRPC}/deleteTeamspace`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      input: { userId, workspaceId },
-    }),
+    body: JSON.stringify({ teamspaceId, userId }),
   });
 
+  if (!res.ok) throw new Error(`deleteTeamspace failed: ${res.status}`);
+
   const json = await res.json();
-  if (!json?.result?.data?.success)
-    throw new Error("Failed to delete workspace");
-  return json.result.data;
+  const data = json?.result?.data;
+  if (!data) throw new Error("unexpected response from deleteTeamspace");
+  return data;
 }

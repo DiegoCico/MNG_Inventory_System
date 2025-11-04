@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from './trpc';
+import { router, publicProcedure } from './trpc';
 
 export const helloRouter = router({
-  hello: protectedProcedure
+  hello: publicProcedure
     .input(z.object({ name: z.string().optional() }).nullish())
     .query(({ input }) => {
       const name = input?.name ?? 'world';

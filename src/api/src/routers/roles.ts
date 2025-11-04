@@ -209,42 +209,6 @@ export const rolesRouter = router({
       return { success: true, role: updated.Attributes as RoleEntity };
     }),
 
-  /** Seed the default roles if missing (idempotent by name) */
-  seedDefaultRoles: publicProcedure.mutation(async () => {
-    const now = new Date().toISOString();
-    const batch: Record<string, any[]> = { [TABLE_NAME]: [] };
-
-    for (const def of DEFAULT_ROLES) {
-      const exists = await getRoleByName(def.name);
-      if (exists) continue;
-
-      const roleId = id();
-      const role: RoleEntity = {
-        PK: `ROLE#${roleId}`,
-        SK: "METADATA",
-        roleId,
-        name: def.name,
-        description: def.description,
-        permissions: def.permissions as Permission[],
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      // role item
-      batch[TABLE_NAME].push({ PutRequest: { Item: role } });
-      // name→id resolver
-      batch[TABLE_NAME].push({
-        PutRequest: { Item: { PK: `ROLENAME#${def.name.toLowerCase()}`, SK: `ROLE#${roleId}` } },
-      });
-    }
-
-    if (batch[TABLE_NAME].length) {
-      await doc.send(new BatchWriteCommand({ RequestItems: batch }));
-    }
-
-    return { success: true, seeded: true };
-  }),
-
   /** Delete a role (consider forbidding deletes if a role is in use) */
   deleteRole: publicProcedure
     .input(z.object({ roleId: z.string() }))
