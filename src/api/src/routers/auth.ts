@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { router, publicProcedure } from "./trpc";
+import { z } from 'zod';
+import { router, publicProcedure, protectedProcedure } from './trpc';
 import {
   AdminCreateUserCommand,
   AdminInitiateAuthCommand,
@@ -10,23 +10,30 @@ import {
   AuthFlowType,
   ChallengeNameType,
   InitiateAuthCommand,
-} from "@aws-sdk/client-cognito-identity-provider";
-import crypto from "crypto";
-import { cognitoClient } from "../aws"; 
-import { sendInviteEmail } from "../helpers/inviteEmail";
-import { setAuthCookies, clearAuthCookies } from "../helpers/cookies";
-import cookie from "cookie";
+} from '@aws-sdk/client-cognito-identity-provider';
+import crypto from 'crypto';
+import { cognitoClient } from '../aws';
+import { sendInviteEmail } from '../helpers/inviteEmail';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
+import {
+  setAuthCookies,
+  clearAuthCookies,
+  parseCookiesFromCtx,
+  emitCookiesToLambda,
+  COOKIE_ACCESS,
+} from '../helpers/cookies';
+import cookie from 'cookie';
 
-import { ensureUserRecord } from "../helpers/awsUsers"; 
-import { decodeJwtNoVerify } from "../helpers/authUtils"; 
+const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
+const USER_POOL_CLIENT_ID = process.env.COGNITO_CLIENT_ID || '6vk8qbvjv6hvb99a0jjcpbth9k';
+// export const SES_FROM_ADDRESS = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
+const APP_SIGNIN_URL = process.env.APP_SIGNIN_URL || 'https://d2cktegyq4qcfk.cloudfront.net/signin';
 
-const USER_POOL_ID =
-  process.env.COGNITO_USER_POOL_ID || "us-east-1_sP3HAecAw";
-const USER_POOL_CLIENT_ID =
-  process.env.COGNITO_CLIENT_ID || "6vk8qbvjv6hvb99a0jjcpbth9k";
-const APP_SIGNIN_URL =
-  process.env.APP_SIGNIN_URL ||
-  "https://d2cktegyq4qcfk.cloudfront.net/signin";
+const verifier = CognitoJwtVerifier.create({
+  userPoolId: USER_POOL_ID,
+  clientId: USER_POOL_CLIENT_ID,
+  tokenUse: 'access',
+});
 
 const generateTempPassword = (): string => {
   const base = crypto.randomBytes(6).toString("base64");
@@ -40,7 +47,7 @@ const inviteUser = async (params: { email: string }) => {
 
   try {
     await cognitoClient.send(
-      new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: email })
+      new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: email }),
     );
 
     await cognitoClient.send(
@@ -49,22 +56,22 @@ const inviteUser = async (params: { email: string }) => {
         Username: email,
         Password: tempPassword,
         Permanent: false,
-      })
+      }),
     );
     console.log(`Re-invited existing user: ${email}`);
   } catch (err: any) {
-    if (err.name === "UserNotFoundException") {
+    if (err.name === 'UserNotFoundException') {
       await cognitoClient.send(
         new AdminCreateUserCommand({
           UserPoolId: USER_POOL_ID,
           Username: email,
           TemporaryPassword: tempPassword,
           UserAttributes: [
-            { Name: "email", Value: email },
-            { Name: "email_verified", Value: "true" },
+            { Name: 'email', Value: email },
+            { Name: 'email_verified', Value: 'true' },
           ],
           MessageAction: MessageActionType.SUPPRESS,
-        })
+        }),
       );
       console.log(`Created new user: ${email}`);
     } else {
@@ -81,7 +88,7 @@ const inviteUser = async (params: { email: string }) => {
 const signIn = async (params: { email: string; password: string }) => {
   const command = new AdminInitiateAuthCommand({
     UserPoolId: USER_POOL_ID,
-    ClientId: USER_POOL_CLIENT_ID, 
+    ClientId: USER_POOL_CLIENT_ID, // must be your current no-secret client
     AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
     AuthParameters: { USERNAME: params.email, PASSWORD: params.password },
   });
@@ -172,14 +179,15 @@ export const authRouter = router({
 
         // Successful authentication - return tokens + set cookies
         if (result.AuthenticationResult) {
-          if (ctx.res) {
-            setAuthCookies(ctx.res, {
-              AccessToken: result.AuthenticationResult.AccessToken ?? null,
-              IdToken: result.AuthenticationResult.IdToken ?? null,
-              RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
-              ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-            });
-          }
+          // Set cookies for Express OR stash them for Lambda adapter
+          const headers = setAuthCookies(ctx.res, {
+            AccessToken: result.AuthenticationResult.AccessToken ?? null,
+            IdToken: result.AuthenticationResult.IdToken ?? null,
+            RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+            ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+          });
+
+          emitCookiesToLambda(ctx, headers);
 
           return {
             success: true,
@@ -288,14 +296,13 @@ export const authRouter = router({
 
         // Success => set cookies
         if (result.AuthenticationResult) {
-          if (ctx.res) {
-            setAuthCookies(ctx.res, {
-              AccessToken: result.AuthenticationResult.AccessToken ?? null,
-              IdToken: result.AuthenticationResult.IdToken ?? null,
-              RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
-              ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-            });
-          }
+          const headers = setAuthCookies(ctx.res, {
+            AccessToken: result.AuthenticationResult.AccessToken ?? null,
+            IdToken: result.AuthenticationResult.IdToken ?? null,
+            RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+            ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+          });
+          emitCookiesToLambda(ctx, headers);
 
           return {
             success: true,
@@ -327,54 +334,35 @@ export const authRouter = router({
     }),
 
   me: publicProcedure.query(async ({ ctx }) => {
-    const cookieHeader =
-      ctx.req?.headers?.cookie ??
-      ctx.event?.headers?.cookie ??
-      (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
-      "";
-    const cookies = cookie.parse(cookieHeader);
+    const cookies = parseCookiesFromCtx(ctx);
+    const accessToken = cookies[COOKIE_ACCESS];
 
-    const accessToken = cookies["auth_access"];
-    const idToken = cookies["auth_id"];
-    const refreshToken = cookies["auth_refresh"];
-
-    if (!accessToken && !idToken && !refreshToken) {
-      return { authenticated: false, message: "No session" };
+    if (!accessToken) {
+      return { authenticated: false, message: 'No session' };
     }
 
-    const decoded =
-      decodeJwtNoVerify(idToken) || decodeJwtNoVerify(accessToken);
-
-    if (!decoded || !decoded.sub) {
-      return { authenticated: false, message: "Invalid session token" };
+    // TODO Link with DynamoDB and abstract the method so isAuthed and this use the same function
+    
+    // Verify and decode the access token to get user info
+    try {
+      const decoded = await verifier.verify(accessToken);
+      return {
+        authenticated: true,
+        message: 'User session found',
+        userId: decoded.sub,
+        email: decoded.email,
+        username: decoded['cognito:username'],
+      };
+    } catch (err) {
+      // Token is invalid or expired
+      return { authenticated: false, message: 'Invalid or expired token' };
     }
-
-    //upsert/get user in Dynamo
-    const userRecord = await ensureUserRecord({
-      sub: decoded.sub,
-      email: decoded.email ?? "unknown@example.com",
-    });
-
-    // respond with stable identity
-    return {
-      authenticated: true,
-      message: "User session found",
-      sub: userRecord.sub,
-      email: userRecord.email,
-      accountId: userRecord.accountId,
-    };
   }),
+
   refresh: publicProcedure.mutation(async ({ ctx }) => {
-    try
-    {
-      //  read cookies
-      const cookieHeader =
-        ctx.req?.headers?.cookie ??
-        ctx.event?.headers?.cookie ??
-        (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
-        "";
-      const cookies = cookie.parse(cookieHeader);
-      const refreshToken = cookies["auth_refresh"];
+    try {
+      const cookies = parseCookiesFromCtx(ctx);
+      const refreshToken = cookies['auth_refresh'];
 
       if (!refreshToken) {
         return { refreshed: false, message: "No refresh token" };
@@ -395,14 +383,12 @@ export const authRouter = router({
         return { refreshed: false, message: "Token refresh failed" };
       }
 
-      // rotate cookies with new access/id tokens
-      if (ctx.res) {
-        setAuthCookies(ctx.res, {
-          AccessToken: result.AuthenticationResult.AccessToken ?? null,
-          IdToken: result.AuthenticationResult.IdToken ?? null,
-          ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-        });
-      }
+      const headers = setAuthCookies(ctx.res, {
+        AccessToken: result.AuthenticationResult.AccessToken ?? null,
+        IdToken: result.AuthenticationResult.IdToken ?? null,
+        ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+      });
+      emitCookiesToLambda(ctx, headers);
 
       const newAccess = result.AuthenticationResult.AccessToken ?? null;
       const newId = result.AuthenticationResult.IdToken ?? null;
@@ -440,9 +426,8 @@ export const authRouter = router({
   }),
 
   logout: publicProcedure.mutation(async ({ ctx }) => {
-    if (ctx.res) {
-      clearAuthCookies(ctx.res);
-    }
-    return { success: true, message: "Signed out" };
+    const headers = clearAuthCookies(ctx.res);
+    emitCookiesToLambda(ctx, headers);
+    return { success: true, message: 'Signed out' };
   }),
 });

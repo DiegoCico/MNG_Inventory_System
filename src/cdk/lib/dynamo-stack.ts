@@ -26,6 +26,7 @@ export class DynamoStack extends Stack {
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     });
 
+    // DynamoDB main table definition
     this.table = new dynamodb.Table(this, "Table", {
       tableName: `${service}-${stage}-data`,
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -38,11 +39,17 @@ export class DynamoStack extends Stack {
       deletionProtection: isProd,       // protect prod from deletes
       timeToLiveAttribute: "ttl",  
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
-
-      // stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES, // enable if  Lambda triggers
     });
 
-    // GLOBAL SECONDARY INDEXES
+    // This index allows us to query by normalized workspace name quickly.
+    // When creating a new workspace, we check if the name already exists here.
+    this.table.addGlobalSecondaryIndex({
+      indexName: "GSI_WorkspaceByName",
+      partitionKey: { name: "GSI_NAME", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+      contributorInsightsSpecification: { enabled: true },
+    });
 
     // GSI1 — Items by Item Profile (list all items of a given item type)
     //   GSI1PK: "ITEM_PROFILE#<profileId>"
@@ -110,11 +117,13 @@ export class DynamoStack extends Stack {
       contributorInsightsSpecification: { enabled: true },
     });
 
+    // Outputs for reference
     new CfnOutput(this, "TableName", { value: this.table.tableName });
     new CfnOutput(this, "TableArn", { value: this.table.tableArn });
     new CfnOutput(this, "KmsKeyArn", { value: key.keyArn });
     new CfnOutput(this, "Indexes", {
       value: [
+        "GSI_WorkspaceByName",
         "GSI_ItemsByProfile",
         "GSI_ItemsByParent",
         "GSI_ReportsByUser",
