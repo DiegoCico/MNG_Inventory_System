@@ -5,7 +5,6 @@
 import { z } from "zod";
 import { router, publicProcedure } from "./trpc";
 import {
-  S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
@@ -13,6 +12,9 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
+import type { Context } from "./trpc";
+import { s3Client } from "../aws";
+import { TRPCError } from "@trpc/server";
 
 /**
  * ---------------------------------------------------------------------------
@@ -26,53 +28,17 @@ import { randomUUID } from "crypto";
  *   • `listImages` — list objects under team/scope/item prefix (teamId derived server-side)
  * Behavior
  *   • Objects private by default; presign to access.
- *   • In tests, a dummy bucket is used.
+ *   • Requires S3_BUCKET env var; tests fall back to unit-test-bucket.
  * ---------------------------------------------------------------------------
  */
 
-/* ------------------------- Local Context Typing ------------------------- */
-
-type ImageRepo = {
-  save?: (row: {
-    id?: string;
-    teamId: string;
-    scope: "item" | "team" | "report";
-    itemId?: string;
-    serialNumber?: string;
-    key: string;
-    contentType: string;
-    alt?: string;
-    bytes: number;
-    createdAt: string;
-  }) => Promise<any>;
-  removeByKey?: (key: string) => Promise<any>;
-};
-
-type AppLogger = { warn?: (meta: any, msg?: string) => void };
-
-// Your app likely provides teamId on the context via session/auth.
-// We support several common locations; customize if needed.
-type S3Ctx = {
-  repos?: { images?: ImageRepo };
-  logger?: AppLogger;
-  teamId?: string;
-  user?: { teamId?: string };
-  session?: { teamId?: string };
-  auth?: { teamId?: string };
-};
-type ProcArgs<T> = { input: T; ctx: S3Ctx };
-
 /* ------------------------- Env / Client ------------------------- */
 
-const REGION = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1";
-const s3 = new S3Client({ region: REGION });
-
 function requireBucket(): string {
-  const bucket =
-    process.env.S3_BUCKET ||
-    (process.env.NODE_ENV === "test" ? "unit-test-bucket" : "");
-  if (!bucket) throw new Error("S3_BUCKET env var is required");
-  return bucket;
+  const bucket = process.env.S3_BUCKET?.trim();
+  if (bucket) return bucket;
+  if (process.env.NODE_ENV === "test") return "unit-test-bucket";
+  throw new Error("[s3] Missing required env var S3_BUCKET");
 }
 
 /* ------------------------- Schemas ------------------------- */
@@ -106,6 +72,8 @@ const ListInput = z.object({
 });
 
 /* ------------------------- Utils ------------------------- */
+
+type ProcArgs<T> = { input: T; ctx: Context };
 
 const MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -145,24 +113,31 @@ const datePath = () => {
   return `${y}/${m}/${d}`;
 };
 
-// Pull team id from context in a flexible way (customize as needed for your app)
-function getTeamId(ctx: S3Ctx): string {
-  const fromCtx =
-    ctx?.teamId ??
-    ctx?.session?.teamId ??
-    ctx?.user?.teamId ??
-    ctx?.auth?.teamId;
+// --- Context header helpers (consistent with itemProfiles.ts) ---
+function headerLookup(ctx: Context, key: string): string | undefined {
+  const h1 = ctx.req?.headers?.[key.toLowerCase()];
+  if (typeof h1 === "string") return h1;
+  if (Array.isArray(h1)) return h1[0];
+  const h2 = ctx.event?.headers?.[key] ?? ctx.event?.headers?.[key.toLowerCase()];
+  if (typeof h2 === "string") return h2;
+  return undefined;
+}
+function requireUserId(ctx: Context): string {
+  const userId = headerLookup(ctx, "x-user-id");
+  if (!userId) throw new TRPCError({ code: "UNAUTHORIZED", message: "Missing user" });
+  return userId;
+}
+function requireTeamId(ctx: Context): string {
+  const expressParam = (ctx.req as any)?.params?.workspaceId as string | undefined;
+  const lambdaParam = (ctx.event as any)?.pathParameters?.workspaceId as string | undefined;
+  const headerFallback = headerLookup(ctx, "x-team-id");
+  const teamId = expressParam ?? lambdaParam ?? headerFallback;
+  if (!teamId) throw new TRPCError({ code: "FORBIDDEN", message: "Missing team/workspace id" });
+  return teamId;
+}
 
-  // Allow tests to run without wiring a full auth context.
-  const fallbackForTests =
-    process.env.NODE_ENV === "test"
-      ? (process.env.TEST_TEAM_ID ?? "alpha")
-      : undefined;
-
-  const teamId = fromCtx ?? fallbackForTests;
-
-  if (!teamId) throw new Error("Missing teamId in server context");
-  return sanitizeFilename(teamId);
+function getTeamIdStrict(ctx: Context): string {
+  return requireTeamId(ctx);
 }
 
 // Build the prefix using explicit teamId
@@ -198,7 +173,7 @@ function buildKey(
 
 async function headObjectExists(bucket: string, key: string): Promise<boolean> {
   try {
-    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+    await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
     return true;
   } catch {
     return false;
@@ -217,13 +192,14 @@ export const s3Router = router({
     .input(UploadInput)
     .mutation(async (opts) => {
       const { input, ctx } = opts as ProcArgs<z.infer<typeof UploadInput>>;
+      requireUserId(ctx);
       const BUCKET = requireBucket();
-      const teamId = getTeamId(ctx);
+      const teamId = getTeamIdStrict(ctx);
 
       const { mime, buffer } = parseDataUrl(input.dataUrl);
       const Key = buildKey(teamId, input, mime);
 
-      await s3.send(
+      await s3Client.send(
         new PutObjectCommand({
           Bucket: BUCKET,
           Key,
@@ -239,9 +215,8 @@ export const s3Router = router({
         })
       );
 
-      const { repos, logger } = ctx ?? {};
       try {
-        await repos?.images?.save?.({
+        await (ctx as any)?.repos?.images?.save?.({
           teamId,
           scope: input.scope,
           itemId: input.itemId,
@@ -253,11 +228,11 @@ export const s3Router = router({
           createdAt: new Date().toISOString(),
         });
       } catch (e) {
-        logger?.warn?.({ err: e, where: "s3.uploadImage.db" }, "Image metadata save failed");
+        (ctx as any)?.logger?.warn?.({ err: e, where: "s3.uploadImage.db" }, "Image metadata save failed");
       }
 
       const headUrl = await getSignedUrl(
-        s3 as unknown as any, // guard against AWS v3 minor skew in types
+        s3Client as unknown as any, // guard against AWS v3 minor skew in types
         new HeadObjectCommand({ Bucket: BUCKET, Key }),
         { expiresIn: 60 }
       );
@@ -268,14 +243,15 @@ export const s3Router = router({
   getSignedUrl: publicProcedure
     .input(GetUrlInput)
     .query(async (opts) => {
-      const { input } = opts as ProcArgs<z.infer<typeof GetUrlInput>>;
+      const { input, ctx } = opts as ProcArgs<z.infer<typeof GetUrlInput>>;
+      requireUserId(ctx);
       const BUCKET = requireBucket();
 
       const exists = await headObjectExists(BUCKET, input.key);
       if (!exists) throw new Error("Object not found");
 
       const url = await getSignedUrl(
-        s3 as unknown as any,
+        s3Client as unknown as any,
         new HeadObjectCommand({ Bucket: BUCKET, Key: input.key }),
         { expiresIn: input.expiresIn }
       );
@@ -286,11 +262,12 @@ export const s3Router = router({
     .input(DeleteInput)
     .mutation(async (opts) => {
       const { input, ctx } = opts as ProcArgs<z.infer<typeof DeleteInput>>;
+      requireUserId(ctx);
       const BUCKET = requireBucket();
 
-      await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: input.key }));
+      await s3Client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: input.key }));
       try {
-        await ctx?.repos?.images?.removeByKey?.(input.key);
+        await (ctx as any)?.repos?.images?.removeByKey?.(input.key);
       } catch {
         /* ignore */
       }
@@ -303,8 +280,9 @@ export const s3Router = router({
     .input(ListInput)
     .query(async (opts) => {
       const { input, ctx } = opts as ProcArgs<z.infer<typeof ListInput>>;
+      requireUserId(ctx);
       const BUCKET = requireBucket();
-      const teamId = getTeamId(ctx);
+      const teamId = getTeamIdStrict(ctx);
 
       const basePrefix = prefixFor(teamId, {
         scope: input.scope,
@@ -312,7 +290,7 @@ export const s3Router = router({
         serialNumber: input.serialNumber,
       });
 
-      const resp = await s3.send(
+      const resp = await s3Client.send(
         new ListObjectsV2Command({
           Bucket: BUCKET,
           Prefix: basePrefix,

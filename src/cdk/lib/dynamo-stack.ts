@@ -110,6 +110,17 @@ export class DynamoStack extends Stack {
       contributorInsightsSpecification: { enabled: true },
     });
 
+    // GSI7 — Items by NSN (enforce uniqueness per team and enable fast lookup)
+    //   GSI7PK: "TEAM#<teamId>#NSN"
+    //   GSI7SK: "<nsn>"
+    this.table.addGlobalSecondaryIndex({
+      indexName: "GSI_ItemsByNSN",
+      partitionKey: { name: "GSI7PK", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "GSI7SK", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+      contributorInsightsSpecification: { enabled: true },
+    });
+
     new CfnOutput(this, "TableName", { value: this.table.tableName });
     new CfnOutput(this, "TableArn", { value: this.table.tableArn });
     new CfnOutput(this, "KmsKeyArn", { value: key.keyArn });
@@ -121,6 +132,7 @@ export class DynamoStack extends Stack {
         "GSI_ReportsByItem",
         "GSI_LocationsByParent",
         "GSI_UsersByUid",
+        "GSI_ItemsByNSN",
       ].join(", "),
     });
   }

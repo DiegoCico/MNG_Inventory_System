@@ -46,6 +46,14 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 /**
+* Workspace ID (temp)
+*/
+app.use("/api/workspaces/:workspaceId/trpc", trpcExpress.createExpressMiddleware({
+  router: appRouter,
+  createContext: (opts) => createExpressContext(opts),
+}));
+
+/**
  * tRPC router
  */
 app.use(

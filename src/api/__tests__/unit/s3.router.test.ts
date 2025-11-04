@@ -23,12 +23,22 @@ import {
 
 import { s3Router } from "../../src/routers/s3";
 
+const defaultCtx = {
+  req: {
+    headers: { "x-user-id": "u1", "x-team-id": "alpha" },
+    params: { workspaceId: "alpha" },
+  } as any,
+  res: {} as any,
+  responseHeaders: {},
+  responseCookies: [],
+};
+
 // --- Helpers & Setup ---
 
 const s3Mock = mockClient(S3Client);
 
 // Small harness to call tRPC router procedures over HTTP-like routes
-function testApp(ctx: any = {}) {
+function testApp(ctx: any = defaultCtx) {
   const app = express();
   app.use(express.json({ limit: "20mb" }));
 
@@ -153,7 +163,7 @@ describe("tRPC s3 router", () => {
 
   it("uploadImage: rejects non-image data URLs", async () => {
     s3Mock.on(PutObjectCommand).resolves({}); // should NOT be called
-    const app = testApp();
+    const app = testApp(defaultCtx);
 
     const res = await request(app)
       .post("/trpc/s3.uploadImage")
@@ -172,7 +182,7 @@ describe("tRPC s3 router", () => {
   it("getSignedUrl: returns a URL (mocked)", async () => {
     // existence check
     s3Mock.on(HeadObjectCommand).resolves({});
-    const app = testApp();
+    const app = testApp(defaultCtx);
 
     const res = await request(app).get(
       `/trpc/s3.getSignedUrl?input=${enc({
@@ -198,7 +208,7 @@ describe("tRPC s3 router", () => {
       NextContinuationToken: undefined,
     });
 
-    const app = testApp();
+    const app = testApp(defaultCtx);
 
     const res = await request(app).get(
       `/trpc/s3.listImages?input=${enc({
@@ -217,7 +227,7 @@ describe("tRPC s3 router", () => {
   it("deleteObject: removes S3 key (mocked)", async () => {
     s3Mock.on(DeleteObjectCommand).resolves({});
     const app = testApp({
-      // Optional: Provide a fake images repo in ctx to verify we don't crash
+      ...defaultCtx,
       repos: { images: { removeByKey: async () => ({ ok: true }) } },
       logger: { warn: () => void 0 },
     });
