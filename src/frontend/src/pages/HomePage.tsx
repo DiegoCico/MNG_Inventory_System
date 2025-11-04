@@ -29,13 +29,18 @@ import {
   CartesianGrid,
 } from "recharts";
 
+import { useColorMode } from "../ThemeContext"; // <--- named export
+import LightModeIcon from "@mui/icons-material/LightMode";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+
 export default function HomePage() {
   const { teamId } = useParams<{ teamId: string }>();
   const theme = useTheme();
+  const { mode, toggleTheme } = useColorMode(); // ✅ use inside component
   const tasksCompleted = 30;
   const cardBorder = `1px solid ${theme.palette.divider}`;
 
-  console.log("Team Id", teamId);
+  console.log(teamId);
 
   const reviewData = [
     { hour: "1h ago", reviewed: 3 },
@@ -65,6 +70,18 @@ export default function HomePage() {
             <MilitaryTechIcon sx={{ color: theme.palette.primary.contrastText }} />
             <Typography variant="h6">SupplyNet</Typography>
           </Stack>
+
+          {/* Theme toggle button */}
+          <Button
+            onClick={toggleTheme}
+            variant="text"
+            sx={{
+              color: theme.palette.primary.contrastText,
+              minWidth: 40,
+            }}
+          >
+            {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
+          </Button>
 
           <Button
             component={Link}
