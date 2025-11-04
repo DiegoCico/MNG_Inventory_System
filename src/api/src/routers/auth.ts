@@ -95,7 +95,7 @@ export const authRouter = router({
   /**
    * Invite a new user by sending them an email (admin only)
    */
-  inviteUser: protectedProcedure
+  inviteUser: publicProcedure
     .input(
       z.object({
         email: z.string(),
