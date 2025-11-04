@@ -3,7 +3,7 @@
 // Uses Zod + tRPC, AWS SDK v3. Keys are stable for DB joins.
 
 import { z } from "zod";
-import { router, protectedProcedure } from "./trpc";
+import { router, protectedProcedure, publicProcedure } from "./trpc";
 import {
   S3Client,
   PutObjectCommand,
@@ -208,12 +208,12 @@ async function headObjectExists(bucket: string, key: string): Promise<boolean> {
 /* ------------------------- Router ------------------------- */
 
 export const s3Router = router({
-  s3health: protectedProcedure.query(() => ({ ok: true, scope: "s3" })),
+  s3health: publicProcedure.query(() => ({ ok: true, scope: "s3" })),
 
   // FRONTEND INPUT NOW: { scope, serialNumber?, itemId?, dataUrl, alt? }
   // - teamId is derived from ctx
   // - filename uses serialNumber (or itemId) automatically
-  uploadImage: protectedProcedure
+  uploadImage: publicProcedure
     .input(UploadInput)
     .mutation(async (opts) => {
       const { input, ctx } = opts as ProcArgs<z.infer<typeof UploadInput>>;
@@ -265,7 +265,7 @@ export const s3Router = router({
       return { key: Key, contentType: mime, size: buffer.byteLength, headUrl };
     }),
 
-  getSignedUrl: protectedProcedure
+  getSignedUrl: publicProcedure
     .input(GetUrlInput)
     .query(async (opts) => {
       const { input } = opts as ProcArgs<z.infer<typeof GetUrlInput>>;
@@ -282,7 +282,7 @@ export const s3Router = router({
       return { url };
     }),
 
-  deleteObject: protectedProcedure
+  deleteObject: publicProcedure
     .input(DeleteInput)
     .mutation(async (opts) => {
       const { input, ctx } = opts as ProcArgs<z.infer<typeof DeleteInput>>;
@@ -299,7 +299,7 @@ export const s3Router = router({
 
   // FRONTEND INPUT NOW: { scope, serialNumber?, itemId?, limit?, cursor? }
   // - teamId derived from ctx
-  listImages: protectedProcedure
+  listImages: publicProcedure
     .input(ListInput)
     .query(async (opts) => {
       const { input, ctx } = opts as ProcArgs<z.infer<typeof ListInput>>;

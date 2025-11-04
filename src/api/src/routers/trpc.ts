@@ -79,7 +79,7 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
           // teamId: user.teamId,
           teamId: decode.sub, // TODO link with Dynamo later, this is literally just the user id again
           userId: decode.sub,
-          email: decode.email,
+          email: decode.email, // TODO this not a field that exists in Access tokens
           username: decode['cognito:username'],
           decode, // Keep full token for other uses
         },
