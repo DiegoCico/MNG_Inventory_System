@@ -37,7 +37,7 @@ endobj
 endobj
 5 0 obj
 <<
-/Length 1527389
+/Length 1528860
 >>
 stream
 q
@@ -41844,78 +41844,147 @@ BT
 10.8 TL
 ET
 BT
-1 0 0 1 110 355 Tm
-(REMARKS) Tj
+/F1 8 Tf
+9.6 TL
+ET
+BT
+1 0 0 1 110 364 Tm
+(Checked oil\054 coolant\054 and transmission fluid levels \226 all within spec\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 340 Tm
+(Lubricated door hinges and inspected weather seals for cracks\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 316 Tm
+(Tested brake lights\054 turn signals\054 and headlights for functionality\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 292 Tm
+(Verified fire extinguisher pressure gauge reads full\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 268 Tm
+(Inspected windshield for chips or cracks\073 none found\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 244 Tm
+(Tightened loose battery terminals and applied anti\055corrosion gel\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 220 Tm
+(Checked wiper blades for wear and ensured washer fluid is full\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 196 Tm
+(Confirmed horn operation and instrument panel indicator lights\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 172 Tm
+(Reviewed maintenance log for overdue services \226 none pending\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 148 Tm
+(Visually inspected undercarriage for leaks or damage\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 124 Tm
+(Checked tire tread depth and adjusted air pressure to spec\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 100 Tm
+(Confirmed first aid kit contents complete and sealed\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 76 Tm
+(Performed 10\055minute idle test\073 engine stable\054 no warning lights\056) Tj
+T*
+ET
+BT
+1 0 0 1 110 52 Tm
+(Recorded inspection results in logbook and signed off by inspector\056) Tj
 T*
 ET
 BT
 1 0 0 1 90 720 Tm
-(ORGANIZATION) Tj
+(1\055110th Aviation Regiment) Tj
 T*
 ET
 BT
 1 0 0 1 390 720 Tm
-(NOMENCLATURE) Tj
+(HMMWV) Tj
 T*
 ET
 BT
 1 0 0 1 500 720 Tm
-(MODEL) Tj
+(M998) Tj
 T*
 ET
 BT
 1 0 0 1 90 690 Tm
-(SERIAL NUMBER) Tj
+(SN\055123456) Tj
 T*
 ET
 BT
 1 0 0 1 490 690 Tm
-(TYPE OF INSPECTION) Tj
+(Annual) Tj
 T*
 ET
 BT
 1 0 0 1 90 660 Tm
-(TM NUMBER) Tj
+(TM 9\0552320\055280\05510) Tj
 T*
 ET
 BT
 1 0 0 1 220 660 Tm
-(TM DATE) Tj
+(2024\05502\05515) Tj
 T*
 ET
 BT
 1 0 0 1 190 690 Tm
-(MILES) Tj
+(\074miles\076) Tj
 T*
 ET
 BT
 1 0 0 1 250 690 Tm
-(HOURS) Tj
+(\074hours\076) Tj
 T*
 ET
 BT
 1 0 0 1 290 690 Tm
-(ROUNDS) Tj
+(\074rounds\076) Tj
 T*
 ET
 BT
 1 0 0 1 340 690 Tm
-(HOTSTARTS) Tj
+(\074hotstarts\076) Tj
 T*
 ET
 BT
-1 0 0 1 440 690 Tm
-(DATE) Tj
+1 0 0 1 400 690 Tm
+(2025\05511\05501) Tj
 T*
 ET
 BT
 1 0 0 1 330 660 Tm
-(TM2 NUMBER) Tj
+(TM 9\0552320\055280\05520) Tj
 T*
 ET
 BT
 1 0 0 1 500 660 Tm
-(TM2 DATE) Tj
+(2024\05502\05515) Tj
 T*
 ET
 Q
@@ -42026,10 +42095,10 @@ xref
 0000000119 00000 n 
 0000000168 00000 n 
 0000000399 00000 n 
-0001527843 00000 n 
-0001527950 00000 n 
-0001528103 00000 n 
-0001541316 00000 n 
+0001529314 00000 n 
+0001529421 00000 n 
+0001529574 00000 n 
+0001542787 00000 n 
 trailer
 <<
 /Size 10
@@ -42037,5 +42106,5 @@ trailer
 /Info 1 0 R
 >>
 startxref
-1541337
+1542808
 %%EOF
