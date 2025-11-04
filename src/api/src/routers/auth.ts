@@ -37,7 +37,7 @@ const inviteUser = async (params: { email: string }) => {
 
   try {
     await cognitoClient.send(
-      new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: email })
+      new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: email }),
     );
 
     await cognitoClient.send(
@@ -46,23 +46,23 @@ const inviteUser = async (params: { email: string }) => {
         Username: email,
         Password: tempPassword,
         Permanent: false,
-      })
+      }),
     );
     console.log(`Re-invited existing user: ${email}`);
   } catch (err: any) {
-    if (err.name === "UserNotFoundException") {
+    if (err.name === 'UserNotFoundException') {
       await cognitoClient.send(
         new AdminCreateUserCommand({
           UserPoolId: USER_POOL_ID,
           Username: email,
           TemporaryPassword: tempPassword,
           UserAttributes: [
-            { Name: "email", Value: email },
-            { Name: "email_verified", Value: "true" },
+            { Name: 'email', Value: email },
+            { Name: 'email_verified', Value: 'true' },
           ],
           // keep Cognito silent; we send the invite via SES
           MessageAction: MessageActionType.SUPPRESS,
-        })
+        }),
       );
       console.log(`Created new user: ${email}`);
     } else {
@@ -77,14 +77,30 @@ const inviteUser = async (params: { email: string }) => {
 };
 
 const signIn = async (params: { email: string; password: string }) => {
-    const command = new AdminInitiateAuthCommand({
+  const command = new AdminInitiateAuthCommand({
     UserPoolId: USER_POOL_ID,
-    ClientId: USER_POOL_CLIENT_ID,             // must be your current no-secret client
+    ClientId: USER_POOL_CLIENT_ID, // must be your current no-secret client
     AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
     AuthParameters: { USERNAME: params.email, PASSWORD: params.password },
   });
   return await cognitoClient.send(command);
 };
+
+/**
+ * Build a single Cookie header string from either Express req or API Gateway v2 event.
+ * - Supports event.cookies (array) and Cookie/cookie headers.
+ */
+function cookieHeaderFromCtx(ctx: any): string {
+  const parts: string[] = [];
+  const fromArray = Array.isArray(ctx?.event?.cookies) ? ctx.event.cookies : [];
+  if (fromArray.length) parts.push(...fromArray);
+  const headerLower = ctx?.event?.headers?.cookie as string | undefined;
+  const headerUpper = (ctx?.event?.headers as Record<string, string> | undefined)?.Cookie;
+  const headerReq = ctx?.req?.headers?.cookie as string | undefined;
+  const header = headerLower ?? headerUpper ?? headerReq;
+  if (header) parts.push(header);
+  return parts.length ? parts.join('; ') : '';
+}
 
 export const authRouter = router({
   /**
@@ -178,13 +194,16 @@ export const authRouter = router({
 
         // Successful authentication - return tokens immediately
         if (result.AuthenticationResult) {
-          if (ctx.res) {
-            setAuthCookies(ctx.res, {
-              AccessToken: result.AuthenticationResult.AccessToken ?? null,
-              IdToken: result.AuthenticationResult.IdToken ?? null,
-              RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
-              ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-            });
+          // Set cookies for Express OR stash them for Lambda adapter
+          const headers = setAuthCookies(ctx.res, {
+            AccessToken: result.AuthenticationResult.AccessToken ?? null,
+            IdToken: result.AuthenticationResult.IdToken ?? null,
+            RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+            ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+          });
+
+          if (!ctx.res && ctx.responseCookies) {
+            ctx.responseCookies.push(...headers);
           }
 
           return {
@@ -295,13 +314,14 @@ export const authRouter = router({
 
         // Success → set cookies
         if (result.AuthenticationResult) {
-          if (ctx.res) {
-            setAuthCookies(ctx.res, {
-              AccessToken: result.AuthenticationResult.AccessToken ?? null,
-              IdToken: result.AuthenticationResult.IdToken ?? null,
-              RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
-              ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-            });
+          const headers = setAuthCookies(ctx.res, {
+            AccessToken: result.AuthenticationResult.AccessToken ?? null,
+            IdToken: result.AuthenticationResult.IdToken ?? null,
+            RefreshToken: result.AuthenticationResult.RefreshToken ?? null,
+            ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+          });
+          if (!ctx.res && ctx.responseCookies) {
+            ctx.responseCookies.push(...headers);
           }
 
           return {
@@ -334,13 +354,8 @@ export const authRouter = router({
       }
     }),
 
-
   me: publicProcedure.query(async ({ ctx }) => {
-    const cookieHeader =
-      ctx.req?.headers?.cookie ??
-      ctx.event?.headers?.cookie ??
-      (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
-      '';
+    const cookieHeader = cookieHeaderFromCtx(ctx);
     const cookies = cookie.parse(cookieHeader);
 
     const hasSession =
@@ -355,11 +370,7 @@ export const authRouter = router({
 
   refresh: publicProcedure.mutation(async ({ ctx }) => {
     try {
-      const cookieHeader =
-        ctx.req?.headers?.cookie ??
-        ctx.event?.headers?.cookie ??
-        (ctx.event?.headers as Record<string, string> | undefined)?.Cookie ??
-        '';
+      const cookieHeader = cookieHeaderFromCtx(ctx);
       const cookies = cookie.parse(cookieHeader);
       const refreshToken = cookies['auth_refresh'];
 
@@ -381,12 +392,13 @@ export const authRouter = router({
         return { refreshed: false, message: 'Token refresh failed' };
       }
 
-      if (ctx.res) {
-        setAuthCookies(ctx.res, {
-          AccessToken: result.AuthenticationResult.AccessToken ?? null,
-          IdToken: result.AuthenticationResult.IdToken ?? null,
-          ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-        });
+      const headers = setAuthCookies(ctx.res, {
+        AccessToken: result.AuthenticationResult.AccessToken ?? null,
+        IdToken: result.AuthenticationResult.IdToken ?? null,
+        ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+      });
+      if (!ctx.res && ctx.responseCookies) {
+        ctx.responseCookies.push(...headers);
       }
 
       return { refreshed: true, expiresIn: result.AuthenticationResult.ExpiresIn };
@@ -397,8 +409,9 @@ export const authRouter = router({
   }),
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {
-    if (ctx.res) {
-      clearAuthCookies(ctx.res);
+    const headers = clearAuthCookies(ctx.res);
+    if (!ctx.res && ctx.responseCookies) {
+      ctx.responseCookies.push(...headers);
     }
     return { success: true, message: 'Signed out' };
   }),

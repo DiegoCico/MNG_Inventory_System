@@ -15,7 +15,7 @@ export const COOKIE_REFRESH = "auth_refresh";
 // Choose safe defaults:
 // - production: cross-site → SameSite=None + Secure=true (required by browsers)
 // - development: http://localhost same-site → SameSite=Lax + Secure=false
-const IS_PROD = (process.env.NODE_ENV ? process.env.NODE_ENV : 'production')  === "production";
+const IS_PROD = process.env.NODE_ENV === "production";
 const DEFAULT_SAMESITE = (IS_PROD ? "none" : "lax") as "none" | "lax" | "strict";
 const DEFAULT_SECURE = IS_PROD;
 
