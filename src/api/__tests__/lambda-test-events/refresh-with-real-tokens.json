@@ -1,0 +1,29 @@
+{
+  "version": "2.0",
+  "routeKey": "ANY /trpc/{proxy+}",
+  "rawPath": "/trpc/refresh",
+  "rawQueryString": "",
+  "requestContext": {
+    "http": {
+      "method": "POST",
+      "path": "/trpc/refresh",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "test"
+    },
+    "requestId": "test-request-id-refresh",
+    "routeKey": "ANY /trpc/{proxy+}",
+    "stage": "$default",
+    "time": "03/Nov/2025:00:00:00 +0000",
+    "timeEpoch": 1730592000000
+  },
+  "headers": {
+    "content-type": "application/json",
+    "cookie": "auth_refresh=PASTE_YOUR_REFRESH_TOKEN_HERE"
+  },
+  "body": "{}",
+  "pathParameters": {
+    "proxy": "refresh"
+  },
+  "isBase64Encoded": false
+}
