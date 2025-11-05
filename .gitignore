@@ -15,3 +15,6 @@ cdk.out
 .DS_Store
 src/.DS_Store
 src/api/.DS_Store
+repo_summary.txt
+src/api/.env.dev
+src/api/tsconfig.json

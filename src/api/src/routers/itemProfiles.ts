@@ -24,12 +24,8 @@
  *
  * How callers authenticate & scope requests
  * ----------------------------------------------------------------------------
- * - **User**: `x-user-id` header is required. Missing → `UNAUTHORIZED`.
- * - **Workspace/Team**: resolved from Express route param `:workspaceId`
- *   (preferred), or from legacy header `x-team-id`. Missing → `FORBIDDEN`.
- * - All reads/writes are performed **within** the resolved teamId; cross-team
- *   access is not permitted.
- * - **TEMP (until cookie-based tRPC auth):** each input includes { userId, teamId } supplied by the frontend.
+ * - **User & Team (required in input)**: each procedure input includes `{ userId, teamId }` supplied by the frontend. The router no longer reads headers or route params for auth/scope.
+ * - All reads/writes are performed **within** the provided `teamId`; cross-team access is not permitted.
  *
  * Image handling (S3)
  * ----------------------------------------------------------------------------
@@ -55,16 +51,16 @@
  *
  * Runtime configuration (environment with safe defaults)
  * - `DDB_TABLE`: DynamoDB table name (defaults to "mng-dev-data")
- * - `S3_BUCKET`: S3 bucket for item images (defaults to "mngweb-dev-webbucket12880f5b-kq75xxdqbbvj")
+ * - `S3_BUCKET`: S3 bucket for item images (defaults to "mng-dev-assets")
  * - `AWS_REGION`: region (defaults to "us-east-1")
-Router no longer throws on missing env; local defaults are applied for dev.*
+ * In production, required env vars must be set; in dev, safe defaults are used.
  * Typical usage (tRPC client)
  * ----------------------------------------------------------------------------
  *   // Create
  *   await trpc.itemProfiles.create.mutate({
  *     nsn: "1234-5678-90",
  *     name: "Widget A",
- *     imageKey: "teams/alpha/images/widget-a.jpg",
+ *     image: { filename: "widget-a.jpg", dirHint: "images" },
  *     description: "A standard widget",
  *     lastKnownLocation: "Aisle 5",
  *   });
@@ -103,57 +99,6 @@ import { PutCommand, UpdateCommand, GetCommand, DeleteCommand, QueryCommand } fr
 import { s3Client } from "../aws";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
 
-type Ctx = import("./trpc").Context;
-
-/** 
- * Helper function to lookup a header value from the context.
- * Supports both Express-style req.headers and Lambda event.headers.
- * @param ctx - The tRPC context containing req and event objects.
- * @param key - The header key to lookup (case-insensitive).
- * @returns The header string value if found, otherwise undefined.
- */
-function headerLookup(ctx: Ctx, key: string): string | undefined {
-  const h1 = ctx.req?.headers?.[key.toLowerCase()];
-  if (typeof h1 === "string") return h1;
-  if (Array.isArray(h1)) return h1[0];
-  const h2 = ctx.event?.headers?.[key] ?? ctx.event?.headers?.[key.toLowerCase()];
-  if (typeof h2 === "string") return h2;
-  return undefined;
-}
-
-/**
- * Requires and returns the authenticated user ID from headers.
- * Throws TRPCError(UNAUTHORIZED) if missing.
- * @param ctx - The tRPC context.
- * @returns The user ID string.
- * @throws TRPCError if user ID header is missing.
- */
-function requireUserId(ctx: Ctx): string {
-  const userId = headerLookup(ctx, "x-user-id");
-  if (!userId) throw new TRPCError({ code: "UNAUTHORIZED", message: "Missing user" });
-  return userId;
-}
-
-/**
- * Resolve the workspace/team identifier for scoping.
- * Priority:
- *   1) Express route param `:workspaceId`
- *   2) Lambda `event.pathParameters.workspaceId`
- *   3) Legacy header `x-team-id` (backward compatibility)
- * Throws FORBIDDEN if none is provided.
- */
-function requireTeamId(ctx: Ctx): string {
-  // Express route param: /api/workspaces/:workspaceId/...
-  const expressParam = (ctx.req as any)?.params?.workspaceId as string | undefined;
-  // API Gateway v2 path param
-  const lambdaParam = (ctx.event as any)?.pathParameters?.workspaceId as string | undefined;
-  // Legacy header fallback (kept only for backward compat)
-  const headerFallback = headerLookup(ctx, "x-team-id");
-
-  const teamId = expressParam || lambdaParam || headerFallback;
-  if (!teamId) throw new TRPCError({ code: "FORBIDDEN", message: "Missing team/workspace id" });
-  return teamId;
-}
 
 /**
  * Validate that the provided S3 key is under the team's namespace.
@@ -172,6 +117,24 @@ function normalizeImageKey(key?: string): string | undefined {
   if (!key) return undefined;
   const trimmed = key.trim();
   return trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+}
+
+/** Sanitizes a single path segment for S3 keys: allow [A-Za-z0-9._-], collapse others to '-' */
+function sanitizeSegment(seg: string): string {
+  return seg
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Za-z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Build a canonical S3 key for an item image under the team's namespace */
+function buildImageKey(teamId: string, nsnOrHint: string, filename: string) {
+  const safeTeam = sanitizeSegment(teamId);
+  const safeHint = sanitizeSegment(nsnOrHint || "item");
+  const safeFile = sanitizeSegment(filename);
+  return `teams/${safeTeam}/items/${safeHint}/${safeFile}`;
 }
 
 /**
@@ -273,25 +236,41 @@ const ItemProfileBase = z.object({
   lastKnownLocation: z.string().optional(),   // optional (freeform)
 });
 
+// New: Image input for safer image referencing (preferred over legacy imageKey)
+const ImageInput = z.object({
+  filename: z.string().min(1),
+  /** optional hint to group images; defaults to NSN if omitted */
+  dirHint: z.string().min(1).optional(),
+});
+
 /**
  * Input schema for creating a new Item Profile.
  * Extends ItemProfileBase with optional id (UUID).
  * The id is usually generated server-side if not provided.
+ * 
+ * Image handling: Prefer using `image` (filename + optional dirHint), legacy `imageKey` is supported for back-compat.
  */
 const CreateItemProfileInput = ItemProfileBase.extend({
   id: z.string().uuid().optional(),
+  /** New, safer way: frontend provides only a filename (and optional dir hint); backend builds the key */
+  image: ImageInput.optional(),
 }).and(AuthInput);
 
 /**
  * Patch schema for updating an Item Profile.
  * All fields are optional and validated similarly to base schema.
  * Empty objects are rejected by refinement.
+ * 
+ * Image handling: Prefer using `image` (filename + optional dirHint), legacy `imageKey` is supported for back-compat.
  */
 const ItemProfilePatch = z.object({
   nsn: z.string().min(1).optional(),
   name: z.string().min(1).optional(),
   description: z.string().optional(),
+  /** Legacy escape hatch; prefer `image` */
   imageKey: z.string().min(1).optional(),
+  /** Preferred: supply only filename (+optional dir hint); backend constructs and validates */
+  image: ImageInput.optional(),
   parentItemId: z.string().min(1).optional(),
   lastKnownLocation: z.string().optional(),
 });
@@ -366,13 +345,23 @@ export type ItemProfileRecord = z.infer<typeof ItemProfileBase> & {
 // --- Environment with safe defaults (dev-friendly) -------------------------
 const DEFAULT_ENV = {
   DDB_TABLE: "mng-dev-data",
-  S3_BUCKET: "mngweb-dev-webbucket12880f5b-kq75xxdqbbvj",
+  // Use the dedicated app assets bucket as the dev default, not the web hosting bucket
+  S3_BUCKET: "dev-sample-image-buckets",
   AWS_REGION: "us-east-1",
 } as const;
 
-const DDB_TABLE = process.env.DDB_TABLE?.trim() || DEFAULT_ENV.DDB_TABLE;
-const S3_BUCKET = process.env.S3_BUCKET?.trim() || DEFAULT_ENV.S3_BUCKET;
-const AWS_REGION = process.env.AWS_REGION?.trim() || DEFAULT_ENV.AWS_REGION;
+function envOrDefault(name: keyof typeof DEFAULT_ENV): string {
+  const val = process.env[name]?.trim();
+  if (val) return val;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(`${name} must be set in production environment`);
+  }
+  return DEFAULT_ENV[name];
+}
+
+const DDB_TABLE = envOrDefault("DDB_TABLE");
+const S3_BUCKET = envOrDefault("S3_BUCKET");
+const AWS_REGION = envOrDefault("AWS_REGION");
 
 // Dev defaults mirror: DDB_TABLE=mng-dev-data S3_BUCKET=mngweb-dev-webbucket12880f5b-kq75xxdqbbvj AWS_REGION=us-east-1
 
@@ -668,6 +657,8 @@ export const itemProfilesRouter = router({
    *    - BAD_REQUEST if validation fails.
    *    - INTERNAL_SERVER_ERROR on unexpected errors.
    * 
+   * Image handling: Prefer `image` (filename + optional dirHint); legacy `imageKey` is supported for back-compat.
+   * 
    * Example usage:
    *   trpc.itemProfiles.create.mutate({ nsn: "1234", name: "Item" });
    */
@@ -682,7 +673,13 @@ export const itemProfilesRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: `parentItemId not found: ${input.parentItemId}` });
         }
       }
-      const safeKey = await ensureImageObjectExists(teamId, input.imageKey); // also enforces team prefix
+      // Prefer secure key construction from `image { filename, dirHint }`; fall back to legacy imageKey
+      let constructedKey: string | undefined;
+      if (input.image && input.image.filename) {
+        const hint = input.image.dirHint || input.nsn;
+        constructedKey = buildImageKey(teamId, hint, input.image.filename);
+      }
+      const safeKey = await ensureImageObjectExists(teamId, constructedKey ?? input.imageKey); // also enforces team prefix
       const audit = makeAuditOnCreate(userId, teamId);
       try {
         return await itemProfilesRepo.create(teamId, { ...input, imageKey: safeKey, ...audit });
@@ -703,6 +700,8 @@ export const itemProfilesRouter = router({
    *    - NOT_FOUND if record does not exist.
    *    - INTERNAL_SERVER_ERROR on unexpected errors.
    * 
+   * Image handling: Prefer `image` (filename + optional dirHint); legacy `imageKey` is supported for back-compat.
+   * 
    * Example usage:
    *   trpc.itemProfiles.update.mutate({ id: "...", patch: { name: "New Name" } });
    */
@@ -717,9 +716,13 @@ export const itemProfilesRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: `parentItemId not found: ${input.patch.parentItemId}` });
         }
       }
-      // Enforces S3 key prefix: teams/{teamId}/...
-      // If caller provided a new imageKey, validate prefix and ensure object exists.
+      // Image patch logic: support new `image` option (preferred) or legacy `imageKey`
       let imageKeyPatched = input.patch.imageKey;
+      if (typeof input.patch.image !== "undefined" && input.patch.image) {
+        const hint = input.patch.image.dirHint || input.patch.nsn || (await itemProfilesRepo.getById(teamId, input.id))?.nsn || "item";
+        const built = buildImageKey(teamId, hint, input.patch.image.filename);
+        imageKeyPatched = built;
+      }
       if (typeof imageKeyPatched !== "undefined") {
         imageKeyPatched = await ensureImageObjectExists(teamId, imageKeyPatched);
       }
