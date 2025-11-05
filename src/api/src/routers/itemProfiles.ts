@@ -29,6 +29,7 @@
  *   (preferred), or from legacy header `x-team-id`. Missing → `FORBIDDEN`.
  * - All reads/writes are performed **within** the resolved teamId; cross-team
  *   access is not permitted.
+ * - **TEMP (until cookie-based tRPC auth):** each input includes { userId, teamId } supplied by the frontend.
  *
  * Image handling (S3)
  * ----------------------------------------------------------------------------
@@ -52,13 +53,11 @@
  *       * GSI2SK = `{updatedAt ISO}`
  *     Used to list children of a parent item quickly.
  *
- * Runtime configuration (required environment)
- * ----------------------------------------------------------------------------
- * - `DDB_TABLE`: DynamoDB table name
- * - `S3_BUCKET`: S3 bucket that stores item images
- * - `AWS_REGION`: (optional) region; defaults to `"us-east-1"` elsewhere
- * Router throws during module load if required env vars are missing.
- *
+ * Runtime configuration (environment with safe defaults)
+ * - `DDB_TABLE`: DynamoDB table name (defaults to "mng-dev-data")
+ * - `S3_BUCKET`: S3 bucket for item images (defaults to "mngweb-dev-webbucket12880f5b-kq75xxdqbbvj")
+ * - `AWS_REGION`: region (defaults to "us-east-1")
+Router no longer throws on missing env; local defaults are applied for dev.*
  * Typical usage (tRPC client)
  * ----------------------------------------------------------------------------
  *   // Create
@@ -239,6 +238,17 @@ function mapRepoError(e: unknown): TRPCError {
  * Zod Schemas for validation and typing.
  */
 
+/** Shared auth input (temporary until cookies-based auth is wired through tRPC) */
+const AuthInput = z.object({
+  userId: z.string().min(1, "userId required"),
+  teamId: z.string().min(1, "teamId required"),
+});
+
+/** Helper to pull userId/teamId from inputs (front-end supplies both for now). */
+function authFromInput(input: { userId: string; teamId: string }) {
+  return { userId: input.userId, teamId: input.teamId };
+}
+
 /**
  * Schema for ID strings.
  * Must be a non-empty string.
@@ -270,7 +280,7 @@ const ItemProfileBase = z.object({
  */
 const CreateItemProfileInput = ItemProfileBase.extend({
   id: z.string().uuid().optional(),
-});
+}).and(AuthInput);
 
 /**
  * Patch schema for updating an Item Profile.
@@ -295,7 +305,7 @@ const UpdateItemProfileInput = z.object({
   patch: ItemProfilePatch.refine((p) => p && Object.keys(p).length > 0, {
     message: "patch cannot be empty",
   }),
-});
+}).and(AuthInput);
 
 /**
  * Input schema for delete operation.
@@ -304,7 +314,7 @@ const UpdateItemProfileInput = z.object({
 const DeleteItemProfileInput = z.object({
   id: IdSchema,
   hard: z.boolean().default(false),
-});
+}).and(AuthInput);
 
 /**
  * Input schema for listing Item Profiles.
@@ -318,7 +328,7 @@ const ListItemProfilesInput = z.object({
   cursor: z.string().optional(),
   orderBy: z.enum(["createdAt", "updatedAt", "name"]).default("updatedAt"),
   order: z.enum(["asc", "desc"]).default("desc"),
-});
+}).and(AuthInput);
 
 /**
  * Type representing a full ItemProfile record stored in the repo.
@@ -353,17 +363,38 @@ export type ItemProfileRecord = z.infer<typeof ItemProfileBase> & {
  *   - All date fields are stored as ISO strings.
  *   - `deletedAt` is used for soft delete and excluded by `fromDb`.
  */
-// --- Environment guards: fail fast on missing required configuration ------
-function requiredEnv(name: string): string {
-  const v = process.env[name];
-  if (!v || !v.trim()) {
-    throw new Error(`[itemProfiles] Missing required environment variable: ${name}`);
-  }
-  return v;
-}
+// --- Environment with safe defaults (dev-friendly) -------------------------
+const DEFAULT_ENV = {
+  DDB_TABLE: "mng-dev-data",
+  S3_BUCKET: "mngweb-dev-webbucket12880f5b-kq75xxdqbbvj",
+  AWS_REGION: "us-east-1",
+} as const;
 
-const DDB_TABLE = requiredEnv("DDB_TABLE");
-const S3_BUCKET = requiredEnv("S3_BUCKET");
+const DDB_TABLE = process.env.DDB_TABLE?.trim() || DEFAULT_ENV.DDB_TABLE;
+const S3_BUCKET = process.env.S3_BUCKET?.trim() || DEFAULT_ENV.S3_BUCKET;
+const AWS_REGION = process.env.AWS_REGION?.trim() || DEFAULT_ENV.AWS_REGION;
+
+// Dev defaults mirror: DDB_TABLE=mng-dev-data S3_BUCKET=mngweb-dev-webbucket12880f5b-kq75xxdqbbvj AWS_REGION=us-east-1
+
+// --- Index name & key attribute config (env-overridable) --------------------
+const INDEX = {
+  itemsByNSN: process.env.GSI_ITEMS_BY_NSN?.trim() || "GSI_ItemsByNSN",
+  itemsByParent: process.env.GSI_ITEMS_BY_PARENT?.trim() || "GSI_ItemsByParent",
+} as const;
+
+// If your table used different attribute names for the index keys, override here via env.
+// These are the attribute *names* stored on each item that the GSIs read from.
+const GSI_ATTR = {
+  nsnPK: process.env.GSI7PK_ATTR?.trim() || "GSI7PK",
+  nsnSK: process.env.GSI7SK_ATTR?.trim() || "GSI7SK",
+  parentPK: process.env.GSI2PK_ATTR?.trim() || "GSI2PK",
+  parentSK: process.env.GSI2SK_ATTR?.trim() || "GSI2SK",
+} as const;
+
+// Override GSI names/attributes at runtime by setting env vars, e.g.:
+//   GSI_ITEMS_BY_NSN=NewIndexName
+//   GSI7PK_ATTR=NEW_PK_ATTR
+// This prevents code changes when infra renames indexes/keys.
 
 // --- Key builders (keep in sync with table/CDK) ----------------------------
 const pk = (teamId: string) => `TEAM#${teamId}`;
@@ -394,11 +425,11 @@ function toDb(rec: ItemProfileRecord) {
     updatedBy: rec.updatedBy,
     deletedAt: rec.deletedAt ? rec.deletedAt.toISOString() : null,
 
-    // GSIs
-    GSI7PK: gsi7pk(rec.teamId),                 // for GSI_ItemsByNSN
-    GSI7SK: rec.nsn,
-    GSI2PK: gsi2pk(rec.teamId, rec.parentItemId ?? undefined), // for GSI_ItemsByParent
-    GSI2SK: rec.updatedAt.toISOString(),
+    // GSIs (use env-driven attribute names so schema can change without code edits)
+    [GSI_ATTR.nsnPK]: gsi7pk(rec.teamId),                                   // e.g., "GSI7PK"
+    [GSI_ATTR.nsnSK]: rec.nsn,                                              // e.g., "GSI7SK"
+    [GSI_ATTR.parentPK]: gsi2pk(rec.teamId, rec.parentItemId ?? undefined), // e.g., "GSI2PK"
+    [GSI_ATTR.parentSK]: rec.updatedAt.toISOString(),                       // e.g., "GSI2SK"
 
     entity: "ItemProfile",
   };
@@ -427,8 +458,9 @@ async function ensureNsnUnique(teamId: string, nsn: string, excludeId?: string) 
   const res = await doc.send(
     new QueryCommand({
       TableName: DDB_TABLE,
-      IndexName: "GSI_ItemsByNSN",
-      KeyConditionExpression: "GSI7PK = :g AND GSI7SK = :nsn",
+      IndexName: INDEX.itemsByNSN,
+      KeyConditionExpression: "#gpk = :g AND #gsk = :nsn",
+      ExpressionAttributeNames: { "#gpk": GSI_ATTR.nsnPK, "#gsk": GSI_ATTR.nsnSK },
       ExpressionAttributeValues: { ":g": gsi7pk(teamId), ":nsn": nsn },
       Limit: 2,
     })
@@ -442,8 +474,9 @@ export const itemProfilesRepo = {
     const res = await doc.send(
       new QueryCommand({
         TableName: DDB_TABLE,
-        IndexName: "GSI_ItemsByNSN",
-        KeyConditionExpression: "GSI7PK = :g AND GSI7SK = :nsn",
+        IndexName: INDEX.itemsByNSN,
+        KeyConditionExpression: "#gpk = :g AND #gsk = :nsn",
+        ExpressionAttributeNames: { "#gpk": GSI_ATTR.nsnPK, "#gsk": GSI_ATTR.nsnSK },
         ExpressionAttributeValues: { ":g": gsi7pk(teamId), ":nsn": nsn },
         Limit: 1,
       })
@@ -456,6 +489,7 @@ export const itemProfilesRepo = {
     const id = data.id ?? randomUUID();
     const record: ItemProfileRecord = { ...data, id, deletedAt: null };
     const item = toDb(record);
+
     await doc.send(
       new PutCommand({
         TableName: DDB_TABLE,
@@ -463,6 +497,7 @@ export const itemProfilesRepo = {
         ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
       })
     );
+
     return record;
   },
 
@@ -548,8 +583,9 @@ export const itemProfilesRepo = {
       const res = await doc.send(
         new QueryCommand({
           TableName: DDB_TABLE,
-          IndexName: "GSI_ItemsByParent",
-          KeyConditionExpression: "GSI2PK = :g2",
+          IndexName: INDEX.itemsByParent,
+          KeyConditionExpression: "#p = :g2",
+          ExpressionAttributeNames: { "#p": GSI_ATTR.parentPK },
           ExpressionAttributeValues: { ":g2": gsi2pk(teamId, args.parentItemId) },
           Limit: args.limit,
           ExclusiveStartKey,
@@ -638,8 +674,7 @@ export const itemProfilesRouter = router({
   create: publicProcedure
     .input(CreateItemProfileInput)
     .mutation(async ({ input, ctx }) => {
-      const userId = requireUserId(ctx);
-      const teamId = requireTeamId(ctx);
+      const { userId, teamId } = authFromInput(input);
       // If a parent is provided, ensure it exists in the same team.
       if (input.parentItemId) {
         const parent = await itemProfilesRepo.getById(teamId, input.parentItemId);
@@ -674,8 +709,7 @@ export const itemProfilesRouter = router({
   update: publicProcedure
     .input(UpdateItemProfileInput)
     .mutation(async ({ input, ctx }) => {
-      const userId = requireUserId(ctx);
-      const teamId = requireTeamId(ctx);
+      const { userId, teamId } = authFromInput(input);
       // If caller is changing parent, ensure the new parent exists (same team).
       if (typeof input.patch.parentItemId !== "undefined" && input.patch.parentItemId) {
         const parent = await itemProfilesRepo.getById(teamId, input.patch.parentItemId);
@@ -716,8 +750,7 @@ export const itemProfilesRouter = router({
   delete: publicProcedure
     .input(DeleteItemProfileInput)
     .mutation(async ({ input, ctx }) => {
-      requireUserId(ctx);
-      const teamId = requireTeamId(ctx);
+      const { userId, teamId } = authFromInput(input);
       try {
         return input.hard
           ? await itemProfilesRepo.hardDelete(teamId, input.id)
@@ -742,10 +775,9 @@ export const itemProfilesRouter = router({
    *   trpc.itemProfiles.getById.query({ id: "..." });
    */
   getById: publicProcedure
-    .input(z.object({ id: IdSchema }))
+    .input(z.object({ id: IdSchema }).and(AuthInput))
     .query(async ({ input, ctx }) => {
-      requireUserId(ctx);
-      const teamId = requireTeamId(ctx);
+      const { userId, teamId } = authFromInput(input);
       try {
         const rec = await itemProfilesRepo.getById(teamId, input.id);
         if (!rec) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
@@ -762,10 +794,9 @@ export const itemProfilesRouter = router({
    * - Output: ItemProfileRecord if found, NOT_FOUND otherwise.
    */
   findByNSN: publicProcedure
-    .input(z.object({ nsn: z.string().min(1) }))
+    .input(z.object({ nsn: z.string().min(1) }).and(AuthInput))
     .query(async ({ input, ctx }) => {
-      requireUserId(ctx);
-      const teamId = requireTeamId(ctx);
+      const { userId, teamId } = authFromInput(input);
       try {
         const rec = await itemProfilesRepo.findByNSN(teamId, input.nsn);
         if (!rec) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
@@ -791,8 +822,7 @@ export const itemProfilesRouter = router({
   list: publicProcedure
     .input(ListItemProfilesInput)
     .query(async ({ input, ctx }) => {
-      requireUserId(ctx);
-      const teamId = requireTeamId(ctx);
+      const { userId, teamId } = authFromInput(input);
       try {
         return await itemProfilesRepo.list(teamId, input);
       } catch (e) {

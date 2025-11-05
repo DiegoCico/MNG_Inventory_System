@@ -36,3 +36,7 @@ export const AWS_CONFIG = {
   isLambda,
   profile: isLambda ? 'lambda-role' : 'default',
 };
+
+export const TABLE_NAME = process.env.TABLE_NAME || "mng-dev-data";
+
+export const BUCKET_NAME = process.env.S3_BUCKET || "dev-sample-image-buckets";
