@@ -17,8 +17,10 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Tabs,
+  Tab,
+  Grid,
 } from "@mui/material";
-import Grid from "@mui/material/Grid";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import GroupAddIcon from "@mui/icons-material/GroupAdd";
@@ -36,8 +38,6 @@ import {
   deleteTeamspace,
 } from "../api/teamspace";
 import { me, inviteUser } from "../api/auth";
-import { Tabs, Tab } from "@mui/material";
-
 
 export interface Team {
   teamId: string;
@@ -54,6 +54,7 @@ export default function TeamsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [inviteMode, setInviteMode] = useState<"teamspace" | "platform">("teamspace");
+
   // Dialogs
   const [openCreate, setOpenCreate] = useState(false);
   const [openInvite, setOpenInvite] = useState(false);
@@ -72,71 +73,49 @@ export default function TeamsPage() {
   const [deleteWorkspaceName, setDeleteWorkspaceName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
 
-  useEffect(() => {
-    void refreshTeams();
-  }, []);
-
+  // Fetch user ID
   async function getUserId(): Promise<string> {
     const user = await me();
     if (!user?.userId) throw new Error("User not authenticated or ID missing");
     return user.userId;
   }
 
+  // Load teams
   async function refreshTeams(): Promise<void> {
     try {
       setLoading(true);
       setError(null);
       const userId = await getUserId();
       const data = await getTeamspace(userId);
-      console.log("📋 Loaded teams:", data?.teams); 
+      console.log("📋 Loaded teams:", data?.teams);
       setTeams(data?.teams ?? []);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load teams";
+      const message = err instanceof Error ? err.message : "Failed to load teams";
       setError(message);
     } finally {
       setLoading(false);
     }
   }
 
-  // Dialog helpers
-  function openInviteFor(id: string): void {
-    setInviteWorkspaceId(id);
-    setOpenInvite(true);
-  }
+  useEffect(() => {
+    void refreshTeams();
+  }, []);
 
   function openRemoveFor(id: string, name: string): void {
-    setRemoveWorkspaceId(id);
-    setRemoveWorkspaceName(name);
-    setOpenRemove(true);
-  }
-
-  function openDeleteFor(id: string, name: string): void {
-    setDeleteWorkspaceId(id);
-    setDeleteWorkspaceName(name);
-    setOpenDelete(true);
-  }
-
-  // Actions
-  async function handleInviteClick() {
-  try {
-    const email = inviteEmail.trim();
-    if (!email) return alert("Please enter an email.");
-
-    const result = await inviteUser(email);
-    console.log("✅ Invite success:", result);
-    alert(`Invite sent to ${email}`);
-  } catch (err: unknown) {
-  if (err instanceof Error) {
-    console.error("❌ Invite failed:", err.message);
-    alert(`Failed to send invite: ${err.message}`);
-  } else {
-    console.error("❌ Unknown error:", err);
-    alert("Failed to send invite. Please try again.");
-  }
+  setRemoveWorkspaceId(id);
+  setRemoveWorkspaceName(name);
+  setOpenRemove(true);
 }
-  }
 
+function openDeleteFor(id: string, name: string): void {
+  setDeleteWorkspaceId(id);
+  setDeleteWorkspaceName(name);
+  setOpenDelete(true);
+}
+
+  // ---------------------------
+  // CREATE TEAM
+  // ---------------------------
   async function handleCreate(): Promise<void> {
     try {
       setLoading(true);
@@ -147,18 +126,29 @@ export default function TeamsPage() {
         description: workspaceDesc,
       });
 
-      await createTeamspace(workspaceName, workspaceDesc, userId);
+      const result = await createTeamspace(workspaceName, workspaceDesc, userId);
+
+      if (!result?.success) {
+        alert(`❌ ${result.error || "Failed to create team."}`);
+        return;
+      }
+
+      alert("✅ Teamspace created successfully!");
       setOpenCreate(false);
       setWorkspaceName("");
       setWorkspaceDesc("");
       await refreshTeams();
     } catch (err) {
+      console.error("❌ handleCreate error:", err);
       alert(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   }
 
+  // ---------------------------
+  // INVITE MEMBER TO TEAM
+  // ---------------------------
   async function handleInvite(): Promise<void> {
     try {
       if (!inviteWorkspaceId) {
@@ -167,65 +157,114 @@ export default function TeamsPage() {
       }
       setLoading(true);
       const userId = await getUserId();
-      await addUserTeamspace(userId, memberEmail, inviteWorkspaceId);
+      const result = await addUserTeamspace(userId, memberEmail, inviteWorkspaceId);
+
+      if (!result?.success) {
+        alert(`❌ ${result.error || "Failed to add member."}`);
+        return;
+      }
+
+      alert("✅ Member added successfully.");
       setOpenInvite(false);
       setInviteWorkspaceId("");
       setMemberEmail("");
       await refreshTeams();
     } catch (err) {
+      console.error("❌ handleInvite error:", err);
       alert(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   }
 
+  // ---------------------------
+  // REMOVE MEMBER
+  // ---------------------------
   async function handleRemove(): Promise<void> {
     try {
       setLoading(true);
       const userId = await getUserId();
-      await removeUserTeamspace(userId, removeMemberEmail, removeWorkspaceId);
+      const result = await removeUserTeamspace(userId, removeMemberEmail, removeWorkspaceId);
+
+      if (!result?.success) {
+        alert(`❌ ${result.error || "Failed to remove member."}`);
+        return;
+      }
+
+      alert("✅ Member removed successfully.");
       setOpenRemove(false);
       setRemoveWorkspaceId("");
       setRemoveWorkspaceName("");
       setRemoveMemberEmail("");
       await refreshTeams();
     } catch (err) {
+      console.error("❌ handleRemove error:", err);
       alert(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   }
 
+  // ---------------------------
+  // DELETE TEAMSPACE
+  // ---------------------------
   async function handleDelete(): Promise<void> {
     try {
       setLoading(true);
       const userId = await getUserId();
-      await deleteTeamspace(deleteWorkspaceId, userId);
+      const result = await deleteTeamspace(deleteWorkspaceId, userId);
+
+      if (!result?.success) {
+        alert(`❌ ${result.error || "Failed to delete team."}`);
+        return;
+      }
+
+      alert("✅ Teamspace deleted successfully.");
       setOpenDelete(false);
       setDeleteWorkspaceId("");
       setDeleteWorkspaceName("");
       await refreshTeams();
     } catch (err) {
+      console.error("❌ handleDelete error:", err);
       alert(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   }
 
+  // ---------------------------
+  // INVITE PLATFORM USER
+  // ---------------------------
+  async function handlePlatformInvite() {
+    try {
+      const email = inviteEmail.trim();
+      if (!email) return alert("Please enter an email.");
+      const result = await inviteUser(email);
+      console.log("✅ Invite success:", result);
+      alert(`✅ Invite sent to ${email}`);
+    } catch (err) {
+      console.error("❌ Invite failed:", err);
+      alert(err instanceof Error ? err.message : "Failed to send invite.");
+    }
+  }
+
+  // ---------------------------
+  // UI
+  // ---------------------------
   const filteredTeams = teams.filter((t) =>
     t.GSI_NAME.toLowerCase().includes(search.toLowerCase())
   );
 
   useEffect(() => {
-  if (!openInvite) {
-    setInviteWorkspaceId("");
-    setMemberEmail("");
-  }
-}, [openInvite]);
-
+    if (!openInvite) {
+      setInviteWorkspaceId("");
+      setMemberEmail("");
+    }
+  }, [openInvite]);
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default }}>
+      {/* Top Bar */}
       <AppBar
         position="sticky"
         elevation={0}
@@ -245,6 +284,7 @@ export default function TeamsPage() {
         </Toolbar>
       </AppBar>
 
+      {/* Main */}
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
         {/* Header */}
         <Stack
@@ -256,12 +296,7 @@ export default function TeamsPage() {
         >
           <Typography
             variant="h4"
-            sx={{
-              fontWeight: 900,
-              color: theme.palette.text.primary,
-              letterSpacing: 0.2,
-              lineHeight: 1.1,
-            }}
+            sx={{ fontWeight: 900, color: theme.palette.text.primary }}
           >
             Teamspaces
           </Typography>
@@ -307,7 +342,7 @@ export default function TeamsPage() {
           />
         </Stack>
 
-        <Divider sx={{ mb: 3, borderColor: theme.palette.divider }} />
+        <Divider sx={{ mb: 3 }} />
 
         {/* Loading */}
         {loading && (
@@ -343,7 +378,7 @@ export default function TeamsPage() {
                   id={team.teamId}
                   name={team.GSI_NAME}
                   description={team.description}
-                  onInvite={() => openInviteFor(team.teamId)}
+                  onInvite={() => setOpenInvite(true)}
                   onRemove={() => openRemoveFor(team.teamId, team.GSI_NAME)}
                   onDelete={() => openDeleteFor(team.teamId, team.GSI_NAME)}
                 />
@@ -388,128 +423,90 @@ export default function TeamsPage() {
       </Dialog>
 
       {/* INVITE */}
-<Dialog open={openInvite} onClose={() => setOpenInvite(false)} fullWidth maxWidth="xs">
-  <DialogTitle>Invite Member</DialogTitle>
-  <DialogContent sx={{ pt: 1 }}>
-    <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
-      <Tabs
-        value={inviteMode}
-        onChange={(_, v) => setInviteMode(v)}
-        textColor="inherit"
-        indicatorColor="warning"
-        centered
-      >
-        <Tab
-          label="Add to Teamspace"
-          value="teamspace"
-          sx={{
-            textTransform: "none",
-            fontWeight: 700,
-            color: inviteMode === "teamspace" ? "warning.main" : "text.secondary",
-          }}
-        />
-        <Tab
-          label="Invite to Platform"
-          value="platform"
-          sx={{
-            textTransform: "none",
-            fontWeight: 700,
-            color: inviteMode === "platform" ? "warning.main" : "text.secondary",
-          }}
-        />
-      </Tabs>
-    </Box>
+      <Dialog open={openInvite} onClose={() => setOpenInvite(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Invite Member</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+            <Tabs
+              value={inviteMode}
+              onChange={(_, v) => setInviteMode(v)}
+              textColor="inherit"
+              indicatorColor="warning"
+              centered
+            >
+              <Tab
+                label="Add to Teamspace"
+                value="teamspace"
+                sx={{ fontWeight: 700, textTransform: "none" }}
+              />
+              <Tab
+                label="Invite to Platform"
+                value="platform"
+                sx={{ fontWeight: 700, textTransform: "none" }}
+              />
+            </Tabs>
+          </Box>
 
-    {inviteMode === "platform" ? (
-      <TextField
-        fullWidth
-        label="User Email"
-        value={memberEmail}
-        onChange={(e) => setMemberEmail(e.target.value)}
-      />
-    ) : (
-      <>
-     <FormControl fullWidth sx={{ mb: 2 }}>
-  <InputLabel id="teamspace-select-label">Select Teamspace</InputLabel>
-  <Select
-  labelId="teamspace-select-label"
-  label="Select Teamspace"
-  value={inviteWorkspaceId}
-  onChange={(e) => setInviteWorkspaceId(e.target.value.toString())}
->
-  {teams.map((team) => (
-    <MenuItem key={team.teamId} value={team.teamId}>
-      {team.GSI_NAME}
-    </MenuItem>
-  ))}
-</Select>
+          {inviteMode === "platform" ? (
+            <TextField
+              fullWidth
+              label="User Email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+            />
+          ) : (
+            <>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="teamspace-select-label">Select Teamspace</InputLabel>
+                <Select
+                  labelId="teamspace-select-label"
+                  label="Select Teamspace"
+                  value={inviteWorkspaceId}
+                  onChange={(e) => setInviteWorkspaceId(e.target.value.toString())}
+                >
+                  {teams.map((team) => (
+                    <MenuItem key={team.teamId} value={team.teamId}>
+                      {team.GSI_NAME}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-</FormControl>
+              {inviteWorkspaceId && (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mb: 2,
+                    color: "warning.main",
+                    fontWeight: 700,
+                    textAlign: "center",
+                  }}
+                >
+                  {teams.find((t) => t.teamId === inviteWorkspaceId)?.GSI_NAME}
+                </Typography>
+              )}
 
-{inviteWorkspaceId && teams.some((t) => t.teamId === inviteWorkspaceId) && (
-  <Typography
-    variant="body2"
-    sx={{
-      mb: 2,
-      color: "warning.main",
-      fontWeight: 700,
-      textAlign: "center",
-      letterSpacing: 0.3,
-    }}
-  >
-    {teams.find((t) => t.teamId === inviteWorkspaceId)?.GSI_NAME}
-  </Typography>
-)}
+              <TextField
+                fullWidth
+                label="Member Email"
+                value={memberEmail}
+                onChange={(e) => setMemberEmail(e.target.value)}
+              />
+            </>
+          )}
+        </DialogContent>
 
-
-
-
-<TextField
-  fullWidth
-  label="Member Email"
-  value={memberEmail}
-  onChange={(e) => setMemberEmail(e.target.value)}
-/>
-      </>
-    )}
-  </DialogContent>
-
-  <DialogActions>
-    <Button onClick={() => setOpenInvite(false)}>Cancel</Button>
-    <Button
-      onClick={async () => {
-        try {
-          setLoading(true);
-          const userId = await getUserId();
-
-          if (inviteMode === "platform") {
-            await inviteUser(memberEmail);
-          } else {
-            console.log("🚀 addUserTeamspace payload", {
-              userId,
-              memberEmail,
-              inviteWorkspaceId
-            });
-            await addUserTeamspace(userId, memberEmail, inviteWorkspaceId);
-          }
-
-          setOpenInvite(false);
-          setInviteWorkspaceId("");
-          setMemberEmail("");
-          await refreshTeams();
-        } catch (err) {
-          alert(err instanceof Error ? err.message : String(err));
-        } finally {
-          setLoading(false);
-        }
-      }}
-      variant="contained"
-      color="warning"
-    >
-      {inviteMode === "platform" ? "Invite" : "Add"}
-    </Button>
-  </DialogActions>
-</Dialog>
+        <DialogActions>
+          <Button onClick={() => setOpenInvite(false)}>Cancel</Button>
+          <Button
+            onClick={inviteMode === "platform" ? handlePlatformInvite : handleInvite}
+            variant="contained"
+            color="warning"
+          >
+            {inviteMode === "platform" ? "Invite" : "Add"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* REMOVE */}
       <Dialog open={openRemove} onClose={() => setOpenRemove(false)} fullWidth maxWidth="xs">
@@ -527,7 +524,12 @@ export default function TeamsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenRemove(false)}>Cancel</Button>
-          <Button onClick={handleRemove} variant="contained" color="warning" startIcon={<RemoveCircleOutlineIcon />}>
+          <Button
+            onClick={handleRemove}
+            variant="contained"
+            color="warning"
+            startIcon={<RemoveCircleOutlineIcon />}
+          >
             Remove
           </Button>
         </DialogActions>
@@ -544,7 +546,12 @@ export default function TeamsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDelete(false)}>Cancel</Button>
-          <Button onClick={handleDelete} variant="contained" color="error" startIcon={<DeleteIcon />}>
+          <Button
+            onClick={handleDelete}
+            variant="contained"
+            color="error"
+            startIcon={<DeleteIcon />}
+          >
             Delete
           </Button>
         </DialogActions>
