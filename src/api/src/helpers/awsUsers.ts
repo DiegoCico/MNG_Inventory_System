@@ -33,7 +33,7 @@ function newAccountId() {
  * - If missing, creates a new minimal user entry
  * - Returns { sub, email, accountId }
  */
-export async function ensureUserRecord(user: { sub: string; email: string }) {
+export async function ensureUserRecord(user: { sub: string; email?: string }) {
   const uid = user.sub;
   const pk = `USER#${uid}`;
   const sk = "METADATA";
@@ -55,13 +55,21 @@ export async function ensureUserRecord(user: { sub: string; email: string }) {
     const item = queryResp.Items[0];
     return {
       sub: uid,
-      email: item.email ?? user.email,
+      email: item.email ?? user.email ?? `${uid}@example.com`,
       accountId: item.accountId ?? uid,
     };
   }
 
+  // --- Ensure valid email format ---
+  let email = user.email;
+  if (!email || !email.includes("@")) {
+    // fallback if Cognito didn’t return a real email
+    email = `${uid}@example.com`;
+    console.warn(`⚠️ User ${uid} has no valid email — using ${email}`);
+  }
+
   // --- Create new user record ---
-  const accountId = newAccountId();
+  const accountId = crypto.randomUUID();
   const nowIso = new Date().toISOString();
 
   const newUser = {
@@ -69,7 +77,7 @@ export async function ensureUserRecord(user: { sub: string; email: string }) {
     SK: sk,
     Type: "User",
     sub: uid,
-    email: user.email,
+    email,
     accountId,
     createdAt: nowIso,
     updatedAt: nowIso,
@@ -84,11 +92,8 @@ export async function ensureUserRecord(user: { sub: string; email: string }) {
     })
   );
 
-  console.log(`✅ Created new user record for ${user.email}`);
+  console.log(`✅ Created new user record for ${email}`);
 
-  return {
-    sub: uid,
-    email: user.email,
-    accountId,
-  };
+  return { sub: uid, email, accountId };
 }
+

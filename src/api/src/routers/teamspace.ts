@@ -24,38 +24,41 @@ async function hasPermission(
   teamId: string,
   permission: string
 ): Promise<boolean> {
-  const res = await doc.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { PK: `TEAM#${teamId}`, SK: `MEMBER#${userId}` },
-    })
-  );
-  const member = res.Item as { role?: string } | undefined;
-  if (!member) return false;
+  try {
+    const res = await doc.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `TEAM#${teamId}`, SK: `MEMBER#${userId}` },
+      })
+    );
+    const member = res.Item as { role?: string } | undefined;
+    if (!member) return false;
 
-  const roleRes = await doc.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        PK: `ROLENAME#${member.role?.toLowerCase()}`,
-        SK: `ROLE#${member.role?.toUpperCase()}`,
-      },
-    })
-  );
-  const role = roleRes.Item as { permissions?: string } | undefined;
-  if (!role) return false;
+    // ✅ Fast-path for owner
+    if (member.role?.toLowerCase() === "owner") return true;
 
-  const perms: string[] = JSON.parse(role.permissions ?? "[]");
-  return perms.includes(permission);
+    const roleRes = await doc.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: `ROLENAME#${member.role?.toLowerCase()}`,
+          SK: `ROLE#${member.role?.toUpperCase()}`,
+        },
+      })
+    );
+    const role = roleRes.Item as { permissions?: string } | undefined;
+    if (!role) return false;
+
+    const perms: string[] = JSON.parse(role.permissions ?? "[]");
+    return perms.includes(permission);
+  } catch (err) {
+    console.error("❌ hasPermission error:", err);
+    return false;
+  }
 }
 
 export const teamspaceRouter = router({
-  /** ---------------------------------------------------------------
-   *  createTeamspace
-   *  ---------------------------------------------------------------
-   *  input: { name, description?, userId }
-   *  Creates a unique team and assigns creator as Owner
-   */
+  /** CREATE TEAMSPACE */
   createTeamspace: publicProcedure
     .input(
       z.object({
@@ -65,235 +68,247 @@ export const teamspaceRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const cleanName = input.name.trim().toLowerCase();
-      const now = new Date().toISOString();
+      try {
+        const cleanName = input.name.trim().toLowerCase();
+        const now = new Date().toISOString();
 
-      const dup = await doc.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          IndexName: "GSI_WorkspaceByName",
-          KeyConditionExpression: "GSI_NAME = :n",
-          ExpressionAttributeValues: { ":n": cleanName },
-          Limit: 1,
-        })
-      );
-      if (dup.Items && dup.Items.length > 0)
-        throw new Error("A team with this name already exists.");
+        const dup = await doc.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            IndexName: "GSI_WorkspaceByName",
+            KeyConditionExpression: "GSI_NAME = :n",
+            ExpressionAttributeValues: { ":n": cleanName },
+            Limit: 1,
+          })
+        );
+        if (dup.Items && dup.Items.length > 0) {
+          return { success: false, error: "A team with this name already exists." };
+        }
 
-      const teamId = newId(12);
+        const teamId = newId(12);
 
-      const teamItem = {
-        PK: `TEAM#${teamId}`,
-        SK: "METADATA",
-        Type: "Team",
-        teamId,
-        name: input.name,
-        description: input.description ?? "",
-        ownerId: input.userId,
-        createdAt: now,
-        updatedAt: now,
-        GSI_NAME: cleanName,
-      };
+        const teamItem = {
+          PK: `TEAM#${teamId}`,
+          SK: "METADATA",
+          Type: "Team",
+          teamId,
+          name: input.name,
+          description: input.description ?? "",
+          ownerId: input.userId,
+          createdAt: now,
+          updatedAt: now,
+          GSI_NAME: cleanName,
+        };
 
-      const memberItem = {
-        PK: `TEAM#${teamId}`,
-        SK: `MEMBER#${input.userId}`,
-        Type: "TeamMember",
-        teamId,
-        userId: input.userId,
-        role: "Owner",
-        joinedAt: now,
-        GSI1PK: `USER#${input.userId}`,
-        GSI1SK: `TEAM#${teamId}`,
-      };
+        const memberItem = {
+          PK: `TEAM#${teamId}`,
+          SK: `MEMBER#${input.userId}`,
+          Type: "TeamMember",
+          teamId,
+          userId: input.userId,
+          role: "Owner",
+          joinedAt: now,
+          GSI1PK: `USER#${input.userId}`,
+          GSI1SK: `TEAM#${teamId}`,
+        };
 
-      await Promise.all([
-        doc.send(new PutCommand({ TableName: TABLE_NAME, Item: teamItem })),
-        doc.send(new PutCommand({ TableName: TABLE_NAME, Item: memberItem })),
-      ]);
+        await Promise.all([
+          doc.send(new PutCommand({ TableName: TABLE_NAME, Item: teamItem })),
+          doc.send(new PutCommand({ TableName: TABLE_NAME, Item: memberItem })),
+        ]);
 
-      return { success: true, teamId, name: input.name };
+        return { success: true, teamId, name: input.name };
+      } catch (err: any) {
+        console.error("❌ createTeamspace error:", err);
+        return { success: false, error: err.message || "Failed to create teamspace." };
+      }
     }),
 
-  /** ---------------------------------------------------------------
-   *  getTeamspace
-   *  ---------------------------------------------------------------
-   *  input: { userId }
-   *  Returns all teamspaces the user belongs to
-   */
+  /** GET TEAMSPACES */
   getTeamspace: publicProcedure
     .input(z.object({ userId: z.string().min(1) }))
     .query(async ({ input }) => {
-      const q = await doc.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          IndexName: "GSI_UserTeams",
-          KeyConditionExpression: "GSI1PK = :uid",
-          ExpressionAttributeValues: { ":uid": `USER#${input.userId}` },
-        })
-      );
+      try {
+        const q = await doc.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            IndexName: "GSI_UserTeams",
+            KeyConditionExpression: "GSI1PK = :uid",
+            ExpressionAttributeValues: { ":uid": `USER#${input.userId}` },
+          })
+        );
 
-      const memberships = q.Items ?? [];
-      if (!memberships.length) return { teams: [] };
+        const memberships = q.Items ?? [];
+        if (!memberships.length) return { success: true, teams: [] };
 
-      const teams = await Promise.all(
-        memberships.map(async (m) => {
-          const res = await doc.send(
-            new GetCommand({
-              TableName: TABLE_NAME,
-              Key: { PK: `TEAM#${m.teamId}`, SK: "METADATA" },
-            })
-          );
-          return res.Item;
-        })
-      );
+        const teams = await Promise.all(
+          memberships.map(async (m) => {
+            const res = await doc.send(
+              new GetCommand({
+                TableName: TABLE_NAME,
+                Key: { PK: `TEAM#${m.teamId}`, SK: "METADATA" },
+              })
+            );
+            return res.Item;
+          })
+        );
 
-      return { teams };
+        return { success: true, teams };
+      } catch (err: any) {
+        console.error("❌ getTeamspace error:", err);
+        return { success: false, error: err.message || "Failed to fetch teams." };
+      }
     }),
 
-  /** ---------------------------------------------------------------
-   *  addUserTeamspace
-   *  ---------------------------------------------------------------
-   *  input: { userId, userEmail, teamspaceId }
-   *  Adds another user to a team (requires team.add_member)
-   */
+  /** ADD USER TO TEAMSPACE */
   addUserTeamspace: publicProcedure
     .input(
       z.object({
         userId: z.string().min(1),
-        userEmail: z
-          .string()
-          .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email format"),
-        teamspaceId: z.string().min(1),
+        memberEmail: z.string(),
+        inviteWorkspaceId: z.string().min(1),
       })
     )
     .mutation(async ({ input }) => {
-      const allowed = await hasPermission(
-        input.userId,
-        input.teamspaceId,
-        "team.add_member"
-      );
-      if (!allowed) throw new Error("Not authorized to add members.");
+      try {
+        const allowed = await hasPermission(
+          input.userId,
+          input.inviteWorkspaceId,
+          "team.add_member"
+        );
+        if (!allowed) {
+          return { success: false, error: "Not authorized to add members." };
+        }
 
-      const q = await doc.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          IndexName: "GSI_UsersByEmail",
-          KeyConditionExpression: "email = :e",
-          ExpressionAttributeValues: { ":e": input.userEmail },
-        })
-      );
+        const q = await doc.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            IndexName: "GSI_UsersByEmail",
+            KeyConditionExpression: "email = :e",
+            ExpressionAttributeValues: { ":e": input.memberEmail },
+          })
+        );
 
+        const user = q.Items?.[0];
+        if (!user) {
+          return { success: false, error: "Target user not found." };
+        }
 
-      const user = q.Items?.[0];
-      if (!user) throw new Error("Target user not found.");
+        const now = new Date().toISOString();
+        const member = {
+          PK: `TEAM#${input.inviteWorkspaceId}`,
+          SK: `MEMBER#${user.accountId}`,
+          Type: "TeamMember",
+          teamId: input.inviteWorkspaceId,
+          userId: user.accountId,
+          role: "Member",
+          joinedAt: now,
+          GSI1PK: `USER#${user.accountId}`,
+          GSI1SK: `TEAM#${input.inviteWorkspaceId}`,
+        };
 
-      const now = new Date().toISOString();
-      const member = {
-        PK: `TEAM#${input.teamspaceId}`,
-        SK: `MEMBER#${user.accountId}`,
-        Type: "TeamMember",
-        teamId: input.teamspaceId,
-        userId: user.accountId,
-        role: "Member",
-        joinedAt: now,
-        GSI1PK: `USER#${user.accountId}`,
-        GSI1SK: `TEAM#${input.teamspaceId}`,
-      };
-
-      await doc.send(new PutCommand({ TableName: TABLE_NAME, Item: member }));
-      return { success: true, added: user.email };
+        await doc.send(new PutCommand({ TableName: TABLE_NAME, Item: member }));
+        return { success: true, added: user.email };
+      } catch (err: any) {
+        console.error("❌ addUserTeamspace error:", err);
+        return { success: false, error: err.message || "Failed to add member." };
+      }
     }),
 
-  /** ---------------------------------------------------------------
-   *  removeUserTeamspace
-   *  ---------------------------------------------------------------
-   *  input: { userId, userEmail, teamspaceId }
-   *  Removes a user (requires team.remove_member)
-   */
+  /** REMOVE USER FROM TEAMSPACE */
   removeUserTeamspace: publicProcedure
     .input(
       z.object({
         userId: z.string().min(1),
-        userEmail: z
-          .string()
-          .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email format"),
-        teamspaceId: z.string().min(1),
+        memberEmail: z.string(),
+        inviteWorkspaceId: z.string().min(1),
       })
     )
     .mutation(async ({ input }) => {
-      const allowed = await hasPermission(
-        input.userId,
-        input.teamspaceId,
-        "team.remove_member"
-      );
-      if (!allowed) throw new Error("Not authorized to remove members.");
+      try {
+        const allowed = await hasPermission(
+          input.userId,
+          input.inviteWorkspaceId,
+          "team.remove_member"
+        );
+        if (!allowed) {
+          return { success: false, error: "Not authorized to remove members." };
+        }
 
-      const q = await doc.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          IndexName: "GSI_UsersByEmail",
-          KeyConditionExpression: "email = :e",
-          ExpressionAttributeValues: { ":e": input.userEmail },
-        })
-      );
-      const target = q.Items?.[0];
-      if (!target) throw new Error("User not found.");
+        const q = await doc.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            IndexName: "GSI_UsersByEmail",
+            KeyConditionExpression: "email = :e",
+            ExpressionAttributeValues: { ":e": input.memberEmail },
+          })
+        );
 
-      await doc.send(
-        new DeleteCommand({
-          TableName: TABLE_NAME,
-          Key: {
-            PK: `TEAM#${input.teamspaceId}`,
-            SK: `MEMBER#${target.accountId}`,
-          },
-        })
-      );
+        const target = q.Items?.[0];
+        if (!target) {
+          return { success: false, error: "User not found." };
+        }
 
-      return { success: true, removed: target.email };
+        await doc.send(
+          new DeleteCommand({
+            TableName: TABLE_NAME,
+            Key: {
+              PK: `TEAM#${input.inviteWorkspaceId}`,
+              SK: `MEMBER#${target.accountId}`,
+            },
+          })
+        );
+
+        return { success: true, removed: target.email };
+      } catch (err: any) {
+        console.error("❌ removeUserTeamspace error:", err);
+        return { success: false, error: err.message || "Failed to remove member." };
+      }
     }),
 
-  /** ---------------------------------------------------------------
-   *  deleteTeamspace
-   *  ---------------------------------------------------------------
-   *  input: { teamspaceId, userId }
-   *  Deletes an entire team (requires workspace.delete)
-   */
+  /** DELETE TEAMSPACE */
   deleteTeamspace: publicProcedure
     .input(
       z.object({
-        teamspaceId: z.string().min(1),
+        inviteWorkspaceId: z.string().min(1),
         userId: z.string().min(1),
       })
     )
     .mutation(async ({ input }) => {
-      const allowed = await hasPermission(
-        input.userId,
-        input.teamspaceId,
-        "workspace.delete"
-      );
-      if (!allowed) throw new Error("Not authorized to delete team.");
+      try {
+        const allowed = await hasPermission(
+          input.userId,
+          input.inviteWorkspaceId,
+          "workspace.delete"
+        );
+        if (!allowed) {
+          return { success: false, error: "Not authorized to delete team." };
+        }
 
-      const q = await doc.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          KeyConditionExpression: "PK = :pk",
-          ExpressionAttributeValues: { ":pk": `TEAM#${input.teamspaceId}` },
-        })
-      );
+        const q = await doc.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: "PK = :pk",
+            ExpressionAttributeValues: { ":pk": `TEAM#${input.inviteWorkspaceId}` },
+          })
+        );
 
-      const items = q.Items ?? [];
-      await Promise.all(
-        items.map((it) =>
-          doc.send(
-            new DeleteCommand({
-              TableName: TABLE_NAME,
-              Key: { PK: it.PK, SK: it.SK },
-            })
+        const items = q.Items ?? [];
+        await Promise.all(
+          items.map((it) =>
+            doc.send(
+              new DeleteCommand({
+                TableName: TABLE_NAME,
+                Key: { PK: it.PK, SK: it.SK },
+              })
+            )
           )
-        )
-      );
+        );
 
-      return { success: true, deleted: input.teamspaceId };
+        return { success: true, deleted: input.inviteWorkspaceId };
+      } catch (err: any) {
+        console.error("❌ deleteTeamspace error:", err);
+        return { success: false, error: err.message || "Failed to delete teamspace." };
+      }
     }),
 });

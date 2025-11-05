@@ -344,16 +344,38 @@ export const authRouter = router({
   try {
     const decoded = await verifier.verify(accessToken);
     const userId = decoded.sub;
-    const email =
+
+    // Try to extract email safely from all possible Cognito token fields
+    let email: string | undefined =
       typeof decoded.email === "string"
         ? decoded.email
         : typeof decoded["email"] === "string"
         ? decoded["email"]
-        : decoded.username || "";
+        : typeof decoded["cognito:username"] === "string" &&
+          decoded["cognito:username"].includes("@")
+        ? decoded["cognito:username"]
+        : undefined;
+
+    // If still missing, fetch it directly from Cognito
+    if (!email) {
+      console.warn("⚠️ No email claim in access token; fetching from Cognito...");
+      const user = await cognitoClient.send(
+        new AdminGetUserCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: userId,
+        })
+      );
+      const emailAttr = user.UserAttributes?.find((a) => a.Name === "email");
+      email = emailAttr?.Value ?? `unknown-${userId}@example.com`;
+    }
+
+
+    // Build a username from email or fallback
     const username =
       decoded["cognito:username"] ||
       (email ? email.split("@")[0] : `user-${userId}`);
 
+    // Ensure user record exists in Dynamo
     const userRecord = await ensureUserRecord({
       sub: userId,
       email,
