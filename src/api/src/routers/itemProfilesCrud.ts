@@ -94,7 +94,7 @@ export const itemProfilesItemRouter = router({
     }),
 
   getById: publicProcedure
-    .input(zIdAuth())
+    .input(AuthInput.extend({ id: IdSchema }))
     .query(async ({ input }) => {
       const { teamId } = authFromInput(input);
       const rec = await itemProfilesRepo.getById(teamId, input.id);
@@ -103,20 +103,11 @@ export const itemProfilesItemRouter = router({
     }),
 
   findByNSN: publicProcedure
-    .input(
-      (AuthInput as any).extend({
-        nsn: IdSchema,
-      })
-    )
+    .input(AuthInput.extend({ nsn: IdSchema }))
     .query(async ({ input }) => {
       const { teamId } = authFromInput(input);
-      const rec = await itemProfilesRepo.findByNSN(teamId, (input as any).nsn);
+      const rec = await itemProfilesRepo.findByNSN(teamId, input.nsn);
       if (!rec) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
       return rec;
     }),
 });
-
-// small helper to combine id + auth for getById
-function zIdAuth() {
-  return (AuthInput as any).extend({ id: IdSchema });
-}
