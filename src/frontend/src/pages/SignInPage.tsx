@@ -49,7 +49,7 @@ export default function SignInPage() {
     const m1 = await me();
     console.log("/me after auth:", m1);
     if (m1.authenticated) {
-      navigate("/workspace", { replace: true });
+      navigate("/teams", { replace: true });
       return;
     }
     const r = await refresh().catch(() => ({ refreshed: false as const }));
@@ -58,7 +58,7 @@ export default function SignInPage() {
       const m2 = await me();
       console.log("/me after refresh:", m2);
       if (m2.authenticated) {
-        navigate("/workspace", { replace: true });
+        navigate("/teams", { replace: true });
         return;
       }
     }
@@ -75,7 +75,7 @@ export default function SignInPage() {
         const m1 = await me();
         console.log("/me response:", m1);
         if (m1.authenticated) {
-          navigate("/workspace", { replace: true });
+          navigate("/teams", { replace: true });
           return;
         }
         const r = await refresh().catch(() => ({ refreshed: false as const }));
@@ -84,7 +84,7 @@ export default function SignInPage() {
           const m2 = await me();
           console.log("/me after refresh:", m2);
           if (m2.authenticated) {
-            navigate("/workspace", { replace: true });
+            navigate("/teams", { replace: true });
             return;
           }
         }

@@ -14,6 +14,20 @@ export async function loginUser(email: string, password: string) {
   return data;
 }
 
+export async function inviteUser(email: string) {
+  const res = await fetch(`${TRPC}/inviteUser`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(`inviteUser failed: ${res.status}`);
+  const json = await res.json();
+  const data = json?.result?.data;
+  if (!data) throw new Error('unexpected response');
+  return data;
+}
+
 export async function completeNewPassword(session: string, newPassword: string, email: string) {
   const res = await fetch(`${TRPC}/respondToChallenge`, {
     method: 'POST',
@@ -56,14 +70,28 @@ export async function logout() {
 }
 
 export async function me() {
-  const res = await fetch(`${TRPC}/me?input=${encodeURIComponent('null')}`, {
-    method: 'GET',
-    credentials: 'include',
+  const res = await fetch(`${TRPC}/me?input=${encodeURIComponent(JSON.stringify(null))}`, {
+    method: "GET",
+    credentials: "include",
   });
+
   if (!res.ok) throw new Error(`me failed: ${res.status}`);
+
   const json = await res.json();
-  return json?.result?.data as { authenticated: boolean; message: string };
+
+  const data = json?.result?.data;
+  if (!data) throw new Error("unexpected response from /me");
+
+  const userId = data.userId || data.sub || data.id || data.email;
+
+  return {
+    userId,
+    email: data.email,
+    name: data.name,
+    authenticated: data.authenticated ?? true,
+  };
 }
+
 
 export async function submitOtp(
   challengeName: 'EMAIL_OTP' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA',

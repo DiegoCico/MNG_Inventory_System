@@ -12,7 +12,7 @@ import {
   LinearProgress,
 } from "@mui/material";
 import { Visibility, VisibilityOff, CheckCircle, Cancel, Lock } from "@mui/icons-material";
-import { completeNewPassword, me, refresh, loginUser } from "../api/auth";
+import { completeNewPassword, me, refresh } from "../api/auth";
 import EmailOtpCard from "./EmailOtpCard";
 
 type OtpChallengeName = "EMAIL_OTP" | "SMS_MFA" | "SOFTWARE_TOKEN_MFA";

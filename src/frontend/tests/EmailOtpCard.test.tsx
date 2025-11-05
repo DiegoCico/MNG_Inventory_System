@@ -69,7 +69,7 @@ describe("EmailOtpCard (UI-only)", () => {
     fireEvent.click(screen.getByRole("button", { name: /verify code/i }));
 
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith("/workspace", { replace: true })
+      expect(mockNavigate).toHaveBeenCalledWith("/teams", { replace: true })
     );
   });
 

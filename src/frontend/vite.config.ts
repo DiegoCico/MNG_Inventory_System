@@ -7,7 +7,6 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // TODO: MAKE THIS OWRK WITH THE CLOUD AS WELL
       '/trpc': { target: 'http://localhost:3001', changeOrigin: true },
     },
   },

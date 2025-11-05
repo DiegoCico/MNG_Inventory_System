@@ -3,7 +3,7 @@
 // Uses Zod + tRPC, AWS SDK v3. Keys are stable for DB joins.
 
 import { z } from "zod";
-import { router, publicProcedure } from "./trpc";
+import { router, protectedProcedure, publicProcedure } from "./trpc";
 import {
   S3Client,
   PutObjectCommand,

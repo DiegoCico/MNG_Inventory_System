@@ -1,15 +1,44 @@
-// components/BottomNav.tsx
 import React from "react";
 import { BottomNavigation, BottomNavigationAction, Paper } from "@mui/material";
 import HomeIcon from "@mui/icons-material/Home";
 import CheckBoxBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import OutboxIcon from "@mui/icons-material/Outbox";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const currentValue =
+    location.pathname === "/teams/home/:teamId"
+      ? "home"
+      : location.pathname === "/to-review"
+        ? "toReview"
+        : location.pathname === "/reviewed"
+          ? "reviewed"
+          : location.pathname === "/send"
+            ? "send"
+            : "";
+
+  const handleChange = (event: React.SyntheticEvent, newValue: string) => {
+    switch (newValue) {
+      case "home":
+        navigate("/teams/home/:teamId");
+        break;
+      case "toReview":
+        navigate("/to-review");
+        break;
+      case "reviewed":
+        navigate("/reviewed");
+        break;
+      case "send":
+        navigate("/send");
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <Paper
@@ -18,24 +47,36 @@ export default function NavBar() {
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 1000,
-        // Prevents Font Size changing when highlighted
-        "& .MuiBottomNavigationAction-label": {
-        fontSize: "0.75rem",
-        transition: "none",
-        }
+        zIndex: 1200,
+        borderTop: "1px solid rgba(0,0,0,0.1)",
       }}
       elevation={3}
     >
       <BottomNavigation
         showLabels
-        value={location.pathname}
-        onChange={(event, newValue) => navigate(newValue)}
+        value={currentValue}
+        onChange={handleChange}
+        sx={{
+          height: 56,
+          "& .MuiBottomNavigationAction-label": { fontSize: "0.75rem" },
+        }}
       >
-        <BottomNavigationAction label="Home" value="/" icon={<HomeIcon />} />
-        <BottomNavigationAction label="To Review" value="/to-review" icon={<CheckBoxBlankIcon />} />
-        <BottomNavigationAction label="Reviewed" value="/reviewed" icon={<CheckBoxIcon />} />
-        <BottomNavigationAction label="Send" value="/send" icon={<OutboxIcon />} />
+        <BottomNavigationAction label="Home" value="home" icon={<HomeIcon />} />
+        <BottomNavigationAction
+          label="To Review"
+          value="toReview"
+          icon={<CheckBoxBlankIcon />}
+        />
+        <BottomNavigationAction
+          label="Reviewed"
+          value="reviewed"
+          icon={<CheckBoxIcon />}
+        />
+        <BottomNavigationAction
+          label="Send"
+          value="send"
+          icon={<OutboxIcon />}
+        />
       </BottomNavigation>
     </Paper>
   );
