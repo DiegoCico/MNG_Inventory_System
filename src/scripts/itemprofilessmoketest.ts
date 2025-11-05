@@ -35,7 +35,7 @@ if (process.env.SMOKE === "1") {
   process.env.S3_BUCKET = process.env.S3_BUCKET || "dev-sample-image-buckets";
 }
 
-import { appRouter } from "../../src/routers";
+import { appRouter } from "../api/src/routers";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { fromIni } from "@aws-sdk/credential-providers";
 
