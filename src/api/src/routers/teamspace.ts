@@ -178,11 +178,12 @@ export const teamspaceRouter = router({
       const q = await doc.send(
         new QueryCommand({
           TableName: TABLE_NAME,
-          IndexName: "GSI_UsersByUid",
+          IndexName: "GSI_UsersByEmail",
           KeyConditionExpression: "email = :e",
           ExpressionAttributeValues: { ":e": input.userEmail },
         })
       );
+
 
       const user = q.Items?.[0];
       if (!user) throw new Error("Target user not found.");
@@ -231,7 +232,7 @@ export const teamspaceRouter = router({
       const q = await doc.send(
         new QueryCommand({
           TableName: TABLE_NAME,
-          IndexName: "GSI_UsersByUid",
+          IndexName: "GSI_UsersByEmail",
           KeyConditionExpression: "email = :e",
           ExpressionAttributeValues: { ":e": input.userEmail },
         })
