@@ -40,8 +40,8 @@ import { Tabs, Tab } from "@mui/material";
 
 
 export interface Team {
-  workspaceId: string;
-  name: string;
+  teamId: string;
+  GSI_NAME: string;
   description?: string;
 }
 
@@ -88,6 +88,7 @@ export default function TeamsPage() {
       setError(null);
       const userId = await getUserId();
       const data = await getTeamspace(userId);
+      console.log("📋 Loaded teams:", data?.teams); 
       setTeams(data?.teams ?? []);
     } catch (err) {
       const message =
@@ -212,8 +213,16 @@ export default function TeamsPage() {
   }
 
   const filteredTeams = teams.filter((t) =>
-    t.name.toLowerCase().includes(search.toLowerCase())
+    t.GSI_NAME.toLowerCase().includes(search.toLowerCase())
   );
+
+  useEffect(() => {
+  if (!openInvite) {
+    setInviteWorkspaceId("");
+    setMemberEmail("");
+  }
+}, [openInvite]);
+
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default }}>
@@ -327,16 +336,16 @@ export default function TeamsPage() {
                 sm={6}
                 md={4}
                 lg={3}
-                key={team.workspaceId}
+                key={team.teamId}
                 sx={{ display: "flex", justifyContent: "center" }}
               >
                 <TeamIcon
-                  id={team.workspaceId}
-                  name={team.name}
+                  id={team.teamId}
+                  name={team.GSI_NAME}
                   description={team.description}
-                  onInvite={() => openInviteFor(team.workspaceId)}
-                  onRemove={() => openRemoveFor(team.workspaceId, team.name)}
-                  onDelete={() => openDeleteFor(team.workspaceId, team.name)}
+                  onInvite={() => openInviteFor(team.teamId)}
+                  onRemove={() => openRemoveFor(team.teamId, team.GSI_NAME)}
+                  onDelete={() => openDeleteFor(team.teamId, team.GSI_NAME)}
                 />
               </Grid>
             ))}
@@ -420,26 +429,47 @@ export default function TeamsPage() {
       />
     ) : (
       <>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Select Teamspace</InputLabel>
-          <Select
-            value={inviteWorkspaceId}
-            label="Select Teamspace"
-            onChange={(e) => setInviteWorkspaceId(e.target.value)}
-          >
-            {teams.map((team) => (
-              <MenuItem key={team.workspaceId} value={team.workspaceId}>
-                {team.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
-          fullWidth
-          label="Member Email"
-          value={memberEmail}
-          onChange={(e) => setMemberEmail(e.target.value)}
-        />
+     <FormControl fullWidth sx={{ mb: 2 }}>
+  <InputLabel id="teamspace-select-label">Select Teamspace</InputLabel>
+  <Select
+  labelId="teamspace-select-label"
+  label="Select Teamspace"
+  value={inviteWorkspaceId}
+  onChange={(e) => setInviteWorkspaceId(e.target.value.toString())}
+>
+  {teams.map((team) => (
+    <MenuItem key={team.teamId} value={team.teamId}>
+      {team.GSI_NAME}
+    </MenuItem>
+  ))}
+</Select>
+
+</FormControl>
+
+{inviteWorkspaceId && teams.some((t) => t.teamId === inviteWorkspaceId) && (
+  <Typography
+    variant="body2"
+    sx={{
+      mb: 2,
+      color: "warning.main",
+      fontWeight: 700,
+      textAlign: "center",
+      letterSpacing: 0.3,
+    }}
+  >
+    {teams.find((t) => t.teamId === inviteWorkspaceId)?.GSI_NAME}
+  </Typography>
+)}
+
+
+
+
+<TextField
+  fullWidth
+  label="Member Email"
+  value={memberEmail}
+  onChange={(e) => setMemberEmail(e.target.value)}
+/>
       </>
     )}
   </DialogContent>
@@ -455,6 +485,11 @@ export default function TeamsPage() {
           if (inviteMode === "platform") {
             await inviteUser(memberEmail);
           } else {
+            console.log("🚀 addUserTeamspace payload", {
+              userId,
+              memberEmail,
+              inviteWorkspaceId
+            });
             await addUserTeamspace(userId, memberEmail, inviteWorkspaceId);
           }
 

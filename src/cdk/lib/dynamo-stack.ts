@@ -73,6 +73,14 @@ export class DynamoStack extends Stack {
       contributorInsightsSpecification: { enabled: true },
     });
 
+    // Users by email (for invites / member lookup)
+    this.table.addGlobalSecondaryIndex({
+      indexName: "GSI_UsersByEmail",
+      partitionKey: { name: "email", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+      contributorInsightsSpecification: { enabled: true },
+    });
+
     // Roles by name (used by role resolver)
     this.table.addGlobalSecondaryIndex({
       indexName: "GSI_RolesByName",
