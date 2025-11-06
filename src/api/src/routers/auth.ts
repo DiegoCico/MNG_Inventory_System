@@ -24,6 +24,7 @@ import {
 } from '../helpers/cookies';
 import { decodeJwtNoVerify} from '../helpers/authUtils';
 import { ensureUserRecord } from '../helpers/awsUsers';
+import { config } from "../process"; 
 
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'us-east-1_sP3HAecAw';
 const USER_POOL_CLIENT_ID = process.env.COGNITO_CLIENT_ID || '6vk8qbvjv6hvb99a0jjcpbth9k';
