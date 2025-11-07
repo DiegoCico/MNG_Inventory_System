@@ -3,16 +3,15 @@ import SignInPage from './pages/SignInPage';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import ProductReviewPage from './pages/ProductReviewPage';
 import HomePage from './pages/HomePage';
-import theme from './theme';
-import { ThemeProvider } from '@emotion/react';
-import { CssBaseline } from '@mui/material';
 import TeamsPage from './pages/TeamspacePage';
 import ToReviewPage from './pages/ToReviewPage';
 import ReviewedPage from './pages/ReviewedPage';
+import ThemeContextProvider from './ThemeContext';
+import { CssBaseline } from '@mui/material';
 
 export default function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeContextProvider>
       <CssBaseline />
       <BrowserRouter>
         <Routes>
@@ -22,13 +21,9 @@ export default function App() {
           <Route path="/teams/home/:teamId" element={<HomePage />} />
           <Route path="/teams/to-review/:teamId" element={<ToReviewPage />} />
           <Route path="/teams/reviewed/:teamId" element={<ReviewedPage />} />
-          <Route
-            path="/teams/:teamId/items/:itemId"
-            element={<ProductReviewPage />}
-          />
+          <Route path="/teams/:teamId/items/:itemId" element={<ProductReviewPage />} />
         </Routes>
       </BrowserRouter>
-    </ThemeProvider>
+    </ThemeContextProvider>
   );
 }
-
