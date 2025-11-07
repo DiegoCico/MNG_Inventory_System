@@ -139,7 +139,7 @@ async function softReset(teamId: string) {
         Key: { PK: item.PK, SK: item.SK },
         UpdateExpression: "SET #status = :s, updatedAt = :u",
         ExpressionAttributeNames: { "#status": "status" },
-        ExpressionAttributeValues: { ":s": "unreviewed", ":u": now },
+        ExpressionAttributeValues: { ":s": "Incomplete", ":u": now },
       })
     );
   }

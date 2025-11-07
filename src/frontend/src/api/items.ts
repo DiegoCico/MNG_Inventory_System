@@ -8,7 +8,7 @@ export async function createItem(
   serialNumber: string,
   userId: string
 ) {
-  const res = await fetch(`${TRPC}/items.createItem`, {
+  const res = await fetch(`${TRPC}/createItem`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -31,7 +31,7 @@ export async function createItem(
 
 export async function getItems(teamId: string) {
   const res = await fetch(
-    `${TRPC}/items.getItems?input=${encodeURIComponent(JSON.stringify({ teamId, userId: 'test-user' }))}`,
+    `${TRPC}/getItems?input=${encodeURIComponent(JSON.stringify({ teamId, userId: 'test-user' }))}`,
     {
       method: "GET",
       credentials: "include",
@@ -46,7 +46,7 @@ export async function getItems(teamId: string) {
 
 export async function getItem(teamId: string, itemId: string) {
   const res = await fetch(
-    `${TRPC}/items.getItem?input=${encodeURIComponent(JSON.stringify({ teamId, itemId, userId: 'test-user' }))}`,
+    `${TRPC}/getItem?input=${encodeURIComponent(JSON.stringify({ teamId, itemId, userId: 'test-user' }))}`,
     {
       method: "GET",
       credentials: "include",
@@ -73,7 +73,7 @@ export async function updateItem(
     status?: string;
   }
 ) {
-  const res = await fetch(`${TRPC}/items.updateItem`, {
+  const res = await fetch(`${TRPC}/updateItem`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -87,7 +87,7 @@ export async function updateItem(
 }
 
 export async function deleteItem(teamId: string, itemId: string) {
-  const res = await fetch(`${TRPC}/items.deleteItem`, {
+  const res = await fetch(`${TRPC}/deleteItem`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },

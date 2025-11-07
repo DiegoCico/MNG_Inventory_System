@@ -1,23 +1,26 @@
-import { router, publicProcedure } from "./trpc";
+import { router, publicProcedure, mergeRouters } from "./trpc";
 
 import { helloRouter } from "./hello";
 import { s3Router } from "./s3";
-import { authRouter } from "./auth"; 
+import { authRouter } from "./auth";
 import { teamspaceRouter } from "./teamspace";
 import { rolesRouter } from "./roles";
 import { itemsRouter } from "./items";
 import { homeRouter } from "./home";
 
-export const appRouter = router({
-  hello: helloRouter,
-  s3: s3Router,
-  auth: authRouter,  
-  teamspace: teamspaceRouter,
-  roles: rolesRouter,
-  items: itemsRouter,  
-  home: homeRouter,
-
+const coreRouter = router({
   health: publicProcedure.query(() => ({ ok: true })),
 });
+
+export const appRouter = mergeRouters(
+  coreRouter,
+  helloRouter,
+  s3Router,
+  authRouter,
+  teamspaceRouter,
+  rolesRouter,
+  itemsRouter,
+  homeRouter
+);
 
 export type AppRouter = typeof appRouter;
