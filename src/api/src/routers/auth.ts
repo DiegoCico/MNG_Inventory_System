@@ -340,13 +340,22 @@ export const authRouter = router({
       const decoded = await verifier.verify(accessToken);
       const userId = decoded.sub;
 
-      // Check user status in Cognito to detect pending challenges
-      const user = await cognitoClient.send(
-        new AdminGetUserCommand({
-          UserPoolId: USER_POOL_ID,
-          Username: userId,
-        }),
-      );
+      let user;
+      try {
+        // Check user status in Cognito to detect pending challenges
+        user = await cognitoClient.send(
+          new AdminGetUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: userId,
+          }),
+        );
+      } catch (cognitoErr: any) {
+        console.error('AdminGetUserCommand error:', cognitoErr);
+        return {
+          authenticated: false,
+          message: `Failed to verify user status: ${cognitoErr.message}`,
+        };
+      }
 
       if (user.UserStatus !== 'CONFIRMED') {
         const clearHeaders = clearAuthCookies(ctx.res);
@@ -382,10 +391,19 @@ export const authRouter = router({
         decoded['cognito:username'] || (email ? email.split('@')[0] : `user-${userId}`);
 
       // Ensure user record exists
-      const userRecord = await ensureUserRecord({
-        sub: userId,
-        email,
-      });
+      let userRecord;
+      try {
+        userRecord = await ensureUserRecord({
+          sub: userId,
+          email,
+        });
+      } catch (dynamoErr: any) {
+        console.error('ensureUserRecord error:', dynamoErr);
+        return {
+          authenticated: false,
+          message: `Failed to retrieve user record: ${dynamoErr.message}`,
+        };
+      }
 
       return {
         authenticated: true,
@@ -395,9 +413,9 @@ export const authRouter = router({
         username,
         accountId: userRecord.accountId,
       };
-    } catch (err) {
-      console.error('me() error:', err);
-      return { authenticated: false, message: 'Invalid session token' };
+    } catch (err: any) {
+      console.error('me() token verification error:', err);
+      return { authenticated: false, message: `Invalid session token: ${err.message}` };
     }
   }),
 
