@@ -65,18 +65,24 @@ export default function ReviewedPage() {
               year: '2-digit'
             })
           });
-
-          // Filter items by status
+          // Normalize and filter items by category
           const completed = result.items
-            .filter((item: any) => item.status === 'Found')
+            .filter((item: any) => {
+              const s = (item.status ?? "").toLowerCase();
+              return s === "completed" || s === "complete" || s === "found";
+            })
             .map(mapItem);
-
           const shortages = result.items
-            .filter((item: any) => item.status === 'Missing')
+            .filter((item: any) => {
+              const s = (item.status ?? "").toLowerCase();
+              return s === "shortage" || s === "shortages" || s === "missing";
+            })
             .map(mapItem);
-
           const damaged = result.items
-            .filter((item: any) => item.status === 'Damaged')
+            .filter((item: any) => {
+              const s = (item.status ?? "").toLowerCase();
+              return s === "damaged" || s === "in repair";
+            })
             .map(mapItem);
 
           setCompletedItems(completed);

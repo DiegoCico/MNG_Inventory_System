@@ -19,14 +19,16 @@ export async function createItem(
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      teamId,
-      name,
-      actualName,
-      nsn,
-      serialNumber,
-      userId: currentUser?.userId,
-      status: "Incomplete",
-      imageLink,
+      input: {
+        teamId,
+        name,
+        actualName,
+        nsn,
+        serialNumber,
+        userId: currentUser?.userId,
+        status: "Incomplete",
+        imageLink,
+      },
     }),
   });
 
@@ -81,28 +83,32 @@ export async function getItem(teamId: string, itemId: string) {
 export async function updateItem(
   teamId: string,
   itemId: string,
- updates: {
-  name?: string;
-  actualName?: string;
-  nsn?: string;
-  serialNumber?: string;
-  quantity?: number;
-  description?: string;
-  imageLink?: string;
-  status?: string;
-  damageReports?: string[]; 
-}
+  updates: {
+    name?: string;
+    actualName?: string;
+    nsn?: string;
+    serialNumber?: string;
+    quantity?: number;
+    description?: string;
+    imageLink?: string;
+    status?: string;
+    damageReports?: string[];
+    parent?: string | null; 
+  }
 ) {
   const currentUser = await me();
+
   const res = await fetch(`${TRPC}/updateItem`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      teamId,
-      itemId,
-      userId: currentUser.userId,
-      ...updates,
+      input: {
+        teamId,
+        itemId,
+        userId: currentUser.userId,
+        ...updates,
+      },
     }),
   });
 
@@ -121,9 +127,11 @@ export async function deleteItem(teamId: string, itemId: string) {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      teamId,
-      itemId,
-      userId: currentUser.userId,
+      input: {
+        teamId,
+        itemId,
+        userId: currentUser.userId,
+      },
     }),
   });
 
@@ -134,12 +142,19 @@ export async function deleteItem(teamId: string, itemId: string) {
   return data;
 }
 
-export async function uploadImage(teamId: string, nsn: string, imageBase64: string) {
+/** 🟢 UPLOAD IMAGE */
+export async function uploadImage(
+  teamId: string,
+  nsn: string,
+  imageBase64: string
+) {
   const res = await fetch(`${TRPC}/uploadImage`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teamId, nsn, imageBase64 }),
+    body: JSON.stringify({
+      input: { teamId, nsn, imageBase64 },
+    }),
   });
 
   if (!res.ok) throw new Error(`uploadImage failed: ${res.status}`);
