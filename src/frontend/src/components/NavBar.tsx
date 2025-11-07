@@ -33,7 +33,7 @@ export default function NavBar() {
         navigate("/reviewed");
         break;
       case "send":
-        navigate("/send");
+        navigate("/teams/export/:teamId");
         break;
       default:
         break;

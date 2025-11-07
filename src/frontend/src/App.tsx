@@ -7,7 +7,7 @@ import theme from './theme';
 import { ThemeProvider } from '@emotion/react';
 import { CssBaseline } from '@mui/material';
 import TeamsPage from './pages/TeamspacePage';
-
+import ExportPage from "./pages/ExportPage";
 export default function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -19,6 +19,7 @@ export default function App() {
           <Route path="/product/item" element={<ProductReviewPage />} />
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/teams/home/:teamId" element={<HomePage />} /> 
+          <Route path="/teams/export/:teamId" element={<ExportPage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
