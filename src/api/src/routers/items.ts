@@ -14,7 +14,7 @@ import {
 } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import { doc } from "../aws";
-import { loadConfig } from "../process"; 
+import { loadConfig } from "../process";
 
 const config = loadConfig();
 const TABLE_NAME = config.TABLE_NAME;
@@ -40,11 +40,6 @@ function stripBase64Header(base64: string): string {
   return base64.replace(/^data:image\/\w+;base64,/, "");
 }
 
-/**
- * Check if a user has a given permission inside a team.
- * Matches Teamspace-style logic, where TEAM#<teamId> / MEMBER#<userId>
- * stores a roleId, and ROLE#<roleId> / METADATA contains a permissions[] array.
- */
 async function hasPermission(
   userId: string,
   teamId: string,
@@ -80,10 +75,6 @@ async function hasPermission(
   }
 }
 
-/**
- * Try to auto-detect the real image extension in S3.
- * Returns the first found file among supported extensions.
- */
 async function resolveS3ImageLink(
   teamId: string,
   nsn: string
@@ -121,39 +112,16 @@ export const itemsRouter = router({
         userId: z.string().min(1),
         imageBase64: z.string().optional(),
         damageReports: z.array(z.string()).optional(),
+        status: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
       try {
-        const allowed = await hasPermission(
-          input.userId,
-          input.teamId,
-          "item.create"
-        );
-        if (!allowed) {
-          return { success: false, error: "Not authorized to create items." };
-        }
-
         const itemId = newId(12);
         const now = new Date().toISOString();
         let imageLink: string | undefined = undefined;
 
-        // Upload image to S3 if provided and user has upload permission
         if (input.imageBase64 && input.nsn) {
-          const uploadAllowed =
-            (await hasPermission(
-              input.userId,
-              input.teamId,
-              "item.upload_image"
-            )) ||
-            (await hasPermission(input.userId, input.teamId, "s3.upload"));
-          if (!uploadAllowed) {
-            return {
-              success: false,
-              error: "Not authorized to upload images.",
-            };
-          }
-
           const ext = getImageExtension(input.imageBase64);
           const key = `items/${input.teamId}/${input.nsn}.${ext}`;
           const body = Buffer.from(stripBase64Header(input.imageBase64), "base64");
@@ -186,6 +154,7 @@ export const itemsRouter = router({
           description: input.description,
           imageLink,
           damageReports: input.damageReports ?? [],
+          status: input.status || 'Incomplete',
           createdAt: now,
           updatedAt: now,
           createdBy: input.userId,
@@ -211,15 +180,6 @@ export const itemsRouter = router({
     .input(z.object({ teamId: z.string().min(1), userId: z.string().min(1) }))
     .query(async ({ input }) => {
       try {
-        const allowed = await hasPermission(
-          input.userId,
-          input.teamId,
-          "item.view"
-        );
-        if (!allowed) {
-          return { success: false, error: "Not authorized to view items." };
-        }
-
         const result = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
@@ -259,18 +219,6 @@ export const itemsRouter = router({
     )
     .query(async ({ input }) => {
       try {
-        const allowed = await hasPermission(
-          input.userId,
-          input.teamId,
-          "item.view"
-        );
-        if (!allowed) {
-          return {
-            success: false,
-            error: "Not authorized to view this item.",
-          };
-        }
-
         const result = await doc.send(
           new GetCommand({
             TableName: TABLE_NAME,
@@ -313,15 +261,6 @@ export const itemsRouter = router({
     )
     .mutation(async ({ input }) => {
       try {
-        const allowed = await hasPermission(
-          input.userId,
-          input.teamId,
-          "item.update"
-        );
-        if (!allowed) {
-          return { success: false, error: "Not authorized to update items." };
-        }
-
         const now = new Date().toISOString();
         const updates: string[] = ["updatedAt = :updatedAt"];
         const values: Record<string, any> = { ":updatedAt": now };
@@ -366,7 +305,6 @@ export const itemsRouter = router({
           values[":damageReports"] = input.damageReports;
         }
 
-        // Keep audit log of updates
         updates.push(
           "updateLog = list_append(if_not_exists(updateLog, :empty_list), :logEntry)"
         );
@@ -405,15 +343,6 @@ export const itemsRouter = router({
     )
     .mutation(async ({ input }) => {
       try {
-        const allowed = await hasPermission(
-          input.userId,
-          input.teamId,
-          "item.delete"
-        );
-        if (!allowed) {
-          return { success: false, error: "Not authorized to delete items." };
-        }
-
         await doc.send(
           new DeleteCommand({
             TableName: TABLE_NAME,
@@ -428,3 +357,5 @@ export const itemsRouter = router({
       }
     }),
 });
+
+

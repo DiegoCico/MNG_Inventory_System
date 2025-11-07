@@ -16,10 +16,12 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getItem, updateItem, createItem } from '../api/items';
+import NavBar from '../components/NavBar';
 
 interface ItemViewModel {
   productName: string; // Generic profile name (e.g., "M4 Carbine")
@@ -32,10 +34,10 @@ interface ItemViewModel {
 }
 
 const PercentageBar = () => <Box sx={{ height: 4, bgcolor: '#e0e0e0', mb: 2 }} />;
-const NavBar = () => <Box sx={{ height: 56, bgcolor: '#f5f5f5', position: 'fixed', bottom: 0, left: 0, right: 0 }} />;
 
 const ProductReviewPage = () => {
   const { teamId, itemId } = useParams<{ teamId: string; itemId: string }>();
+  const navigate = useNavigate();
   const isCreateMode = itemId === 'new';
 
   const [product, setProduct] = useState<ItemViewModel | null>(null);
@@ -69,7 +71,7 @@ const ProductReviewPage = () => {
           imageLink: 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=800',
           serialNumber: '',
           quantity: 1,
-          status: 'Found'
+          status: 'Incomplete'
         };
         setProduct(placeholderItem);
         setEditedProduct(placeholderItem);
@@ -202,9 +204,9 @@ const ProductReviewPage = () => {
         if (result.success) {
           console.log('Item created successfully:', result.item);
           setShowSuccess(true);
-          // Redirect to the new item's page after a delay
+          // Redirect to the new item's page and replace history so back button works correctly
           setTimeout(() => {
-            window.location.href = `/teams/${teamId}/items/${result.itemId}`;
+            navigate(`/teams/${teamId}/items/${result.itemId}`, { replace: true });
           }, 1500);
         } else {
           alert('Failed to create item: ' + result.error);
@@ -283,6 +285,23 @@ const ProductReviewPage = () => {
     <div>
       <PercentageBar />
       <Container maxWidth="md" sx={{ px: { xs: 0, sm: 2, md: 3 }, pb: 10 }}>
+        {/* Back Button */}
+        <Box sx={{ mb: 2, pt: 2 }}>
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate(-1)}
+            sx={{
+              textTransform: 'none',
+              color: 'text.secondary',
+              '&:hover': {
+                bgcolor: 'rgba(0, 0, 0, 0.04)'
+              }
+            }}
+          >
+            Back
+          </Button>
+        </Box>
+
         <Card sx={{ '&:hover': { transform: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' } }}>
           {/* Product Image */}
           <Box sx={{ position: 'relative' }}>
@@ -463,24 +482,27 @@ const ProductReviewPage = () => {
               />
             </Box>
 
-            {/* Status Dropdown */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                Status:
-              </Typography>
-              <FormControl fullWidth size="small">
-                <Select
-                  value={editedProduct.status}
-                  onChange={(e) => handleFieldChange('status', e.target.value)}
-                  sx={{ bgcolor: 'white' }}
-                >
-                  <MenuItem value="Found">Found</MenuItem>
-                  <MenuItem value="Damaged">Damaged</MenuItem>
-                  <MenuItem value="Missing">Missing</MenuItem>
-                  <MenuItem value="In Repair">In Repair</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
+            {/* Status Dropdown - Only for existing items */}
+            {!isCreateMode && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                  Status:
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={editedProduct.status}
+                    onChange={(e) => handleFieldChange('status', e.target.value)}
+                    sx={{ bgcolor: 'white' }}
+                  >
+                    <MenuItem value="Incomplete">Incomplete</MenuItem>
+                    <MenuItem value="Found">Found</MenuItem>
+                    <MenuItem value="Damaged">Damaged</MenuItem>
+                    <MenuItem value="Missing">Missing</MenuItem>
+                    <MenuItem value="In Repair">In Repair</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
 
             {/* Damage Reports Section */}
             {editedProduct.status === 'Damaged' && (
@@ -582,3 +604,4 @@ const ProductReviewPage = () => {
 };
 
 export default ProductReviewPage;
+

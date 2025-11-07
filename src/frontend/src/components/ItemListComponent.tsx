@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Card, CardMedia, Typography, Stack } from '@mui/material';
+import { useNavigate, useParams } from 'react-router-dom';
 
-// Lightweight interface specifically for list display
 export interface ItemListItem {
   id: string | number;
   productName: string;
@@ -16,6 +16,9 @@ interface ItemListComponentProps {
 }
 
 export default function ItemListComponent({ items = [] }: ItemListComponentProps) {
+  const navigate = useNavigate();
+  const { teamId } = useParams<{ teamId: string }>();
+
   if (items.length === 0) {
     return (
       <Typography sx={{ textAlign: 'center', color: '#999', py: 4 }}>
@@ -24,11 +27,16 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
     );
   }
 
+  const handleItemClick = (itemId: string | number) => {
+    navigate(`/teams/${teamId}/items/${itemId}`);
+  };
+
   return (
     <Stack spacing={1.5}>
       {items.map((item) => (
         <Card
           key={item.id}
+          onClick={() => handleItemClick(item.id)}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -64,7 +72,6 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
               }}
             />
           </Box>
-
           {/* Text Section */}
           <Box sx={{ ml: { xs: 1.5, sm: 2 }, flex: 1, display: 'flex', flexDirection: 'column', alignSelf: 'start' }}>
             {/* Title and Date Row */}
@@ -92,21 +99,19 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
                 {item.date}
               </Typography>
             </Box>
-
             {/* Actual Name */}
             <Typography
               variant="body2"
               component="h2"
               sx={{
                 fontWeight: 500,
-                color: 'priamry.main',
-                fontSize: { xs: '0.75', sm: '0.825rem' },
+                color: 'primary.main',
+                fontSize: { xs: '0.75rem', sm: '0.825rem' },
                 marginBottom: '0.4rem'
               }}
             >
               {item.actualName}
             </Typography>
-
             {/* Subtitle */}
             <Typography
               variant="body2"

@@ -12,7 +12,15 @@ export async function createItem(
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teamId, name, actualName, nsn, serialNumber, userId }),
+    body: JSON.stringify({
+      teamId,
+      name,
+      actualName,
+      nsn,
+      serialNumber,
+      userId,
+      status: 'Incomplete'
+    }),
   });
   if (!res.ok) throw new Error(`createItem failed: ${res.status}`);
   const json = await res.json();
@@ -23,7 +31,7 @@ export async function createItem(
 
 export async function getItems(teamId: string) {
   const res = await fetch(
-    `${TRPC}/items.getItems?input=${encodeURIComponent(JSON.stringify({ teamId }))}`,
+    `${TRPC}/items.getItems?input=${encodeURIComponent(JSON.stringify({ teamId, userId: 'test-user' }))}`,
     {
       method: "GET",
       credentials: "include",
@@ -38,7 +46,7 @@ export async function getItems(teamId: string) {
 
 export async function getItem(teamId: string, itemId: string) {
   const res = await fetch(
-    `${TRPC}/items.getItem?input=${encodeURIComponent(JSON.stringify({ teamId, itemId }))}`,
+    `${TRPC}/items.getItem?input=${encodeURIComponent(JSON.stringify({ teamId, itemId, userId: 'test-user' }))}`,
     {
       method: "GET",
       credentials: "include",
@@ -69,7 +77,7 @@ export async function updateItem(
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teamId, itemId, ...updates }),
+    body: JSON.stringify({ teamId, itemId, userId: 'test-user', ...updates }),
   });
   if (!res.ok) throw new Error(`updateItem failed: ${res.status}`);
   const json = await res.json();
@@ -83,7 +91,7 @@ export async function deleteItem(teamId: string, itemId: string) {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teamId, itemId }),
+    body: JSON.stringify({ teamId, itemId, userId: 'test-user' }),
   });
   if (!res.ok) throw new Error(`deleteItem failed: ${res.status}`);
   const json = await res.json();

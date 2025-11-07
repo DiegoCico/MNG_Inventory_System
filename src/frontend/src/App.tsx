@@ -7,6 +7,8 @@ import theme from './theme';
 import { ThemeProvider } from '@emotion/react';
 import { CssBaseline } from '@mui/material';
 import TeamsPage from './pages/TeamspacePage';
+import ToReviewPage from './pages/ToReviewPage';
+import ReviewedPage from './pages/ReviewedPage';
 
 export default function App() {
   return (
@@ -16,12 +18,17 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HeroPage />} />
           <Route path="/signin" element={<SignInPage />} />
-          <Route path="/teams/:teamId/items/new" element={<ProductReviewPage />} />
-          <Route path="/teams/:teamId/items/:itemId" element={<ProductReviewPage />} />
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/teams/home/:teamId" element={<HomePage />} />
+          <Route path="/teams/to-review/:teamId" element={<ToReviewPage />} />
+          <Route path="/teams/reviewed/:teamId" element={<ReviewedPage />} />
+          <Route
+            path="/teams/:teamId/items/:itemId"
+            element={<ProductReviewPage />}
+          />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
   );
 }
+

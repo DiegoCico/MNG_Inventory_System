@@ -4,36 +4,42 @@ import HomeIcon from "@mui/icons-material/Home";
 import CheckBoxBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import OutboxIcon from "@mui/icons-material/Outbox";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 
 export default function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { teamId } = useParams<{ teamId: string }>();
 
   const currentValue =
-    location.pathname === "/teams/home/:teamId"
+    location.pathname.includes("/teams/home/")
       ? "home"
-      : location.pathname === "/to-review"
+      : location.pathname.includes("/to-review")
         ? "toReview"
-        : location.pathname === "/reviewed"
+        : location.pathname.includes("/reviewed")
           ? "reviewed"
-          : location.pathname === "/send"
+          : location.pathname.includes("/send")
             ? "send"
             : "";
 
   const handleChange = (event: React.SyntheticEvent, newValue: string) => {
+    if (!teamId) {
+      console.warn('No teamId available for navigation');
+      return;
+    }
+
     switch (newValue) {
       case "home":
-        navigate("/teams/home/:teamId");
+        navigate(`/teams/home/${teamId}`);
         break;
       case "toReview":
-        navigate("/to-review");
+        navigate(`/teams/to-review/${teamId}`);
         break;
       case "reviewed":
-        navigate("/reviewed");
+        navigate(`/teams/reviewed/${teamId}`);
         break;
       case "send":
-        navigate("/send");
+        navigate(`/teams/send/${teamId}`);
         break;
       default:
         break;
