@@ -36,6 +36,8 @@ import {
 import { useColorMode } from "../ThemeContext";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
+import { loadDashboard } from "../api/home";
+import TopBar from "../components/TopBar";
 
 export default function HomePage() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -51,6 +53,22 @@ export default function HomePage() {
   const email = "tran.b@northeastern.edu";
   const team = "MNG INVENTORY";
   const permissions = "Admin";
+
+
+
+    // Load teams
+    async function getDashboardData(): Promise<void> {
+      try {
+        if(!teamId) {
+          console.log("teamId is undefined");
+          return
+        }
+        const data = await loadDashboard(teamId);
+        console.log("📋 Loaded dashboard:", data);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load dashboard data";
+      } 
+    }
 
   const handleProfileImageChange = (file: File) => {
     const reader = new FileReader();
@@ -81,69 +99,13 @@ export default function HomePage() {
         overflowX: "hidden",
       }}
     >
-      {/* Top AppBar */}
-      <AppBar position="sticky" elevation={0}>
-        <Toolbar sx={{ minHeight: { xs: 56, sm: 60 } }}>
-          <Stack
-            direction="row"
-            spacing={1.2}
-            alignItems="center"
-            sx={{
-              flexGrow: 1,
-              color: theme.palette.primary.contrastText,
-              textDecoration: "none",
-            }}
-            component={Link}
-            to="/"
-          >
-            <MilitaryTechIcon
-              sx={{ color: theme.palette.primary.contrastText }}
-            />
-            <Typography variant="h6">SupplyNet</Typography>
-          </Stack>
+    <TopBar
+      isLoggedIn={true}                // user is logged in
+      profileImage={profileImage}      // optional: shows avatar
+      onProfileClick={() => setProfileOpen(true)}
+    />
 
-          {/* Profile Icon */}
-          <IconButton
-            size="large"
-            sx={{
-              color: theme.palette.primary.contrastText,
-              "&:hover": {
-                bgcolor: theme.palette.primary.dark,
-              },
-            }}
-            onClick={() => setProfileOpen(true)}
-          >
-            {profileImage ? (
-              <Avatar src={profileImage} alt="Profile" />
-            ) : (
-              <AccountCircleIcon fontSize="large" />
-            )}
-          </IconButton>
 
-          {/* Theme toggle button */}
-          <Button
-            onClick={toggleTheme}
-            variant="text"
-            sx={{
-              color: theme.palette.primary.contrastText,
-              minWidth: 40,
-            }}
-          >
-            {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
-          </Button>
-
-          {/* Sign-in button */}
-          <Button
-            component={Link}
-            to="/signin"
-            variant="contained"
-            color="warning"
-            startIcon={<SecurityIcon />}
-          >
-            Sign In
-          </Button>
-        </Toolbar>
-      </AppBar>
 
       {/* Main Content */}
       <Box
