@@ -18,12 +18,7 @@ export default defineConfig({
     deps: {
       optimizer: {
         web: {
-          include: [
-            "react",
-            "react-dom",
-            "@testing-library/react",
-            "@testing-library/user-event",
-          ],
+          include: ['react', 'react-dom', '@testing-library/react', '@testing-library/user-event'],
         },
       },
     },

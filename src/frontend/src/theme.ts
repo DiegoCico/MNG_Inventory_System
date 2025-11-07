@@ -4,26 +4,26 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#283996',       // command blue (AppBar, buttons)
+      main: '#283996', // command blue (AppBar, buttons)
       dark: '#1D2D77',
       contrastText: '#F7F7F7',
     },
     secondary: {
-      main: '#3A3A3A',       // neutral text tone
+      main: '#3A3A3A', // neutral text tone
       contrastText: '#FFFFFF',
     },
     warning: {
-      main: '#D0A139',       // medal gold (buttons)
+      main: '#D0A139', // medal gold (buttons)
       dark: '#B58827',
       contrastText: '#101214',
     },
     background: {
-      default: '#F4F4F1',    // hero background
-      paper: '#FFFFFF',      // cards, dialogs
+      default: '#F4F4F1', // hero background
+      paper: '#FFFFFF', // cards, dialogs
     },
     text: {
-      primary: '#1F1F1F',    // main headings
-      secondary: '#3A3A3A',  // paragraphs
+      primary: '#1F1F1F', // main headings
+      secondary: '#3A3A3A', // paragraphs
       disabled: '#7A7A7A',
     },
     divider: 'rgba(0,0,0,0.1)',

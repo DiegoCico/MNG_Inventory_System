@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from 'react';
 import {
   Button,
   Paper,
@@ -7,8 +7,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-} from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 interface RestartProcessCardProps {
   onRestart?: () => void; // optional callback for when the restart is confirmed
@@ -20,7 +20,7 @@ export default function RestartProcess({ onRestart }: RestartProcessCardProps) {
   const [wizardStep, setWizardStep] = useState<1 | 2>(1);
 
   const handleRestartProcess = () => {
-    console.log("Restart Process triggered — reset all inventory data.");
+    console.log('Restart Process triggered — reset all inventory data.');
     if (onRestart) onRestart();
   };
 
@@ -41,7 +41,7 @@ export default function RestartProcess({ onRestart }: RestartProcessCardProps) {
         sx={{
           p: 3,
           bgcolor: theme.palette.background.paper,
-          textAlign: "center",
+          textAlign: 'center',
           border: `1px solid ${theme.palette.divider}`,
         }}
       >
@@ -88,18 +88,16 @@ export default function RestartProcess({ onRestart }: RestartProcessCardProps) {
             </Typography>
           ) : (
             <Typography>
-              ⚠️ Final confirmation: This action will move all items to "To Review", reset "% Reviewed" to 0%, and clear all completed, shortages, damaged, and notes data. This cannot be undone.
+              ⚠️ Final confirmation: This action will move all items to "To Review", reset "%
+              Reviewed" to 0%, and clear all completed, shortages, damaged, and notes data. This
+              cannot be undone.
             </Typography>
           )}
         </DialogContent>
         <DialogActions sx={{ bgcolor: theme.palette.background.paper }}>
           <Button onClick={closeWizard}>Cancel</Button>
           {wizardStep === 1 ? (
-            <Button
-              variant="contained"
-              color="warning"
-              onClick={() => setWizardStep(2)}
-            >
+            <Button variant="contained" color="warning" onClick={() => setWizardStep(2)}>
               Continue
             </Button>
           ) : (

@@ -1,5 +1,5 @@
 // src/components/Profile.tsx
-import React from "react";
+import React from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,9 +14,9 @@ import {
   Avatar,
   Paper,
   Stack,
-} from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 interface ProfileProps {
   open: boolean;
@@ -42,7 +42,7 @@ const Profile: React.FC<ProfileProps> = ({
   const theme = useTheme();
 
   const handleLogout = () => {
-    window.location.href = "/";
+    window.location.href = '/';
   };
 
   return (
@@ -65,9 +65,9 @@ const Profile: React.FC<ProfileProps> = ({
         sx={{
           m: 0,
           p: 2,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           borderBottom: `1px solid ${theme.palette.divider}`,
         }}
       >
@@ -86,13 +86,13 @@ const Profile: React.FC<ProfileProps> = ({
       {/* Main Content */}
       <DialogContent dividers sx={{ px: 4, py: 3 }}>
         {/* Profile Picture Section */}
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
           <input
             data-testid="file-input"
             accept="image/*"
             type="file"
             id="profile-image-upload"
-            style={{ display: "none" }}
+            style={{ display: 'none' }}
             onChange={(e) => {
               if (e.target.files && e.target.files[0]) {
                 onProfileImageChange(e.target.files[0]);
@@ -107,7 +107,7 @@ const Profile: React.FC<ProfileProps> = ({
                 sx={{
                   width: 100,
                   height: 100,
-                  cursor: "pointer",
+                  cursor: 'pointer',
                   mb: 1,
                 }}
               />
@@ -117,7 +117,7 @@ const Profile: React.FC<ProfileProps> = ({
                   width: 100,
                   height: 100,
                   color: theme.palette.text.secondary,
-                  cursor: "pointer",
+                  cursor: 'pointer',
                   mb: 1,
                 }}
               />
@@ -131,10 +131,10 @@ const Profile: React.FC<ProfileProps> = ({
         {/* Info Cards */}
         <Stack spacing={2.5}>
           {[
-            { label: "Name", value: name },
-            { label: "Email", value: email },
-            { label: "Team", value: team },
-            { label: "Permissions", value: permissions },
+            { label: 'Name', value: name },
+            { label: 'Email', value: email },
+            { label: 'Team', value: team },
+            { label: 'Permissions', value: permissions },
           ].map((item, i) => (
             <Paper
               key={i}
@@ -169,7 +169,7 @@ const Profile: React.FC<ProfileProps> = ({
           borderTop: `1px solid ${theme.palette.divider}`,
           px: 3,
           py: 2,
-          justifyContent: "flex-end",
+          justifyContent: 'flex-end',
         }}
       >
         <Button
@@ -177,7 +177,7 @@ const Profile: React.FC<ProfileProps> = ({
           color="error"
           onClick={handleLogout}
           sx={{
-            textTransform: "none",
+            textTransform: 'none',
             fontWeight: 600,
             borderRadius: 2,
           }}

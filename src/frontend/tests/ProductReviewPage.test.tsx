@@ -10,7 +10,7 @@ const mockProduct = {
   description: 'Test description',
   imageLink: 'https://example.com/image.png',
   serialNumber: 'SN123',
-  AuthQuantity: 5
+  AuthQuantity: 5,
 };
 
 // Mock fetch globally
@@ -20,7 +20,7 @@ describe('ProductDisplay', () => {
   beforeEach(() => {
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
-      json: async () => ({ result: { data: mockProduct } })
+      json: async () => ({ result: { data: mockProduct } }),
     } as Response);
   });
 
@@ -62,4 +62,3 @@ describe('ProductDisplay', () => {
     expect(statusDropdown).toHaveTextContent('Damaged');
   });
 });
-

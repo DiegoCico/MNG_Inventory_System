@@ -18,7 +18,7 @@ export default function App() {
           <Route path="/signin" element={<SignInPage />} />
           <Route path="/product/item" element={<ProductReviewPage />} />
           <Route path="/teams" element={<TeamsPage />} />
-          <Route path="/teams/home/:teamId" element={<HomePage />} /> 
+          <Route path="/teams/home/:teamId" element={<HomePage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

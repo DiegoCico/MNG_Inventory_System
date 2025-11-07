@@ -11,10 +11,10 @@ export type DecodedToken = {
  */
 export function decodeJwtNoVerify(token?: string | null): DecodedToken | null {
   if (!token) return null;
-  const parts = token.split(".");
+  const parts = token.split('.');
   if (parts.length !== 3) return null;
   try {
-    const json = Buffer.from(parts[1], "base64url").toString("utf8");
+    const json = Buffer.from(parts[1], 'base64url').toString('utf8');
     const payload = JSON.parse(json);
     return payload;
   } catch {

@@ -15,16 +15,20 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email import encoders
 
+# ====== Config ======
 TEMPLATE_PATH = os.environ.get("TEMPLATE_PATH", "").strip()
 SES_FROM = os.environ.get("SES_FROM", "").strip()
+TABLE_NAME = os.environ.get("TABLE_NAME", "").strip()  
 
+# CORS for API Gateway / Lambda URLs
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,Authorization",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Methods": "POST,OPTIONS,GET",
 }
 
 _ses = None
+_ddb_cli = None
 
 def ses_client():
     global _ses
@@ -32,6 +36,13 @@ def ses_client():
         _ses = boto3.client("ses")
     return _ses
 
+def ddb_client():
+    global _ddb_cli
+    if _ddb_cli is None:
+        _ddb_cli = boto3.client("dynamodb")
+    return _ddb_cli
+
+# ====== PDF Layout ======
 FIELD_COORDS = {
     "ORGANIZATION":       (90, 720),
     "NOMENCLATURE":       (390, 720),
@@ -57,6 +68,7 @@ REMARKS_TABLE = {
     "max_width": 194,
     "font": "Helvetica",
     "size": 8,
+    "wrap_gap": 10,
 }
 
 PLACEHOLDERS = {
@@ -81,6 +93,7 @@ LABELS = {
     "ORGANIZATION":       "ORGANIZATION",
     "NOMENCLATURE":       "NOMENCLATURE",
     "MODEL":              "MODEL",
+    "SERIAL NUMBER":      "SERIAL NUMBER",
     "SERIAL_NUMBER":      "SERIAL NUMBER",
     "MILES":              "MILES",
     "HOURS":              "HOURS",
@@ -95,18 +108,7 @@ LABELS = {
     "REMARKS":            "REMARKS",
 }
 
-def _clip_to_width(text: str, max_width: float, font: str, size: float) -> str:
-    if max_width is None or not text:
-        return text
-    if pdfmetrics.stringWidth(text, font, size) <= max_width:
-        return text
-    ell = "…"
-    for n in range(len(text) - 1, 0, -1):
-        cand = text[:n].rstrip() + ell
-        if pdfmetrics.stringWidth(cand, font, size) <= max_width:
-            return cand
-    return ell
-
+# ====== PDF helpers ======
 def _wrap_to_width(text: str, max_width: float, font: str, size: float):
     words = (text or "").split()
     lines, cur = [], ""
@@ -123,7 +125,6 @@ def _wrap_to_width(text: str, max_width: float, font: str, size: float):
     return lines
 
 def _draw_remarks_list(c: canvas.Canvas, values: dict):
-    # Prepare source rows
     rows = values.get("REMARKS_LIST")
     if rows is None:
         legacy = values.get("REMARKS", "")
@@ -135,66 +136,52 @@ def _draw_remarks_list(c: canvas.Canvas, values: dict):
     if not rows:
         rows = [PLACEHOLDERS["REMARKS"]]
 
-    # Layout config
     x = REMARKS_TABLE["x"]
     y = REMARKS_TABLE["y_start"]
-    row_gap = REMARKS_TABLE["row_gap"]          # baseline-to-baseline between different remarks
-    wrap_gap = REMARKS_TABLE.get("wrap_gap", 10) # small gap for wrapped lines inside same remark
-    max_rows = REMARKS_TABLE["max_rows"]        # counts remarks, not wrapped lines
+    row_gap = REMARKS_TABLE["row_gap"]
+    wrap_gap = REMARKS_TABLE.get("wrap_gap", 10)
+    max_rows = REMARKS_TABLE["max_rows"]
     max_width = REMARKS_TABLE["max_width"]
     font = REMARKS_TABLE["font"]
     size = REMARKS_TABLE["size"]
 
     c.setFont(font, size)
 
-    # Draw up to `max_rows` remarks
-    for idx, raw in enumerate(rows[:max_rows]):
-        group_start_y = y  # fixed baseline for this remark (first line)
-        # Normalize single-line input
+    for raw in rows[:max_rows]:
+        group_start_y = y
         line = str(raw).replace("\n", " ").strip()
-
-        # Wrap to width
         wrapped = _wrap_to_width(line, max_width, font, size)
 
-        # Ensure wrapped lines fit within the row height box:
-        # The first line sits on group_start_y. Each extra wrapped line goes down by wrap_gap.
-        # Allowed extra lines within the row:
-        # (n_lines - 1) * wrap_gap <= (row_gap - size_pad)
-        # Use a tiny padding (2) to reduce overlap risk with the next row’s baseline.
         size_pad = 2
         avail = max(row_gap - size_pad, 0)
         max_lines_in_row = max(1, 1 + (avail // max(wrap_gap, 1)))
 
         if len(wrapped) > max_lines_in_row:
-            # Truncate and add ellipsis to last visible line if needed
             visible = wrapped[:max_lines_in_row]
-            # Add ellipsis to last visible line (fit within width)
             last = visible[-1]
             ell = " …"
-            # If appending ellipsis exceeds width, trim until it fits
             while last and pdfmetrics.stringWidth(last + ell, font, size) > max_width:
                 last = last[:-1].rstrip()
             visible[-1] = (last + ell) if last else "…"
             wrapped = visible
 
-        # Draw each wrapped line relative to the fixed group baseline
         for i, wl in enumerate(wrapped):
             c.drawString(x, int(round(group_start_y - i * wrap_gap)), wl)
 
-        # Move baseline to the next remark: fixed row gap, regardless of wrapped count
         y = group_start_y - row_gap
-
-
 
 def make_overlay(page_w, page_h, values, font="Helvetica", size=9):
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=(page_w, page_h))
     c.setFont(font, size)
+
     _draw_remarks_list(c, values)
+
     for field, (x, y) in FIELD_COORDS.items():
         val = (values.get(field) or "").strip()
         if val:
             c.drawString(x, y, val)
+
     c.save()
     buf.seek(0)
     return PdfReader(buf)
@@ -204,11 +191,14 @@ def stamp(template_bytes, values, font="Helvetica", size=9):
     writer = PdfWriter()
     mb = tmpl.pages[0].mediabox
     page_w, page_h = float(mb.width), float(mb.height)
+
     overlay = make_overlay(page_w, page_h, values, font, size)
+
     for i, page in enumerate(tmpl.pages):
         if i == 0:
             page.merge_page(overlay.pages[0])
         writer.add_page(page)
+
     out = io.BytesIO()
     writer.write(out)
     out.seek(0)
@@ -228,11 +218,13 @@ def to_pdf_values(payload):
         out = {k: LABELS.get(k, k) for k in keys}
         out["REMARKS_LIST"] = ["REMARKS", "REMARKS (row 2)"]
         return out
+
     def pick(name, key):
         v = payload.get(name)
         if isinstance(v, str):
             v = v.strip()
         return v if v else PLACEHOLDERS[key]
+
     remarks_list = payload.get("remarksList")
     if remarks_list is None:
         r_legacy = payload.get("remarks")
@@ -242,6 +234,7 @@ def to_pdf_values(payload):
             remarks_list = [s for s in r_legacy.splitlines() if s.strip()]
         else:
             remarks_list = [PLACEHOLDERS["REMARKS"]]
+
     return {
         "ORGANIZATION":       pick("organization", "ORGANIZATION"),
         "NOMENCLATURE":       pick("nomenclature", "NOMENCLATURE"),
@@ -257,22 +250,7 @@ def to_pdf_values(payload):
         "TM_DATE":            pick("tmDate", "TM_DATE"),
         "TM2_NUMBER":         pick("tm2Number", "TM2_NUMBER"),
         "TM2_DATE":           pick("tm2Date", "TM2_DATE"),
-        "REMARKS_LIST":       [
-            "Checked oil, coolant, and transmission fluid levels – all within spec.",
-            "Lubricated door hinges and inspected weather seals for cracks.",
-            "Tested brake lights, turn signals, and headlights for functionality.",
-            "Verified fire extinguisher pressure gauge reads full.",
-            "Inspected windshield for chips or cracks; none found.",
-            "Tightened loose battery terminals and applied anti-corrosion gel.",
-            "Checked wiper blades for wear and ensured washer fluid is full.",
-            "Confirmed horn operation and instrument panel indicator lights.",
-            "Reviewed maintenance log for overdue services – none pending.",
-            "Visually inspected undercarriage for leaks or damage.",
-            "Checked tire tread depth and adjusted air pressure to spec.",
-            "Confirmed first aid kit contents complete and sealed.",
-            "Performed 10-minute idle test; engine stable, no warning lights.",
-            "Recorded inspection results in logbook and signed off by inspector.",
-        ],
+        "REMARKS_LIST":       remarks_list,
     }
 
 def send_pdf_email(to_addr, from_addr, subject, body_text, pdf_bytes, filename):
@@ -281,16 +259,61 @@ def send_pdf_email(to_addr, from_addr, subject, body_text, pdf_bytes, filename):
     msg["From"] = from_addr
     msg["To"] = to_addr
     msg.attach(MIMEText(body_text or "", "plain"))
+
     part = MIMEBase("application", "pdf")
     part.set_payload(pdf_bytes)
     encoders.encode_base64(part)
     part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
     msg.attach(part)
+
     ses_client().send_raw_email(
         Source=from_addr,
         Destinations=[to_addr],
         RawMessage={"Data": msg.as_string()},
     )
+
+# ====== Dynamo  ======
+def _schema_keys_only(table: str):
+    cli = ddb_client()
+    desc = cli.describe_table(TableName=table)["Table"]
+    attr_defs = {a["AttributeName"]: a["AttributeType"] for a in desc.get("AttributeDefinitions", [])}
+    keys = [
+        {
+            "AttributeName": k["AttributeName"],
+            "KeyType": k["KeyType"],  # HASH/RANGE
+            "AttributeType": attr_defs.get(k["AttributeName"], "UNKNOWN"),  # S|N|B
+        }
+        for k in desc.get("KeySchema", [])
+    ]
+    return {
+        "table": table,
+        "keys": keys,
+        "itemCount": desc.get("ItemCount", 0),
+        "billingModeSummary": desc.get("BillingModeSummary", {}),
+    }
+
+# ====== Lambda HTTP helpers ======
+def _get_http_method(event) -> str:
+    try:
+        m = event.get("requestContext", {}).get("http", {}).get("method")
+        if m:
+            return m.upper()
+    except Exception:
+        pass
+    m = event.get("httpMethod")
+    return m.upper() if isinstance(m, str) else ""
+
+def _get_body_json(event) -> dict:
+    body = event.get("body") or "{}"
+    if event.get("isBase64Encoded"):
+        try:
+            body = base64.b64decode(body).decode("utf-8")
+        except Exception:
+            pass
+    try:
+        return json.loads(body) if body else {}
+    except Exception:
+        return {}
 
 def _resp(status, body=None, headers=None, is_b64=False):
     h = {"Cache-Control": "no-store"}
@@ -304,25 +327,50 @@ def _resp(status, body=None, headers=None, is_b64=False):
         out["isBase64Encoded"] = True
     return out
 
-def main(event, context):
-    if event.get("requestContext", {}).get("http", {}).get("method") == "OPTIONS":
+# ====== Lambda Handler ======
+def lambda_handler(event, context):
+    method = _get_http_method(event)
+
+    if method == "OPTIONS":
         return _resp(200, "")
-    try:
-        payload = json.loads(event.get("body") or "{}")
-    except Exception:
+
+    if method == "GET":
+        return _resp(200, {"ok": True, "service": "da2404-stamper", "ddbConfigured": bool(TABLE_NAME)})
+
+    if method != "POST":
+        return _resp(405, {"error": "Method not allowed. Use POST."})
+
+    payload = _get_body_json(event)
+    if not isinstance(payload, dict):
         return _resp(400, {"error": "Invalid JSON body"})
+
     action = (payload.get("action") or "download").lower()
     form_id = (payload.get("formId") or str(uuid.uuid4())).strip()
+
+    if action == "schema":
+        table = (payload.get("table") or TABLE_NAME).strip()
+        if not table:
+            return _resp(400, {"error": "Provide 'table' in request body or set TABLE_NAME env var"})
+        try:
+            info = _schema_keys_only(table)
+            return _resp(200, info)
+        except Exception as e:
+            return _resp(500, {"error": f"DescribeTable failed: {e}"})
+
+    # ---- PDF flow (download/email) ----
     try:
         tmpl = read_template_bytes()
     except Exception as e:
         return _resp(500, {"error": f"Template read failed: {e}"})
+
     try:
         values = to_pdf_values(payload)
         pdf_bytes = stamp(tmpl, values)
     except Exception as e:
         return _resp(500, {"error": f"Stamping failed: {e}"})
+
     filename = f"DA2404_{form_id}.pdf"
+
     if action == "email":
         to_email = (payload.get("toEmail") or "").strip()
         if not to_email:
@@ -337,6 +385,7 @@ def main(event, context):
         except Exception as e:
             return _resp(500, {"error": f"Email send failed: {e}"})
         return _resp(200, {"ok": True})
+
     b64 = base64.b64encode(pdf_bytes).decode("utf-8")
     return _resp(
         200,
@@ -347,3 +396,6 @@ def main(event, context):
         },
         is_b64=True,
     )
+
+
+main = lambda_handler

@@ -12,7 +12,7 @@ import {
   TextField,
   Typography,
   CircularProgress,
-  Alert
+  Alert,
 } from '@mui/material';
 import PercentageBar from '../components/PercentageBar';
 import { getItem } from '../api/api';
@@ -31,14 +31,17 @@ interface ProductCardProps {
   product: ItemViewModel;
 }
 
-const ProductCard = ({ product } : ProductCardProps) => {
+const ProductCard = ({ product }: ProductCardProps) => {
   const [status, setStatus] = React.useState('Found');
   const [notes, setNotes] = React.useState(product.description);
 
   return (
-    <Container maxWidth="md" sx={{
-      px: { xs: 0, sm: 2, md: 3 }
-    }}>
+    <Container
+      maxWidth="md"
+      sx={{
+        px: { xs: 0, sm: 2, md: 3 },
+      }}
+    >
       <Card>
         <PercentageBar />
 
@@ -49,7 +52,7 @@ const ProductCard = ({ product } : ProductCardProps) => {
           alt={product.productName}
           sx={{
             maxHeight: '40vh',
-            objectFit: 'contain'
+            objectFit: 'contain',
           }}
         />
 
@@ -77,8 +80,8 @@ const ProductCard = ({ product } : ProductCardProps) => {
               sx={{
                 borderRadius: 2,
                 '& .MuiInputBase-input': {
-                  fontSize: { xs: '0.75rem', sm: '0.9rem', md: '1rem' }
-                }
+                  fontSize: { xs: '0.75rem', sm: '0.9rem', md: '1rem' },
+                },
               }}
             />
           </Box>
@@ -124,7 +127,7 @@ const ProductCard = ({ product } : ProductCardProps) => {
               bgcolor: '#81c784',
               '&:hover': { bgcolor: '#66bb6a' },
               textTransform: 'none',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
             }}
           >
             Complete
@@ -163,7 +166,9 @@ const ProductDisplay = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}
+      >
         <CircularProgress />
       </Box>
     );

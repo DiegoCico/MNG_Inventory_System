@@ -1,11 +1,11 @@
-import * as fs from "fs";
-import * as path from "path";
-import * as cdk from "aws-cdk-lib";
-import { Construct } from "constructs";
-import * as s3 from "aws-cdk-lib/aws-s3";
-import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
-import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
-import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as fs from 'fs';
+import * as path from 'path';
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 
 export interface WebStackProps extends cdk.StackProps {
   stage: { name: string };
@@ -23,22 +23,19 @@ export class WebStack extends cdk.Stack {
     super(scope, id, props);
 
     const stageName = props.stage.name;
-    const serviceName = props.serviceName ?? "mng-web";
+    const serviceName = props.serviceName ?? 'mng-web';
 
     // ===== S3 Bucket =====
-    this.bucket = new s3.Bucket(this, "WebBucket", {
+    this.bucket = new s3.Bucket(this, 'WebBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
-      removalPolicy:
-        stageName === "prod"
-          ? cdk.RemovalPolicy.RETAIN
-          : cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: stageName !== "prod",
+      removalPolicy: stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: stageName !== 'prod',
     });
 
     // ===== CloudFront OAI =====
-    const oai = new cloudfront.OriginAccessIdentity(this, "OAI", {
+    const oai = new cloudfront.OriginAccessIdentity(this, 'OAI', {
       comment: `${serviceName}-${stageName}-oai`,
     });
     this.bucket.grantRead(oai);
@@ -48,29 +45,27 @@ export class WebStack extends cdk.Stack {
 
     // ===== API Origin =====
     const apiDomainName = props.apiDomainName;
-    const apiPaths = props.apiPaths?.length
-      ? props.apiPaths
-      : ["/trpc/*", "/health", "/hello"];
+    const apiPaths = props.apiPaths?.length ? props.apiPaths : ['/trpc/*', '/health', '/hello'];
 
     const additionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
 
     if (apiDomainName) {
       const apiOrigin = new origins.HttpOrigin(apiDomainName, {
-        originPath: "",
+        originPath: '',
         protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
       });
 
       // Allow cookies, query strings, and safe headers
-      const apiRequestPolicy = new cloudfront.OriginRequestPolicy(this, "ApiRequestPolicy", {
-        comment: "Forward cookies and query strings for API requests",
+      const apiRequestPolicy = new cloudfront.OriginRequestPolicy(this, 'ApiRequestPolicy', {
+        comment: 'Forward cookies and query strings for API requests',
         cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
         queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
         headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
-          "Origin",
-          "Referer",
-          "Accept",
-          "Accept-Language",
-          "Content-Type"
+          'Origin',
+          'Referer',
+          'Accept',
+          'Accept-Language',
+          'Content-Type',
         ),
       });
 
@@ -89,9 +84,9 @@ export class WebStack extends cdk.Stack {
     }
 
     // ===== CloudFront Distribution =====
-    this.distribution = new cloudfront.Distribution(this, "Distribution", {
+    this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `${serviceName}-${stageName}`,
-      defaultRootObject: "index.html",
+      defaultRootObject: 'index.html',
       defaultBehavior: {
         origin: s3Origin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -102,7 +97,7 @@ export class WebStack extends cdk.Stack {
         {
           httpStatus: 404,
           responseHttpStatus: 200,
-          responsePagePath: "/index.html",
+          responsePagePath: '/index.html',
           ttl: cdk.Duration.minutes(1),
         },
       ],
@@ -112,11 +107,11 @@ export class WebStack extends cdk.Stack {
     if (props.frontendBuildPath) {
       const resolved = path.resolve(__dirname, props.frontendBuildPath);
       if (fs.existsSync(resolved)) {
-        new s3deploy.BucketDeployment(this, "DeployFrontend", {
+        new s3deploy.BucketDeployment(this, 'DeployFrontend', {
           sources: [s3deploy.Source.asset(resolved)],
           destinationBucket: this.bucket,
           distribution: this.distribution,
-          distributionPaths: ["/*"],
+          distributionPaths: ['/*'],
           prune: true,
         });
       } else {
@@ -125,11 +120,11 @@ export class WebStack extends cdk.Stack {
     }
 
     // ===== Outputs =====
-    new cdk.CfnOutput(this, "SiteUrl", {
+    new cdk.CfnOutput(this, 'SiteUrl', {
       value: `https://${this.distribution.distributionDomainName}`,
     });
-    new cdk.CfnOutput(this, "ApiDomainName", {
-      value: apiDomainName ?? "No API domain provided",
+    new cdk.CfnOutput(this, 'ApiDomainName', {
+      value: apiDomainName ?? 'No API domain provided',
     });
   }
 }

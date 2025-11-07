@@ -1,5 +1,5 @@
-import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -10,12 +10,12 @@ import {
   Stack,
   Alert,
   LinearProgress,
-} from "@mui/material";
-import { Visibility, VisibilityOff, CheckCircle, Cancel, Lock } from "@mui/icons-material";
-import { completeNewPassword, me, refresh } from "../api/auth";
-import EmailOtpCard from "./EmailOtpCard";
+} from '@mui/material';
+import { Visibility, VisibilityOff, CheckCircle, Cancel, Lock } from '@mui/icons-material';
+import { completeNewPassword, me, refresh } from '../api/auth';
+import EmailOtpCard from './EmailOtpCard';
 
-type OtpChallengeName = "EMAIL_OTP" | "SMS_MFA" | "SOFTWARE_TOKEN_MFA";
+type OtpChallengeName = 'EMAIL_OTP' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA';
 
 interface CompleteNewPasswordResponse {
   success?: boolean;
@@ -35,18 +35,22 @@ function scorePassword(pw: string): { score: number; label: string } {
   const reqs = [pw.length >= 10, /[A-Z]/.test(pw), /[a-z]/.test(pw), /\d/.test(pw)];
   const met = reqs.filter(Boolean).length;
   const score = [0, 25, 50, 75, 100][met];
-  const label = ["Too weak", "Weak", "Okay", "Good", "Strong"][met];
+  const label = ['Too weak', 'Weak', 'Okay', 'Good', 'Strong'][met];
   return { score, label };
 }
 
 function Req({ label, met }: { label: string; met: boolean }) {
   return (
     <Box display="flex" alignItems="center" gap={0.7}>
-      {met ? <CheckCircle fontSize="small" color="success" /> : <Cancel fontSize="small" color="disabled" />}
+      {met ? (
+        <CheckCircle fontSize="small" color="success" />
+      ) : (
+        <Cancel fontSize="small" color="disabled" />
+      )}
       <Typography
         variant="body2"
-        color={met ? "success.main" : "text.secondary"}
-        sx={{ fontSize: "0.8rem" }}
+        color={met ? 'success.main' : 'text.secondary'}
+        sx={{ fontSize: '0.8rem' }}
       >
         {label}
       </Typography>
@@ -54,9 +58,9 @@ function Req({ label, met }: { label: string; met: boolean }) {
   );
 }
 
-function getErrorMessage(err: unknown, fallback = "Something went wrong"): string {
+function getErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
   if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
+  if (typeof err === 'string') return err;
   try {
     return JSON.stringify(err);
   } catch {
@@ -65,11 +69,11 @@ function getErrorMessage(err: unknown, fallback = "Something went wrong"): strin
 }
 
 export default function SignUpComponent({ onComplete }: { onComplete: () => void }) {
-  const presetEmail = useMemo(() => localStorage.getItem("cognitoEmail") || "", []);
+  const presetEmail = useMemo(() => localStorage.getItem('cognitoEmail') || '', []);
   const [email] = useState(presetEmail);
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -112,7 +116,7 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
     number: /\d/.test(password),
   };
   const allPasswordValid = Object.values(reqs).every(Boolean);
-  const passwordsMatch = password !== "" && password === confirmPassword;
+  const passwordsMatch = password !== '' && password === confirmPassword;
 
   const { score, label } = scorePassword(password);
 
@@ -124,27 +128,31 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
       const m2 = await me();
       if (m2.authenticated) return onComplete();
     }
-    throw new Error("Session cookie not detected.");
+    throw new Error('Session cookie not detected.');
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (submitting) return;
     if (!emailValid || !allPasswordValid || !passwordsMatch) {
-      setError("Please fix the highlighted fields before continuing.");
+      setError('Please fix the highlighted fields before continuing.');
       return;
     }
 
     setError(null);
-    const session = localStorage.getItem("cognitoSession");
+    const session = localStorage.getItem('cognitoSession');
     if (!session) {
-      setError("Missing Cognito session. Please go back and sign in again.");
+      setError('Missing Cognito session. Please go back and sign in again.');
       return;
     }
 
     try {
       setSubmitting(true);
-      const res = (await completeNewPassword(session, password, email)) as CompleteNewPasswordResponse;
+      const res = (await completeNewPassword(
+        session,
+        password,
+        email,
+      )) as CompleteNewPasswordResponse;
 
       if (res?.success) {
         try {
@@ -165,9 +173,9 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
         return;
       }
 
-      setError(res?.message ?? "Could not complete registration. Please try again.");
+      setError(res?.message ?? 'Could not complete registration. Please try again.');
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Network error while completing registration."));
+      setError(getErrorMessage(err, 'Network error while completing registration.'));
     } finally {
       setSubmitting(false);
     }
@@ -182,9 +190,9 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
         email={otpUI.email}
         challengeName={otpUI.challengeName}
         helperText={
-          otpUI.challengeName === "EMAIL_OTP"
-            ? "We sent a verification code to your email."
-            : "Enter the verification code from your device."
+          otpUI.challengeName === 'EMAIL_OTP'
+            ? 'We sent a verification code to your email.'
+            : 'Enter the verification code from your device.'
         }
         onResend={() => {}}
         onBack={() => setOtpUI({ visible: false })}
@@ -196,7 +204,7 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
     <Box component="form" onSubmit={handleSubmit} noValidate>
       <Stack spacing={3}>
         <Box textAlign="center">
-          <Typography variant="h4" sx={{ fontWeight: 900, color: "#1F1F1F", mb: 0.5 }}>
+          <Typography variant="h4" sx={{ fontWeight: 900, color: '#1F1F1F', mb: 0.5 }}>
             Complete Your Registration
           </Typography>
           <Typography variant="body1" color="text.secondary">
@@ -220,7 +228,7 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
                 <Lock fontSize="small" />
               </InputAdornment>
             ),
-            sx: { backgroundColor: "#F3F3F3", borderRadius: 2, input: { color: "#000" } },
+            sx: { backgroundColor: '#F3F3F3', borderRadius: 2, input: { color: '#000' } },
           }}
           helperText="This email was set by your invite and cannot be changed."
         />
@@ -229,16 +237,16 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
         <Stack spacing={2}>
           <TextField
             label="Password"
-            type={showPassword ? "text" : "password"}
+            type={showPassword ? 'text' : 'password'}
             fullWidth
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyUp={(e) => setCapsOnPwd(e.getModifierState?.("CapsLock") ?? false)}
+            onKeyUp={(e) => setCapsOnPwd(e.getModifierState?.('CapsLock') ?? false)}
             InputProps={{
               sx: {
-                backgroundColor: "#FAFAFA",
+                backgroundColor: '#FAFAFA',
                 borderRadius: 2,
-                input: { color: "#000" },
+                input: { color: '#000' },
               },
               endAdornment: (
                 <InputAdornment position="end">
@@ -252,16 +260,16 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
 
           <TextField
             label="Confirm Password"
-            type={showConfirmPassword ? "text" : "password"}
+            type={showConfirmPassword ? 'text' : 'password'}
             fullWidth
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            onKeyUp={(e) => setCapsOnConfirm(e.getModifierState?.("CapsLock") ?? false)}
+            onKeyUp={(e) => setCapsOnConfirm(e.getModifierState?.('CapsLock') ?? false)}
             InputProps={{
               sx: {
-                backgroundColor: "#FAFAFA",
+                backgroundColor: '#FAFAFA',
                 borderRadius: 2,
-                input: { color: "#000" },
+                input: { color: '#000' },
               },
               endAdornment: (
                 <InputAdornment position="end">
@@ -271,8 +279,8 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
                 </InputAdornment>
               ),
             }}
-            error={confirmPassword !== "" && !passwordsMatch}
-            helperText={confirmPassword && !passwordsMatch ? "Passwords do not match" : ""}
+            error={confirmPassword !== '' && !passwordsMatch}
+            helperText={confirmPassword && !passwordsMatch ? 'Passwords do not match' : ''}
           />
         </Stack>
 
@@ -284,9 +292,15 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
             sx={{
               height: 8,
               borderRadius: 4,
-              "& .MuiLinearProgress-bar": {
+              '& .MuiLinearProgress-bar': {
                 backgroundColor:
-                  score < 40 ? "#d32f2f" : score < 70 ? "#f57c00" : score < 100 ? "#fbc02d" : "#2e7d32",
+                  score < 40
+                    ? '#d32f2f'
+                    : score < 70
+                      ? '#f57c00'
+                      : score < 100
+                        ? '#fbc02d'
+                        : '#2e7d32',
               },
             }}
           />
@@ -310,14 +324,14 @@ export default function SignUpComponent({ onComplete }: { onComplete: () => void
           disabled={submitting}
           sx={{
             borderRadius: 2,
-            bgcolor: submitting ? "grey.400" : "#1976d2",
-            textTransform: "none",
-            fontSize: "1rem",
+            bgcolor: submitting ? 'grey.400' : '#1976d2',
+            textTransform: 'none',
+            fontSize: '1rem',
             py: 1.2,
-            "&:hover": { bgcolor: submitting ? "grey.500" : "#1565c0" },
+            '&:hover': { bgcolor: submitting ? 'grey.500' : '#1565c0' },
           }}
         >
-          {submitting ? "Setting password..." : "Set Password & Continue"}
+          {submitting ? 'Setting password...' : 'Set Password & Continue'}
         </Button>
       </Stack>
     </Box>

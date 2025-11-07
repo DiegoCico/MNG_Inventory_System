@@ -1,39 +1,39 @@
-import React from "react";
-import { BottomNavigation, BottomNavigationAction, Paper } from "@mui/material";
-import HomeIcon from "@mui/icons-material/Home";
-import CheckBoxBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
-import CheckBoxIcon from "@mui/icons-material/CheckBox";
-import OutboxIcon from "@mui/icons-material/Outbox";
-import { useNavigate, useLocation } from "react-router-dom";
+import React from 'react';
+import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
+import HomeIcon from '@mui/icons-material/Home';
+import CheckBoxBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import OutboxIcon from '@mui/icons-material/Outbox';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const currentValue =
-    location.pathname === "/teams/home/:teamId"
-      ? "home"
-      : location.pathname === "/to-review"
-      ? "toReview"
-      : location.pathname === "/reviewed"
-      ? "reviewed"
-      : location.pathname === "/send"
-      ? "send"
-      : "";
+    location.pathname === '/teams/home/:teamId'
+      ? 'home'
+      : location.pathname === '/to-review'
+        ? 'toReview'
+        : location.pathname === '/reviewed'
+          ? 'reviewed'
+          : location.pathname === '/send'
+            ? 'send'
+            : '';
 
   const handleChange = (event: React.SyntheticEvent, newValue: string) => {
     switch (newValue) {
-      case "home":
-        navigate("/teams/home/:teamId");
+      case 'home':
+        navigate('/teams/home/:teamId');
         break;
-      case "toReview":
-        navigate("/to-review");
+      case 'toReview':
+        navigate('/to-review');
         break;
-      case "reviewed":
-        navigate("/reviewed");
+      case 'reviewed':
+        navigate('/reviewed');
         break;
-      case "send":
-        navigate("/send");
+      case 'send':
+        navigate('/send');
         break;
       default:
         break;
@@ -43,12 +43,12 @@ export default function NavBar() {
   return (
     <Paper
       sx={{
-        position: "fixed",
+        position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
         zIndex: 1200,
-        borderTop: "1px solid rgba(0,0,0,0.1)",
+        borderTop: '1px solid rgba(0,0,0,0.1)',
       }}
       elevation={3}
     >
@@ -58,25 +58,13 @@ export default function NavBar() {
         onChange={handleChange}
         sx={{
           height: 56,
-          "& .MuiBottomNavigationAction-label": { fontSize: "0.75rem" },
+          '& .MuiBottomNavigationAction-label': { fontSize: '0.75rem' },
         }}
       >
         <BottomNavigationAction label="Home" value="home" icon={<HomeIcon />} />
-        <BottomNavigationAction
-          label="To Review"
-          value="toReview"
-          icon={<CheckBoxBlankIcon />}
-        />
-        <BottomNavigationAction
-          label="Reviewed"
-          value="reviewed"
-          icon={<CheckBoxIcon />}
-        />
-        <BottomNavigationAction
-          label="Send"
-          value="send"
-          icon={<OutboxIcon />}
-        />
+        <BottomNavigationAction label="To Review" value="toReview" icon={<CheckBoxBlankIcon />} />
+        <BottomNavigationAction label="Reviewed" value="reviewed" icon={<CheckBoxIcon />} />
+        <BottomNavigationAction label="Send" value="send" icon={<OutboxIcon />} />
       </BottomNavigation>
     </Paper>
   );
