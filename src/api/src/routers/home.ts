@@ -2,13 +2,16 @@ import { z } from "zod";
 import { router, publicProcedure } from "./trpc";
 import {
   QueryCommand,
-  ScanCommand,
   UpdateCommand,
   DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+} from "@aws-sdk/client-s3";
 import { doc } from "../aws";
-import { loadConfig } from "../process"; 
+import { loadConfig } from "../process";
 
 const config = loadConfig();
 const TABLE_NAME = config.TABLE_NAME;
@@ -17,8 +20,7 @@ const REGION = config.REGION;
 
 const s3 = new S3Client({ region: REGION });
 
-
-/** Get total stats from DynamoDB */
+// get inventory
 async function getInventorySummary(teamId: string) {
   const q = await doc.send(
     new QueryCommand({
@@ -46,21 +48,41 @@ async function getInventorySummary(teamId: string) {
   > = {};
 
   for (const item of items) {
-    const status = (item.status ?? "unreviewed").toLowerCase();
+    const status = (item.status ?? "Incomplete").toLowerCase();
     const createdBy = item.createdBy ?? "unknown";
 
-    if (status === "unreviewed") totals.toReview++;
-    if (status === "completed") totals.completed++;
-    if (status === "shortages" || status === "shortage") totals.shortages++;
-    if (status === "damaged") totals.damaged++;
+    // Normalize and count
+    switch (status) {
+      case "incomplete":
+      case "unreviewed":
+      case "to review":
+        totals.toReview++;
+        break;
+      case "completed":
+      case "complete":
+      case "found":
+        totals.completed++;
+        break;
+      case "shortage":
+      case "shortages":
+      case "missing":
+        totals.shortages++;
+        break;
+      case "damaged":
+      case "in repair":
+        totals.damaged++;
+        break;
+      default:
+        totals.toReview++;
+        break;
+    }
 
-    // Count user contributions
+    // Track user contribution
     if (!users[createdBy]) {
       users[createdBy] = { completed: 0, shortages: 0, damaged: 0 };
     }
-    if (status === "completed") users[createdBy].completed++;
-    if (status === "shortages" || status === "shortage")
-      users[createdBy].shortages++;
+    if (status.includes("complete")) users[createdBy].completed++;
+    if (status.startsWith("shortage")) users[createdBy].shortages++;
     if (status === "damaged") users[createdBy].damaged++;
   }
 
@@ -72,7 +94,8 @@ async function getInventorySummary(teamId: string) {
   return { totals, percentReviewed, users, items };
 }
 
-/** Remove all items + images (HARD RESET) */
+
+// HARD RESET — Delete all items and images for a team
 async function hardReset(teamId: string) {
   const q = await doc.send(
     new QueryCommand({
@@ -84,8 +107,10 @@ async function hardReset(teamId: string) {
       },
     })
   );
+
   const items = q.Items ?? [];
 
+  // Delete all DynamoDB items
   for (const item of items) {
     await doc.send(
       new DeleteCommand({
@@ -95,6 +120,7 @@ async function hardReset(teamId: string) {
     );
   }
 
+  // Delete all S3 objects under team prefix
   const listed = await s3.send(
     new ListObjectsV2Command({
       Bucket: BUCKET_NAME,
@@ -116,7 +142,6 @@ async function hardReset(teamId: string) {
   return { success: true, message: "Hard reset completed." };
 }
 
-/** Soft reset — mark all items as unreviewed */
 async function softReset(teamId: string) {
   const q = await doc.send(
     new QueryCommand({
@@ -174,7 +199,7 @@ export const homeRouter = router({
       }
     }),
 
-  /** HARD RESET — removes all items + images */
+  /** HARD RESET — deletes all items + images */
   hardReset: publicProcedure
     .input(z.object({ teamId: z.string().min(1) }))
     .mutation(async ({ input }) => {
@@ -186,7 +211,7 @@ export const homeRouter = router({
       }
     }),
 
-  /** SOFT RESET — mark all items as unreviewed */
+  /** SOFT RESET — marks all as 'Incomplete' */
   softReset: publicProcedure
     .input(z.object({ teamId: z.string().min(1) }))
     .mutation(async ({ input }) => {
