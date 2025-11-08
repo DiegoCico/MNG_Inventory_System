@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from "react";
 import {
   Dialog,
@@ -45,31 +46,18 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
 
-  const [authUser, setAuthUser] = useState<{
-    userId: string;
-    name: string;
-    email: string;
-    authenticated: boolean;
-    role?: string;
-  } | null>(null);
-
+  const [authUser, setAuthUser] = useState<MeResponse | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [editedName, setEditedName] = useState("");
   const [editedRole, setEditedRole] = useState("");
 
-  /* ============================================================
-     LOAD USER + IMAGE
-  ============================================================ */
   useEffect(() => {
     if (!open) return;
     const loadUser = async () => {
-      console.log("[Profile] Loading user data...");
       setLoading(true);
       try {
         const user = await me();
-        console.log("[Profile] User fetched:", user);
-
         const safeUser = user as any;
 
         setAuthUser({
@@ -84,13 +72,10 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
         setEditedRole(safeUser.role || "User");
 
         if (safeUser.authenticated) {
-          console.log("[Profile] Fetching profile image for:", safeUser.userId);
           const res = await getProfileImage(safeUser.userId);
-          console.log("[Profile] Image response:", res);
           if (res.url) setProfileImage(res.url);
         }
-      } catch (err) {
-        console.error("[Profile] Failed to load user:", err);
+      } catch {
         setAuthUser({
           userId: "",
           name: "",
@@ -105,27 +90,18 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
     loadUser();
   }, [open]);
 
-  /* ============================================================
-     IMAGE UPLOAD
-  ============================================================ */
   const handleFileSelect = (file: File) => {
-    console.log("[Profile] Selected file:", file?.name);
     const reader = new FileReader();
     reader.onload = async (e) => {
       const dataUrl = e.target?.result as string;
-      if (!authUser?.userId) {
-        console.warn("[Profile] No user ID — cannot upload image.");
-        return;
-      }
-
+      if (!authUser?.userId) return;
       setPreview(dataUrl);
       setUploading(true);
       try {
         const res = await uploadProfileImage(authUser.userId, dataUrl);
-        console.log("[Profile] Upload response:", res);
         if (res.url) setProfileImage(res.url);
       } catch (err) {
-        console.error("[Profile] Upload failed:", err);
+        console.error(err);
       } finally {
         setUploading(false);
       }
@@ -133,78 +109,46 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
     reader.readAsDataURL(file);
   };
 
-  /* ============================================================
-     SAVE CHANGES
-  ============================================================ */
-const handleSave = async () => {
-  if (!authUser) {
-    console.error("[Profile] No authUser loaded!");
-    return;
-  }
+  const handleSave = async () => {
+    if (!authUser) return;
+    try {
+      await updateProfile(authUser.userId, editedName, editedRole);
+      const refreshed = (await me()) as MeResponse;
+      setAuthUser(refreshed);
+      setEditedName(refreshed.name || "");
+      setEditedRole(refreshed.role || "User");
+      setEditing(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  console.log("[Profile] Saving profile...");
-  console.log("→ User ID:", authUser.userId);
-  console.log("→ New Name:", editedName);
-  console.log("→ New Role:", editedRole);
-
-  try {
-    const result = await updateProfile(
-      authUser.userId,
-      editedName,
-      editedRole
-    );
-    console.log("[Profile] UpdateProfile success:", result);
-
-    const refreshed = (await me()) as MeResponse;
-    console.log("[Profile] Refreshed user:", refreshed);
-
-    setAuthUser({
-      userId: refreshed.userId,
-      name: refreshed.name,
-      email: refreshed.email,
-      authenticated: refreshed.authenticated,
-      role: refreshed.role || "User",
-    });
-    setEditedName(refreshed.name || "");
-    setEditedRole(refreshed.role || "User");
-
-    setEditing(false);
-  } catch (err: any) {
-    console.error("[Profile] Update failed:", err);
-    if (err instanceof Error) console.error("→ Message:", err.message);
-  }
-};
-
-
-  /* ============================================================
-     LOGOUT
-  ============================================================ */
   const handleLogout = async () => {
-    console.log("[Profile] Logging out...");
     await logout();
     window.location.href = "/";
   };
 
-  /* ============================================================
-     RENDER
-  ============================================================ */
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      TransitionComponent={Fade}
       PaperProps={{
         sx: {
           borderRadius: 4,
-          bgcolor: theme.palette.background.paper,
+          bgcolor:
+            theme.palette.mode === "dark"
+              ? "#1E1E1E"
+              : theme.palette.background.default,
           color: theme.palette.text.primary,
-          boxShadow: `0 8px 32px ${
-            theme.palette.mode === "dark" ? "#00000080" : "#00000020"
+          boxShadow: `0 8px 30px ${
+            theme.palette.mode === "dark" ? "#00000099" : "#00000022"
           }`,
+          border: `1px solid ${theme.palette.divider}`,
         },
       }}
-      TransitionComponent={Fade}
     >
       <DialogTitle
         sx={{
@@ -212,6 +156,10 @@ const handleSave = async () => {
           alignItems: "center",
           justifyContent: "space-between",
           borderBottom: `1px solid ${theme.palette.divider}`,
+          bgcolor:
+            theme.palette.mode === "dark"
+              ? "#2B2B2B"
+              : theme.palette.grey[100],
           px: 3,
           py: 2,
         }}
@@ -219,18 +167,17 @@ const handleSave = async () => {
         <Typography variant="h6" fontWeight={800}>
           Profile
         </Typography>
-        <IconButton onClick={onClose} color="inherit">
+        <IconButton onClick={onClose}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      {/* LOADING */}
       {loading ? (
         <Box
+          height={300}
           display="flex"
           alignItems="center"
           justifyContent="center"
-          height={300}
         >
           <CircularProgress />
         </Box>
@@ -246,12 +193,12 @@ const handleSave = async () => {
             sx={{ fontSize: 100, mb: 2, color: "text.secondary" }}
           />
           <Typography variant="h6" fontWeight={600}>
-            Please authenticate to view your profile
+            Please sign in to view your profile
           </Typography>
           <Button
             variant="contained"
             color="primary"
-            sx={{ mt: 3, borderRadius: 2, px: 4 }}
+            sx={{ mt: 3, borderRadius: 3, px: 4, fontWeight: 700 }}
             onClick={() => (window.location.href = "/signin")}
           >
             Sign In
@@ -259,12 +206,13 @@ const handleSave = async () => {
         </Box>
       ) : (
         <>
-          <DialogContent dividers sx={{ px: 4, py: 4 }}>
+          <DialogContent sx={{ px: 4, py: 4 }}>
             <Box
               display="flex"
               flexDirection="column"
               alignItems="center"
               mb={4}
+              position="relative"
             >
               <input
                 type="file"
@@ -278,8 +226,8 @@ const handleSave = async () => {
               <label htmlFor="profile-upload">
                 <motion.div
                   whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.97 }}
-                  style={{ position: "relative", cursor: "pointer" }}
+                  whileTap={{ scale: 0.98 }}
+                  style={{ cursor: "pointer", position: "relative" }}
                 >
                   {uploading ? (
                     <CircularProgress size={96} />
@@ -298,12 +246,12 @@ const handleSave = async () => {
                           <AccountCircleIcon sx={{ fontSize: 80 }} />
                         )}
                       </Avatar>
-                      <Tooltip title="Change profile picture" arrow>
+                      <Tooltip title="Change picture" arrow>
                         <Box
                           sx={{
                             position: "absolute",
-                            bottom: 0,
-                            right: 0,
+                            bottom: 6,
+                            right: 6,
                             bgcolor: theme.palette.primary.main,
                             color: "#fff",
                             borderRadius: "50%",
@@ -311,6 +259,7 @@ const handleSave = async () => {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
                           }}
                         >
                           <EditIcon fontSize="small" />
@@ -329,6 +278,7 @@ const handleSave = async () => {
                 onChange={(e) => setEditedName(e.target.value)}
                 fullWidth
                 disabled={!editing}
+                variant="outlined"
               />
               <TextField
                 label="Email"
@@ -351,16 +301,24 @@ const handleSave = async () => {
               borderTop: `1px solid ${theme.palette.divider}`,
               px: 3,
               py: 2,
+              bgcolor:
+                theme.palette.mode === "dark"
+                  ? "#2A2A2A"
+                  : theme.palette.grey[100],
               justifyContent: "space-between",
             }}
           >
-            <Box>
+            <Box display="flex" alignItems="center" gap={1.5}>
               {!editing ? (
                 <Button
                   variant="contained"
                   startIcon={<EditIcon />}
                   onClick={() => setEditing(true)}
-                  sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}
+                  sx={{
+                    borderRadius: 2,
+                    fontWeight: 700,
+                    px: 3,
+                  }}
                 >
                   Edit Profile
                 </Button>
@@ -370,18 +328,43 @@ const handleSave = async () => {
                     variant="contained"
                     color="success"
                     onClick={handleSave}
-                    sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}
+                    sx={{
+                      borderRadius: 2,
+                      fontWeight: 700,
+                      px: 3,
+                    }}
                   >
                     Save
                   </Button>
                   <Button
                     variant="outlined"
+                    color="warning"
                     onClick={() => {
-                      setEditedName(authUser?.name || "");
-                      setEditedRole(authUser?.role || "User");
+                      setEditedName(authUser.name);
+                      setEditedRole(authUser.role || "User");
                       setEditing(false);
                     }}
-                    sx={{ borderRadius: 2, fontWeight: 600, ml: 1 }}
+                    sx={{
+                      borderRadius: 2,
+                      fontWeight: 600,
+                      px: 3,
+                      borderWidth: 2,
+                      bgcolor:
+                        theme.palette.mode === "dark"
+                          ? "#fbc02d33"
+                          : theme.palette.warning.light,
+                      color:
+                        theme.palette.mode === "dark"
+                          ? "#fffde7"
+                          : theme.palette.warning.contrastText,
+                      "&:hover": {
+                        borderColor: theme.palette.warning.main,
+                        bgcolor:
+                          theme.palette.mode === "dark"
+                            ? "#fbc02d55"
+                            : theme.palette.warning.main,
+                      },
+                    }}
                   >
                     Cancel
                   </Button>
@@ -389,8 +372,20 @@ const handleSave = async () => {
               )}
             </Box>
 
-            <Box>
-              <Button onClick={onClose} sx={{ fontWeight: 600 }}>
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <Button
+                onClick={onClose}
+                sx={{
+                  fontWeight: 600,
+                  color: theme.palette.text.secondary,
+                  "&:hover": {
+                    bgcolor:
+                      theme.palette.mode === "dark"
+                        ? "#383838"
+                        : theme.palette.grey[200],
+                  },
+                }}
+              >
                 Close
               </Button>
               <Button
@@ -398,7 +393,7 @@ const handleSave = async () => {
                 color="error"
                 onClick={handleLogout}
                 startIcon={<LogoutIcon />}
-                sx={{ fontWeight: 700, borderRadius: 2, px: 3, ml: 1 }}
+                sx={{ fontWeight: 700, borderRadius: 2, px: 3 }}
               >
                 Logout
               </Button>

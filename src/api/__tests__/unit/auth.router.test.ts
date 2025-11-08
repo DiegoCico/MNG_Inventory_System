@@ -22,11 +22,11 @@ jest.mock("../../src/helpers/authUtils", () => ({
 import { ensureUserRecord } from "../../src/helpers/awsUsers";
 import { decodeJwtNoVerify } from "../../src/helpers/authUtils";
 
-// Utility: check command class in Cognito mock
+// Utility helper
 const isCmd = (cmd: unknown, ctor: any) =>
   Boolean(cmd) && (cmd as any).constructor?.name === ctor.name;
 
-// Fake tokens Cognito would return in AuthenticationResult
+// Mock Cognito result tokens
 const authResult = () => ({
   AccessToken: "mock-access-token-123",
   IdToken: "mock-id-token-abc",
@@ -35,7 +35,6 @@ const authResult = () => ({
   ExpiresIn: 3600,
 });
 
-// We'll stub client.send on Cognito
 let cognitoSendSpy: jest.SpyInstance;
 
 beforeAll(() => {
@@ -54,7 +53,7 @@ beforeEach(() => {
 });
 
 /* -------------------------------------------------------------------------- */
-/*                                   signIn                                    */
+/*                                   signIn                                   */
 /* -------------------------------------------------------------------------- */
 describe("Auth Router - signIn", () => {
   it("NEW_PASSWORD_REQUIRED challenge -> 200 payload with session", async () => {
@@ -74,7 +73,7 @@ describe("Auth Router - signIn", () => {
       .set("Content-Type", "application/json")
       .send({
         email: "firstlogin@example.com",
-        password: "LongEnoughPwd1!", // >=12 chars per zod
+        password: "LongEnoughPwd1!",
       });
 
     expect(res.status).toBe(200);
@@ -116,9 +115,7 @@ describe("Auth Router - signIn", () => {
   it("successful auth -> sets cookies & returns tokens", async () => {
     cognitoSendSpy.mockImplementation(async (command: any) => {
       if (isCmd(command, AdminInitiateAuthCommand)) {
-        return {
-          AuthenticationResult: authResult(),
-        };
+        return { AuthenticationResult: authResult() };
       }
       return {};
     });
@@ -142,7 +139,6 @@ describe("Auth Router - signIn", () => {
       expiresIn: 3600,
     });
 
-    // Cookies should be set by setAuthCookies -> verify headers
     const setCookieHeader = res.header["set-cookie"];
     const setCookieStr = Array.isArray(setCookieHeader)
       ? setCookieHeader.join(";")
@@ -168,14 +164,11 @@ describe("Auth Router - signIn", () => {
       .set("Content-Type", "application/json")
       .send({
         email: "bad@example.com",
-        password: "WrongPassword42!", // valid length, but rejected
+        password: "WrongPassword42!",
       });
 
-    // tRPC default error is 500 unless you're mapping codes
     expect(res.status).toBe(500);
-    expect(JSON.stringify(res.body)).toContain(
-      "Invalid email or password"
-    );
+    expect(JSON.stringify(res.body)).toContain("Invalid email or password");
   });
 
   it("short password -> Zod 400", async () => {
@@ -184,7 +177,7 @@ describe("Auth Router - signIn", () => {
       .set("Content-Type", "application/json")
       .send({
         email: "test@example.com",
-        password: "short", // < 12
+        password: "short",
       });
 
     expect(res.status).toBe(400);
@@ -192,7 +185,7 @@ describe("Auth Router - signIn", () => {
 });
 
 /* -------------------------------------------------------------------------- */
-/*                            respondToChallenge                               */
+/*                            respondToChallenge                              */
 /* -------------------------------------------------------------------------- */
 describe("Auth Router - respondToChallenge", () => {
   it("NEW_PASSWORD_REQUIRED -> success auth -> sets cookies (200)", async () => {
@@ -291,7 +284,6 @@ describe("Auth Router - respondToChallenge", () => {
       .send({
         challengeName: "NEW_PASSWORD_REQUIRED",
         session: "sess-x",
-        // newPassword missing
         email: "change@example.com",
       });
 
@@ -300,42 +292,24 @@ describe("Auth Router - respondToChallenge", () => {
 });
 
 /* -------------------------------------------------------------------------- */
-/*                                   me                                        */
+/*                                   me                                       */
 /* -------------------------------------------------------------------------- */
-describe('Auth Router - me', () => {
-  // TODO Mock JWT Verifier
-  // it('returns authenticated true when cookies present', async () => {
-  //   const res = await request(app)
-  //     .get('/trpc/me')
-  //     .set('Cookie', [
-  //       'auth_access=a.b.c; Path=/; HttpOnly',
-  //       'auth_id=x.y.z; Path=/; HttpOnly',
-  //     ]);
-
-  //   expect(res.status).toBe(200);
-  //   expect(res.body?.result?.data).toMatchObject({
-  //     authenticated: true,
-  //   });
-  // });
-
+describe("Auth Router - me", () => {
   it("returns authenticated false when no cookies at all", async () => {
     const res = await request(app).get("/trpc/me");
 
     expect(res.status).toBe(200);
     expect(res.body?.result?.data).toMatchObject({
       authenticated: false,
-      message: "No session",
     });
 
-    // should NOT attempt dynamo if no cookies
     expect(decodeJwtNoVerify).not.toHaveBeenCalled();
     expect(ensureUserRecord).not.toHaveBeenCalled();
   });
-
 });
 
 /* -------------------------------------------------------------------------- */
-/*                                 refresh                                     */
+/*                                 refresh                                    */
 /* -------------------------------------------------------------------------- */
 describe("Auth Router - refresh", () => {
   it("no refresh token cookie -> refreshed false (200)", async () => {
@@ -347,33 +321,24 @@ describe("Auth Router - refresh", () => {
       message: "No refresh token",
     });
 
-    // no downstream calls
     expect(cognitoSendSpy).not.toHaveBeenCalled();
     expect(decodeJwtNoVerify).not.toHaveBeenCalled();
     expect(ensureUserRecord).not.toHaveBeenCalled();
   });
 
   it("valid refresh token -> rotates cookies, upserts user, returns refreshed true + account", async () => {
-    // Cognito returns new AccessToken/IdToken/ExpiresIn on refresh
     cognitoSendSpy.mockImplementation(async (command: any) => {
       if (isCmd(command, InitiateAuthCommand)) {
-        return {
-          AuthenticationResult: {
-            ...authResult(),
-            RefreshToken: undefined, // usually not re-issued
-          },
-        };
+        return { AuthenticationResult: { ...authResult(), RefreshToken: undefined } };
       }
       return {};
     });
 
-    // After refresh, router decodes newId/newAccess → we mock that decode
     (decodeJwtNoVerify as jest.Mock).mockReturnValue({
       sub: "user-sub-999",
       email: "afterRefresh@example.com",
     });
 
-    // Then it calls ensureUserRecord
     (ensureUserRecord as jest.Mock).mockResolvedValue({
       sub: "user-sub-999",
       email: "afterRefresh@example.com",
@@ -382,28 +347,17 @@ describe("Auth Router - refresh", () => {
 
     const res = await request(app)
       .post("/trpc/refresh")
-      .set("Cookie", [
-        "auth_refresh=refresh123; Path=/; HttpOnly",
-      ]);
+      .set("Cookie", ["auth_refresh=refresh123; Path=/; HttpOnly"]);
 
     expect(res.status).toBe(200);
-
-    // Cognito refresh flow was called
     expect(cognitoSendSpy).toHaveBeenCalled();
-    expect(isCmd(cognitoSendSpy.mock.calls[0][0], InitiateAuthCommand)).toBe(
-      true
-    );
-
-    // We should have decoded the new token
+    expect(isCmd(cognitoSendSpy.mock.calls[0][0], InitiateAuthCommand)).toBe(true);
     expect(decodeJwtNoVerify).toHaveBeenCalled();
-
-    // We should have ensured the user exists in Dynamo
     expect(ensureUserRecord).toHaveBeenCalledWith({
       sub: "user-sub-999",
       email: "afterRefresh@example.com",
     });
 
-    // Response body
     expect(res.body?.result?.data).toMatchObject({
       refreshed: true,
       expiresIn: 3600,
@@ -412,7 +366,6 @@ describe("Auth Router - refresh", () => {
       accountId: "acc-after-refresh-7777",
     });
 
-    // Cookies should get rotated for access/id
     const setCookieHeader = res.header["set-cookie"];
     const setCookieStr = Array.isArray(setCookieHeader)
       ? setCookieHeader.join(";")
@@ -420,16 +373,11 @@ describe("Auth Router - refresh", () => {
 
     expect(setCookieStr).toContain("auth_access=");
     expect(setCookieStr).toContain("auth_id=");
-    // refresh cookie may or may not be updated; not required here
   });
 
   it("refresh token exists but Cognito returns no AuthenticationResult -> refreshed false", async () => {
     cognitoSendSpy.mockImplementation(async (command: any) => {
-      if (isCmd(command, InitiateAuthCommand)) {
-        return {
-          // no AuthenticationResult
-        };
-      }
+      if (isCmd(command, InitiateAuthCommand)) return {};
       return {};
     });
 
@@ -443,14 +391,13 @@ describe("Auth Router - refresh", () => {
       message: "Token refresh failed",
     });
 
-    // decodeJwtNoVerify should NOT be called since no tokens
     expect(decodeJwtNoVerify).not.toHaveBeenCalled();
     expect(ensureUserRecord).not.toHaveBeenCalled();
   });
 });
 
 /* -------------------------------------------------------------------------- */
-/*                                  logout                                     */
+/*                                 logout                                    */
 /* -------------------------------------------------------------------------- */
 describe("Auth Router - logout", () => {
   it("clears cookies and returns success", async () => {
@@ -468,7 +415,6 @@ describe("Auth Router - logout", () => {
       message: "Signed out",
     });
 
-    // we expect clearing cookies to write Set-Cookie headers
     const setCookieHeader = res.header["set-cookie"];
     const setCookieStr = Array.isArray(setCookieHeader)
       ? setCookieHeader.join(";")

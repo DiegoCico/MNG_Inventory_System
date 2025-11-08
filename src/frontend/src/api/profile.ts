@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const TRPC = '/trpc';
 
 export async function updateProfile(userId: string, name?: string, role?: string) {

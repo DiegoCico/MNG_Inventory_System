@@ -21,9 +21,6 @@ const verifier = CognitoJwtVerifier.create({
 });
 
 export const profileRouter = router({
-  /* ============================================================
-     GET PROFILE
-  ============================================================ */
   getProfile: publicProcedure.query(async ({ ctx }) => {
     const cookies = parseCookiesFromCtx(ctx);
     const token = cookies[COOKIE_ACCESS];
@@ -120,10 +117,6 @@ export const profileRouter = router({
       return { authenticated: false, message: "Invalid or expired session" };
     }
   }),
-
-  /* ============================================================
-     UPDATE PROFILE
-  ============================================================ */
   updateProfile: publicProcedure
     .input(
       z.object({
@@ -169,7 +162,7 @@ export const profileRouter = router({
           );
         }
 
-        // 2️⃣ Prepare update expression with aliases
+        // Prepare update expression with aliases
         const updates: string[] = [];
         const values: Record<string, any> = {
           ":updatedAt": new Date().toISOString(),
@@ -192,7 +185,7 @@ export const profileRouter = router({
         updates.push("updatedAt = :updatedAt");
         const updateExpr = `SET ${updates.join(", ")}`;
 
-        // 3️⃣ Execute update
+        //  Execute update
         await doc.send(
           new UpdateCommand({
             TableName: TABLE_NAME,
