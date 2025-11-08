@@ -25,6 +25,8 @@ import {
 import { decodeJwtNoVerify } from '../helpers/authUtils';
 import { ensureUserRecord } from '../helpers/awsUsers';
 import { loadConfig } from "../process";
+import { doc } from "../aws";
+import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 
 const config = loadConfig();
 export const USER_POOL_ID = config.COGNITO_USER_POOL_ID;
@@ -335,67 +337,83 @@ export const authRouter = router({
         throw new Error(`Challenge response failed: ${error.message}`);
       }
     }),
-  me: publicProcedure.query(async ({ ctx }) => {
-    const cookies = parseCookiesFromCtx(ctx);
-    const accessToken = cookies[COOKIE_ACCESS];
+me: publicProcedure.query(async ({ ctx }) => {
+  const cookies = parseCookiesFromCtx(ctx);
+  const token = cookies[COOKIE_ACCESS];
 
-    if (!accessToken) {
-      return { authenticated: false, message: "No session" };
-    }
+  if (!token) {
+    console.log("[me] No access token");
+    return { authenticated: false };
+  }
 
-    try {
-      const decoded = await verifier.verify(accessToken);
-      const userId = decoded.sub;
+  try {
+    // ✅ Verify the access token
+    const decoded = await verifier.verify(token);
+    const userId = decoded.sub;
+    const email =
+      decoded.email ||
+      decoded["cognito:username"] ||
+      `${userId}@example.com`;
 
-      // Try to extract email safely from all possible Cognito token fields
-      let email: string | undefined =
-        typeof decoded.email === "string"
-          ? decoded.email
-          : typeof decoded["email"] === "string"
-            ? decoded["email"]
-            : typeof decoded["cognito:username"] === "string" &&
-              decoded["cognito:username"].includes("@")
-              ? decoded["cognito:username"]
-              : undefined;
+    console.log("[me] Fetching user profile for:", userId);
 
-      // If still missing, fetch it directly from Cognito
-      if (!email) {
-        console.warn("⚠️ No email claim in access token; fetching from Cognito...");
-        const user = await cognitoClient.send(
-          new AdminGetUserCommand({
-            UserPoolId: USER_POOL_ID,
-            Username: userId,
-          })
-        );
-        const emailAttr = user.UserAttributes?.find((a) => a.Name === "email");
-        email = emailAttr?.Value ?? `unknown-${userId}@example.com`;
-      }
+    // ✅ Try to load the existing user
+    const res = await doc.send(
+      new GetCommand({
+        TableName: config.TABLE_NAME,
+        Key: { PK: `USER#${userId}`, SK: "METADATA" },
+        ConsistentRead: true,
+      })
+    );
 
-
-      // Build a username from email or fallback
-      const username =
-        decoded["cognito:username"] ||
-        (email ? email.split("@")[0] : `user-${userId}`);
-
-      // Ensure user record exists in Dynamo
-      const userRecord = await ensureUserRecord({
+    // ✅ Create the record if missing
+    if (!res.Item) {
+      console.log("[me] No record found — creating new user");
+      const now = new Date().toISOString();
+      const newUser = {
+        PK: `USER#${userId}`,
+        SK: "METADATA",
         sub: userId,
         email,
-      });
+        name: String(email).split("@")[0],
+        role: "User",
+        createdAt: now,
+        updatedAt: now,
+        GSI6PK: `UID#${userId}`,
+        GSI6SK: `USER#${userId}`,
+      };
+
+      await doc.send(
+        new PutCommand({
+          TableName: config.TABLE_NAME,
+          Item: newUser,
+        })
+      );
 
       return {
         authenticated: true,
-        message: "User session verified",
-        userId: userRecord.sub,
-        email: userRecord.email,
-        username,
-        accountId: userRecord.accountId,
+        userId,
+        email,
+        name: newUser.name,
+        role: newUser.role,
       };
-    } catch (err) {
-      console.error("me() error:", err);
-      return { authenticated: false, message: "Invalid session token" };
     }
-  }),
+
+    console.log("[me] Loaded user:", res.Item);
+
+    return {
+      authenticated: true,
+      userId,
+      email: res.Item.email ?? email,
+      name: res.Item.name ?? String(email).split("@")[0],
+      role: res.Item.role ?? "User",
+    };
+  } catch (err) {
+    console.error("❌ [me] Error verifying token:", err);
+    return { authenticated: false };
+  }
+}),
+
 
   refresh: publicProcedure.mutation(async ({ ctx }) => {
     try {
