@@ -21,11 +21,11 @@ export default function App() {
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/teams/home/:teamId" element={<HomePage />} />
           <Route path="/teams/to-review/:teamId" element={<ToReviewPage />} />
-          <Route path="/teams/reviewed/:teamId" element={<ReviewedPage />} />
           <Route
             path="/teams/:teamId/items/:itemId"
             element={<ProductReviewPage />}
           />
+          <Route path="/teams/reviewed/:teamId" element={<ReviewedPage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

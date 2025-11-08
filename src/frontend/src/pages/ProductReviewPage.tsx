@@ -19,11 +19,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useParams, useNavigate } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { getItem, updateItem, createItem, uploadImage, getItems } from "../api/items";
+import { useParams, useNavigate } from "react-router-dom";
+import { getItem, getItems, createItem, updateItem, uploadImage } from "../api/items";
 import NavBar from "../components/NavBar";
 
 interface ItemViewModel {
@@ -40,130 +40,96 @@ interface ItemViewModel {
 
 const PercentageBar = () => <Box sx={{ height: 4, bgcolor: "#e0e0e0", mb: 2 }} />;
 
-const ProductReviewPage = () => {
+const ProductReviewPage: React.FC = () => {
   const { teamId, itemId } = useParams<{ teamId: string; itemId: string }>();
   const navigate = useNavigate();
   const isCreateMode = itemId === "new";
 
   const [product, setProduct] = useState<ItemViewModel | null>(null);
+  const [editedProduct, setEditedProduct] = useState<ItemViewModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(isCreateMode);
-  const [editedProduct, setEditedProduct] = useState<ItemViewModel | null>(null);
-  const [notes, setNotes] = useState("");
-  const [damageReports, setDamageReports] = useState<string[]>([]);
-  const [currentDamageReport, setCurrentDamageReport] = useState("");
-  const [showError, setShowError] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [damageReports, setDamageReports] = useState<string[]>([]);
+  const [currentDamageReport, setCurrentDamageReport] = useState("");
+  const [notes, setNotes] = useState("");
   const [itemsList, setItemsList] = useState<any[]>([]);
+  const [showError, setShowError] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
 
+  // ===================== FETCH ITEM & LIST =====================
   useEffect(() => {
     const fetchData = async () => {
-      if (!teamId) {
-        setError("Missing team ID");
-        setLoading(false);
-        return;
-      }
-
       try {
+        if (!teamId) throw new Error("Missing team ID");
+
         const all = await getItems(teamId);
         if (all.success && all.items) {
-          // Flatten the nested structure and exclude current item
-          const flattenItems = (items: any[]): any[] => {
-            return items.reduce((acc, item) => {
-              acc.push(item);
-              if (item.children && item.children.length > 0) {
-                acc.push(...flattenItems(item.children));
-              }
-              return acc;
-            }, []);
-          };
-
-          const allFlat = flattenItems(all.items);
-          // Filter out the current item from the list
-          const filtered = allFlat.filter((i: any) => i.itemId !== itemId);
+          const flatten = (arr: any[]): any[] =>
+            arr.flatMap((i) => [i, ...(i.children ? flatten(i.children) : [])]);
+          const flat = flatten(all.items);
+          const filtered = flat.filter((x: any) => x.itemId !== itemId);
           setItemsList(filtered);
         }
-      } catch {
-        console.warn("⚠️ Could not load items for Kit From");
-      }
 
-      if (isCreateMode) {
-        const placeholder: ItemViewModel = {
-          productName: "",
-          actualName: "",
-          description: "",
-          imageLink: "https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=800",
-          serialNumber: "",
-          quantity: 1,
-          status: "Incomplete",
-        };
-        setProduct(placeholder);
-        setEditedProduct(placeholder);
-        setImagePreview(placeholder.imageLink);
-        setLoading(false);
-        return;
-      }
-
-      if (!itemId) {
-        setError("Missing item ID");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const result = await getItem(teamId, itemId);
-        if (result.success && result.item) {
-          const itemData: ItemViewModel = {
-            productName: result.item.name,
-            actualName: result.item.actualName || result.item.name,
-            description: result.item.description || "",
-            imageLink: result.item.imageLink || "",
-            serialNumber: result.item.serialNumber || "",
-            quantity: result.item.quantity || 1,
-            status: result.item.status || "Found",
-            parent: result.item.parent || null,
-            children: result.item.children || [],
+        if (isCreateMode) {
+          const placeholder: ItemViewModel = {
+            productName: "",
+            actualName: "",
+            description: "",
+            imageLink:
+              "https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=800",
+            serialNumber: "",
+            quantity: 1,
+            status: "Incomplete",
           };
-          setProduct(itemData);
-          setEditedProduct(itemData);
-          setNotes(itemData.description);
-          setImagePreview(itemData.imageLink);
-        } else setError(result.error || "Item not found");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch data");
+          setProduct(placeholder);
+          setEditedProduct(placeholder);
+          setImagePreview(placeholder.imageLink);
+          setLoading(false);
+          return;
+        }
+
+        const result = await getItem(teamId, itemId!);
+        if (!result.success || !result.item) throw new Error(result.error || "Item not found");
+        const i = result.item;
+        const mapped: ItemViewModel = {
+          productName: i.name,
+          actualName: i.actualName || i.name,
+          description: i.description || "",
+          imageLink: i.imageLink || "",
+          serialNumber: i.serialNumber || "",
+          quantity: i.quantity || 1,
+          status: i.status || "Incomplete",
+          parent: i.parent || null,
+          children: i.children || [],
+        };
+        setProduct(mapped);
+        setEditedProduct(mapped);
+        setImagePreview(mapped.imageLink);
+        setNotes(mapped.description);
+      } catch (err: any) {
+        setError(err.message || "Failed to load item");
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [teamId, itemId, isCreateMode]);
 
-  const handleFieldChange = (field: keyof ItemViewModel, value: string | number | null) => {
+  // ===================== FIELD HANDLERS =====================
+  const handleFieldChange = (field: keyof ItemViewModel, value: any) => {
     if (editedProduct) {
       setEditedProduct({ ...editedProduct, [field]: value });
       setFieldErrors((prev) => ({ ...prev, [field]: false }));
     }
   };
 
-  const handleAddDamageReport = () => {
-    if (currentDamageReport.trim()) {
-      setDamageReports((prev) => [...prev, currentDamageReport.trim()]);
-      setCurrentDamageReport("");
-    }
-  };
-
-  const handleRemoveDamageReport = (index: number) => {
-    setDamageReports((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file && file.type.startsWith("image/")) {
       setSelectedImageFile(file);
       const reader = new FileReader();
@@ -172,21 +138,33 @@ const ProductReviewPage = () => {
     }
   };
 
+  const handleAddDamageReport = () => {
+    if (currentDamageReport.trim()) {
+      setDamageReports([...damageReports, currentDamageReport.trim()]);
+      setCurrentDamageReport("");
+    }
+  };
+
+  const handleRemoveDamageReport = (idx: number) => {
+    setDamageReports((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  // ===================== UPLOAD IMAGE =====================
   const uploadImageToS3 = async (file: File): Promise<string> => {
+    const reader = new FileReader();
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
       reader.onloadend = async () => {
         try {
-          const base64Data = reader.result as string;
+          const base64 = reader.result as string;
           const nsn =
             editedProduct?.serialNumber ||
-            crypto.randomUUID?.() ||
-            Math.random().toString(36).substring(2, 12);
-          const res = await uploadImage(teamId!, nsn, base64Data);
-          if (!res.success) throw new Error(res.error || "Upload failed");
+            Math.random().toString(36).substring(2, 10);
+          const res = await uploadImage(teamId!, nsn, base64);
+          if (!res.success || !res.imageLink)
+            throw new Error(res.error || "Upload failed");
           resolve(res.imageLink);
-        } catch (err) {
-          reject(err);
+        } catch (e) {
+          reject(e);
         }
       };
       reader.onerror = () => reject(reader.error);
@@ -194,19 +172,17 @@ const ProductReviewPage = () => {
     });
   };
 
+  // ===================== SAVE ITEM =====================
   const handleSave = async () => {
     if (!teamId || !editedProduct) return;
-
-    const requiredFields: (keyof ItemViewModel)[] = [
+    const required: (keyof ItemViewModel)[] = [
       "productName",
       "actualName",
       "serialNumber",
-      "quantity",
       "description",
     ];
-
-    const missing = requiredFields.filter((f) => !editedProduct[f]);
-    if (missing.length > 0) {
+    const missing = required.filter((f) => !editedProduct[f]);
+    if (missing.length) {
       const errs: Record<string, boolean> = {};
       missing.forEach((f) => (errs[f] = true));
       setFieldErrors(errs);
@@ -219,10 +195,9 @@ const ProductReviewPage = () => {
     }
 
     try {
-      const userId = 'test-user'; // Use test user since auth is disabled
-
-      let finalImageUrl = editedProduct.imageLink;
-      if (selectedImageFile) finalImageUrl = await uploadImageToS3(selectedImageFile);
+      let finalImage = editedProduct.imageLink;
+      if (selectedImageFile)
+        finalImage = await uploadImageToS3(selectedImageFile);
 
       if (isCreateMode) {
         const result = await createItem(
@@ -231,18 +206,17 @@ const ProductReviewPage = () => {
           editedProduct.actualName,
           editedProduct.serialNumber,
           editedProduct.serialNumber,
-          userId,
-          finalImageUrl,
-          editedProduct.description,
-          editedProduct.parent?.itemId || null
+          undefined,
+          finalImage
         );
-        if (result.success) {
+        if (result.success && result.item) {
           setShowSuccess(true);
-          setTimeout(
-            () => navigate(`/teams/${teamId}/items/${result.itemId}`, { replace: true }),
-            1500
-          );
-        } else alert("Create failed: " + result.error);
+          setTimeout(() => {
+            navigate(`/teams/${teamId}/items/${result.item.itemId}`, {
+              replace: true,
+            });
+          }, 1200);
+        } else throw new Error(result.error || "Failed to create item");
       } else {
         const result = await updateItem(teamId, itemId!, {
           name: editedProduct.productName,
@@ -251,26 +225,26 @@ const ProductReviewPage = () => {
           serialNumber: editedProduct.serialNumber,
           quantity: editedProduct.quantity,
           description: editedProduct.description,
-          imageLink: finalImageUrl,
+          imageLink: finalImage,
           status: editedProduct.status,
-          damageReports,
           parent: editedProduct.parent?.itemId || null,
-        } as any);
+          damageReports,
+        });
         if (result.success) {
-          setProduct({ ...editedProduct, description: notes });
+          setProduct(editedProduct);
           setIsEditMode(false);
           setShowSuccess(true);
-        } else alert("Update failed: " + result.error);
+        } else throw new Error(result.error || "Update failed");
       }
     } catch (err) {
-      console.error('Save error:', err);
+      console.error("Save error:", err);
       alert("Failed to save item.");
     }
   };
 
-  const renderChildren = (children: any[], level = 0) => {
+  // ===================== CHILDREN RENDER =====================
+  const renderChildren = (children: any[], level = 0): React.ReactNode => {
     if (!children || children.length === 0) return null;
-
     return (
       <Stack spacing={1} sx={{ ml: level * 2 }}>
         {children.map((child: any) => (
@@ -279,36 +253,63 @@ const ProductReviewPage = () => {
               onClick={() => navigate(`/teams/${teamId}/items/${child.itemId}`)}
               sx={{
                 p: 1.5,
-                cursor: 'pointer',
-                bgcolor: level === 0 ? 'white' : `rgba(0, 0, 0, ${0.02 * (level + 1)})`,
-                '&:hover': { bgcolor: '#f5f5f5' },
-                borderLeft: level > 0 ? '3px solid #1976d2' : 'none',
+                cursor: "pointer",
+                bgcolor:
+                  level === 0
+                    ? "white"
+                    : `rgba(25, 118, 210, ${0.05 * (level + 1)})`,
+                "&:hover": { bgcolor: "#e3f2fd" },
+                borderLeft:
+                  level > 0
+                    ? `3px solid rgba(25, 118, 210, ${
+                        0.3 + level * 0.2
+                      })`
+                    : "none",
               }}
             >
               <Typography variant="body2" fontWeight={600}>
-                {'  '.repeat(level)}├─ {child.name}
+                {"  ".repeat(level)}├─ {child.name}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {'  '.repeat(level)}   {child.actualName || child.name}
+                {"  ".repeat(level)} {child.actualName || child.name}
               </Typography>
               {child.status && (
                 <Chip
                   label={child.status}
                   size="small"
-                  sx={{ ml: level * 2, mt: 0.5 }}
+                  sx={{ ml: 1, mt: 0.5 }}
+                  color={
+                    child.status === "Found"
+                      ? "success"
+                      : child.status === "Damaged"
+                      ? "error"
+                      : child.status === "Missing"
+                      ? "warning"
+                      : "default"
+                  }
                 />
               )}
             </Card>
-            {child.children && child.children.length > 0 && renderChildren(child.children, level + 1)}
+            {child.children &&
+              child.children.length > 0 &&
+              renderChildren(child.children, level + 1)}
           </Box>
         ))}
       </Stack>
     );
   };
 
+  // ===================== RENDER BODY =====================
   if (loading)
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "50vh" }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "60vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -327,6 +328,7 @@ const ProductReviewPage = () => {
       </Container>
     );
 
+  // ==============================================================
   return (
     <div>
       <PercentageBar />
@@ -344,7 +346,6 @@ const ProductReviewPage = () => {
             Back
           </Button>
         </Box>
-
         <Card>
           <Box sx={{ position: "relative" }}>
             <CardMedia
@@ -363,7 +364,12 @@ const ProductReviewPage = () => {
                   onChange={handleImageChange}
                 />
                 <label htmlFor="image-upload">
-                  <Button component="span" variant="contained" size="small" startIcon={<EditIcon />}>
+                  <Button
+                    component="span"
+                    variant="contained"
+                    size="small"
+                    startIcon={<EditIcon />}
+                  >
                     Change Image
                   </Button>
                 </label>
@@ -372,13 +378,20 @@ const ProductReviewPage = () => {
           </Box>
 
           <CardContent>
-            {/* Header with Edit/Cancel button */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            {/* ===== HEADER ===== */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
+            >
               <Typography variant="h5" fontWeight="bold">
-                {isCreateMode ? 'Create New Item' : editedProduct.productName}
+                {isCreateMode ? "Create New Item" : editedProduct.productName}
               </Typography>
-              {!isCreateMode && (
-                isEditMode ? (
+              {!isCreateMode &&
+                (isEditMode ? (
                   <Button
                     variant="outlined"
                     size="small"
@@ -386,7 +399,13 @@ const ProductReviewPage = () => {
                       setEditedProduct(product);
                       setIsEditMode(false);
                     }}
-                    sx={{ textTransform: 'none', color: 'error.main', borderColor: 'error.main' }}
+                    sx={{
+                      textTransform: "none",
+                      color: "error.main",
+                      borderColor: "error.main",
+                      bgcolor: "#fff8e1",
+                      "&:hover": { bgcolor: "#ffecb3" },
+                    }}
                   >
                     Cancel
                   </Button>
@@ -396,17 +415,19 @@ const ProductReviewPage = () => {
                     size="small"
                     startIcon={<EditIcon />}
                     onClick={() => setIsEditMode(true)}
-                    sx={{ textTransform: 'none', color: 'primary.main', borderColor: 'primary.main' }}
+                    sx={{
+                      textTransform: "none",
+                      color: "primary.main",
+                      borderColor: "primary.main",
+                    }}
                   >
                     Edit
                   </Button>
-                )
-              )}
+                ))}
             </Box>
 
-            {/* Show fields based on edit mode */}
+            {/* ===== EDIT / VIEW ===== */}
             {isEditMode || isCreateMode ? (
-              // Edit mode - show all editable fields
               <>
                 <TextField
                   fullWidth
@@ -416,7 +437,7 @@ const ProductReviewPage = () => {
                   onChange={(e) => handleFieldChange("productName", e.target.value)}
                   sx={{ mb: 2 }}
                   error={fieldErrors.productName}
-                  helperText={fieldErrors.productName ? "Please input it" : ""}
+                  helperText={fieldErrors.productName ? "Required" : ""}
                   required
                 />
                 <TextField
@@ -427,7 +448,7 @@ const ProductReviewPage = () => {
                   onChange={(e) => handleFieldChange("actualName", e.target.value)}
                   sx={{ mb: 2 }}
                   error={fieldErrors.actualName}
-                  helperText={fieldErrors.actualName ? "Please input it" : ""}
+                  helperText={fieldErrors.actualName ? "Required" : ""}
                   required
                 />
                 <TextField
@@ -438,7 +459,7 @@ const ProductReviewPage = () => {
                   onChange={(e) => handleFieldChange("serialNumber", e.target.value)}
                   sx={{ mb: 2 }}
                   error={fieldErrors.serialNumber}
-                  helperText={fieldErrors.serialNumber ? "Please input it" : ""}
+                  helperText={fieldErrors.serialNumber ? "Required" : ""}
                   required
                 />
                 <TextField
@@ -447,11 +468,10 @@ const ProductReviewPage = () => {
                   label="Quantity"
                   type="number"
                   value={editedProduct.quantity}
-                  onChange={(e) => handleFieldChange("quantity", parseInt(e.target.value) || 0)}
+                  onChange={(e) =>
+                    handleFieldChange("quantity", parseInt(e.target.value) || 0)
+                  }
                   sx={{ mb: 2 }}
-                  error={fieldErrors.quantity}
-                  helperText={fieldErrors.quantity ? "Please input it" : ""}
-                  required
                 />
                 <TextField
                   fullWidth
@@ -462,73 +482,69 @@ const ProductReviewPage = () => {
                   onChange={(e) => handleFieldChange("description", e.target.value)}
                   sx={{ mb: 2 }}
                   error={fieldErrors.description}
-                  helperText={fieldErrors.description ? "Please input it" : ""}
+                  helperText={fieldErrors.description ? "Required" : ""}
                   required
                 />
-
                 <Autocomplete
                   options={itemsList}
-                  getOptionLabel={(option: any) => `${option.name} (${option.actualName || 'No name'})`}
+                  getOptionLabel={(option: any) =>
+                    `${option.name} (${option.actualName || "No name"})`
+                  }
                   value={editedProduct.parent || null}
                   onChange={(_e, val) => handleFieldChange("parent", val)}
-                  isOptionEqualToValue={(option, value) => option.itemId === value?.itemId}
-                  renderInput={(params) => <TextField {...params} label="Kit From" placeholder="Select parent item" />}
+                  isOptionEqualToValue={(o, v) => o.itemId === v?.itemId}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Kit From"
+                      placeholder="Select parent item"
+                    />
+                  )}
                   sx={{ mb: 2 }}
                 />
               </>
             ) : (
-              // View mode - show read-only fields
               <>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">
                     Item Name
                   </Typography>
-                  <Typography variant="body1">
-                    {editedProduct.actualName}
-                  </Typography>
+                  <Typography variant="body1">{editedProduct.actualName}</Typography>
                 </Box>
-
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">
                     Serial Number
                   </Typography>
-                  <Typography variant="body1">
-                    {editedProduct.serialNumber || 'N/A'}
-                  </Typography>
+                  <Typography variant="body1">{editedProduct.serialNumber || "N/A"}</Typography>
                 </Box>
-
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">
                     Quantity
                   </Typography>
-                  <Typography variant="body1">
-                    {editedProduct.quantity}
-                  </Typography>
+                  <Typography variant="body1">{editedProduct.quantity}</Typography>
                 </Box>
-
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">
                     Description
                   </Typography>
                   <Typography variant="body1">
-                    {editedProduct.description || 'No description'}
+                    {editedProduct.description || "No description"}
                   </Typography>
                 </Box>
-
                 {editedProduct.parent && (
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">
                       Part of Kit
                     </Typography>
                     <Typography variant="body1">
-                      {editedProduct.parent.name || 'Unknown Kit'}
+                      {editedProduct.parent.name || "Unknown Kit"}
                     </Typography>
                   </Box>
                 )}
               </>
             )}
 
-            {/* Notes - always editable */}
+            {/* ===== NOTES ===== */}
             <TextField
               fullWidth
               multiline
@@ -540,7 +556,7 @@ const ProductReviewPage = () => {
               placeholder="Optional notes..."
             />
 
-            {/* Status dropdown */}
+            {/* ===== STATUS ===== */}
             {!isCreateMode && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
@@ -561,20 +577,25 @@ const ProductReviewPage = () => {
               </Box>
             )}
 
+            {/* ===== DAMAGE REPORTS ===== */}
             {editedProduct.status === "Damaged" && (
               <Box sx={{ mb: 2, p: 2, bgcolor: "#fff3e0", borderRadius: 2 }}>
                 <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
                   Damage Reports
                 </Typography>
                 {damageReports.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ fontStyle: "italic" }}
+                  >
                     No damage reports added yet
                   </Typography>
                 ) : (
-                  damageReports.map((report, i) => (
+                  damageReports.map((r, i) => (
                     <Chip
                       key={i}
-                      label={report}
+                      label={r}
                       onDelete={() => handleRemoveDamageReport(i)}
                       deleteIcon={<DeleteIcon />}
                       sx={{ m: 0.5 }}
@@ -602,16 +623,19 @@ const ProductReviewPage = () => {
               </Box>
             )}
 
-            {/* Kit Contents - Show children recursively */}
-            {!isCreateMode && editedProduct.children && editedProduct.children.length > 0 && (
-              <Box sx={{ mb: 2, p: 2, bgcolor: "#f0f7ff", borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                  📦 Kit Contents ({editedProduct.children.length} items)
-                </Typography>
-                {renderChildren(editedProduct.children, 0)}
-              </Box>
-            )}
+            {/* ===== CHILDREN ===== */}
+            {!isCreateMode &&
+              editedProduct.children &&
+              editedProduct.children.length > 0 && (
+                <Box sx={{ mb: 2, p: 2, bgcolor: "#f0f7ff", borderRadius: 2 }}>
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                    📦 Kit Contents ({editedProduct.children.length} items)
+                  </Typography>
+                  {renderChildren(editedProduct.children, 0)}
+                </Box>
+              )}
 
+            {/* ===== SAVE BUTTON ===== */}
             <Button
               fullWidth
               variant="contained"
@@ -623,59 +647,25 @@ const ProductReviewPage = () => {
           </CardContent>
         </Card>
 
-        <Snackbar open={showError} autoHideDuration={4000} onClose={() => setShowError(false)}>
+        {/* ===== SNACKBARS ===== */}
+        <Snackbar
+          open={showError}
+          autoHideDuration={4000}
+          onClose={() => setShowError(false)}
+        >
           <Alert severity="error">Add at least one damage report</Alert>
         </Snackbar>
 
-        <Snackbar open={showSuccess} autoHideDuration={3000} onClose={() => setShowSuccess(false)}>
+        <Snackbar
+          open={showSuccess}
+          autoHideDuration={3000}
+          onClose={() => setShowSuccess(false)}
+        >
           <Alert severity="success">Item updated successfully!</Alert>
         </Snackbar>
       </Container>
       <NavBar />
     </div>
-  );
-};
-
-const renderChildren = (children: any[], level = 0): React.ReactNode => {
-  if (!children || children.length === 0) return null;
-
-  return (
-    <Stack spacing={1} sx={{ ml: level * 2 }}>
-      {children.map((child: any) => (
-        <Box key={child.itemId}>
-          <Card
-            sx={{
-              p: 1.5,
-              cursor: 'pointer',
-              bgcolor: level === 0 ? 'white' : `rgba(25, 118, 210, ${0.05 * (level + 1)})`,
-              '&:hover': { bgcolor: '#e3f2fd' },
-              borderLeft: level > 0 ? `3px solid rgba(25, 118, 210, ${0.3 + level * 0.2})` : 'none',
-            }}
-          >
-            <Typography variant="body2" fontWeight={600}>
-              {'  '.repeat(level)}├─ {child.name}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {'  '.repeat(level)}   {child.actualName || child.name}
-            </Typography>
-            {child.status && (
-              <Chip
-                label={child.status}
-                size="small"
-                sx={{ ml: 1, mt: 0.5 }}
-                color={
-                  child.status === 'Found' ? 'success' :
-                    child.status === 'Damaged' ? 'error' :
-                      child.status === 'Missing' ? 'warning' :
-                        'default'
-                }
-              />
-            )}
-          </Card>
-          {child.children && child.children.length > 0 && renderChildren(child.children, level + 1)}
-        </Box>
-      ))}
-    </Stack>
   );
 };
 
