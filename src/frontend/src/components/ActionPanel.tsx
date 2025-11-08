@@ -19,54 +19,64 @@ export default function ActionPanel({
   setShowSuccess,
 }: any) {
   const handleSave = async (isQuickUpdate = false) => {
-    try {
-      let finalImage = imagePreview;
-      if (selectedImageFile) {
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((res) => {
-          reader.onloadend = () => res(reader.result as string);
-          reader.readAsDataURL(selectedImageFile);
-        });
-        const up = await uploadImage(teamId, editedProduct.serialNumber, base64);
-        finalImage = up.imageLink;
-      }
+  try {
+    let finalImage = imagePreview;
+    if (selectedImageFile) {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((res) => {
+        reader.onloadend = () => res(reader.result as string);
+        reader.readAsDataURL(selectedImageFile);
+      });
+      const up = await uploadImage(teamId, editedProduct.serialNumber, base64);
+      finalImage = up.imageLink;
+    }
 
-      const payload = {
-        name: editedProduct.productName,
-        actualName: editedProduct.actualName,
+    const nameValue =
+      editedProduct.productName ||
+      editedProduct.actualName ||
+      `Item-${editedProduct.serialNumber || "Unknown"}`;
+
+    const payload = Object.fromEntries(
+      Object.entries({
+        name: nameValue,
+        actualName: editedProduct.actualName || nameValue,
         nsn: editedProduct.serialNumber,
         serialNumber: editedProduct.serialNumber,
-        quantity: editedProduct.quantity,
-        description: editedProduct.description,
+        quantity: editedProduct.quantity || 1,
+        description: editedProduct.description || "",
         imageLink: finalImage,
-        status: editedProduct.status,
-        notes: editedProduct.notes,
+        status: editedProduct.status || "Incomplete",
+        notes: editedProduct.notes || "",
         parent: editedProduct.parent?.itemId || null,
-      };
+      }).filter(([_, v]) => v !== undefined && v !== null)
+    );
 
-      if (isCreateMode) {
-        const res = await createItem(
-          teamId,
-          editedProduct.productName,
-          editedProduct.actualName,
-          editedProduct.serialNumber,
-          editedProduct.serialNumber,
-          undefined,
-          finalImage
-        );
-        if (res.success) setShowSuccess(true);
-      } else {
-        const res = await updateItem(teamId, itemId, payload);
-        if (res.success) {
-          if (!isQuickUpdate) setIsEditMode(false);
-          setShowSuccess(true);
-        }
+    console.log("[updateItem] final payload:", payload);
+
+    if (isCreateMode) {
+      const res = await createItem(
+        teamId,
+        payload.name,
+        payload.actualName,
+        payload.nsn,
+        payload.serialNumber,
+        undefined,
+        finalImage
+      );
+      if (res.success) setShowSuccess(true);
+    } else {
+      const res = await updateItem(teamId, itemId, payload);
+      if (res.success) {
+        if (!isQuickUpdate) setIsEditMode(false);
+        setShowSuccess(true);
       }
-    } catch (err) {
-      console.error("Save error:", err);
-      alert("Failed to save item");
     }
-  };
+  } catch (err) {
+    console.error("Save error:", err);
+    alert("Failed to save item");
+  }
+};
+
 
   const handleDelete = async () => {
     if (!confirm("Delete this item?")) return;

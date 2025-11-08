@@ -39,8 +39,8 @@ export default function ImagePanel({
   };
 
   return (
-    <Box
-      sx={{
+   <Box
+    sx={{
         position: "relative",
         bgcolor: "#f8fafc",
         borderRadius: 3,
@@ -49,9 +49,12 @@ export default function ImagePanel({
         mb: 3,
         aspectRatio: "1 / 1", 
         width: "100%",
-        maxWidth: 400,
-        mx: "auto",
-      }}
+        maxWidth: 500, 
+        mx: "auto", 
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+    }}
     >
       {imagePreview ? (
         <CardMedia

@@ -8,11 +8,9 @@ import NavBar from "../components/NavBar";
 import ImagePanel from "../components/ImagePanel";
 import ItemDetailsForm from "../components/ItemDetailsForm";
 import DamageReportsSection from "../components/DamageReportsSection";
-import StatusSection from "../components/StatusSection";
-import ChildrenTree from "../components/ChildrenTree";
 import ActionPanel from "../components/ActionPanel";
-import { flattenTree, StatusChip } from "../components/Producthelpers";
-import { getItem, getItems, createItem, updateItem, uploadImage, deleteItem } from "../api/items";
+import { flattenTree } from "../components/Producthelpers";
+import { getItem, getItems} from "../api/items";
 
 export default function ProductReviewPage() {
   const { teamId, itemId } = useParams<{ teamId: string; itemId: string }>();
