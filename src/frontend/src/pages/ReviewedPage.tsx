@@ -53,6 +53,9 @@ export default function ReviewedPage() {
         const result = await getItems(teamId);
 
         if (result.success && result.items) {
+          const itemsArray = Array.isArray(result.items) ? result.items : [];
+
+          // Recursive mapper to properly map all children
           const mapItem = (item: any): ItemListItem => ({
             id: item.itemId,
             productName: item.name,
@@ -63,22 +66,27 @@ export default function ReviewedPage() {
               month: '2-digit',
               day: '2-digit',
               year: '2-digit'
-            })
+            }),
+            parent: item.parent,
+            children: item.children ? item.children.map(mapItem) : []
           });
-          // Normalize and filter items by category
-          const completed = result.items
+
+          // Filter items by status
+          const completed = itemsArray
             .filter((item: any) => {
               const s = (item.status ?? "").toLowerCase();
               return s === "completed" || s === "complete" || s === "found";
             })
             .map(mapItem);
-          const shortages = result.items
+
+          const shortages = itemsArray
             .filter((item: any) => {
               const s = (item.status ?? "").toLowerCase();
               return s === "shortage" || s === "shortages" || s === "missing";
             })
             .map(mapItem);
-          const damaged = result.items
+
+          const damaged = itemsArray
             .filter((item: any) => {
               const s = (item.status ?? "").toLowerCase();
               return s === "damaged" || s === "in repair";

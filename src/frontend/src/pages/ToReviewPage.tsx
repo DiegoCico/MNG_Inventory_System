@@ -28,22 +28,27 @@ export default function ToReviewPage() {
         const result = await getItems(teamId);
 
         if (result.success && result.items) {
-          // Filter for only Incomplete status items
-          const incompleteItems = result.items
+          const itemsArray = Array.isArray(result.items) ? result.items : [];
+
+          // Recursive mapper to properly map all children
+          const mapItem = (item: any): ItemListItem => ({
+            id: item.itemId,
+            productName: item.name,
+            actualName: item.actualName || item.name,
+            subtitle: item.description || 'No description',
+            image: item.imageLink || 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
+            date: new Date(item.createdAt).toLocaleDateString('en-US', {
+              month: '2-digit',
+              day: '2-digit',
+              year: '2-digit'
+            }),
+            parent: item.parent,
+            children: item.children ? item.children.map(mapItem) : []
+          });
+
+          const incompleteItems = itemsArray
             .filter((item: any) => item.status === 'Incomplete')
-            .map((item: any) => ({
-              id: item.itemId,
-              productName: item.name,
-              actualName: item.actualName || item.name,
-              subtitle: item.description || 'No description',
-              image: item.imageLink || 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
-              date: new Date(item.createdAt).toLocaleDateString('en-US', {
-                month: '2-digit',
-                day: '2-digit',
-                year: '2-digit'
-              }),
-              teamId: item.teamId
-            }));
+            .map(mapItem);
 
           setItems(incompleteItems);
         } else {
@@ -71,7 +76,6 @@ export default function ToReviewPage() {
     <div>
       <PercentageBar />
       <Box sx={{ width: '100%', bgcolor: '#e8e8e8', minHeight: '100vh' }}>
-        {/* Header */}
         <Box sx={{ bgcolor: 'white', borderBottom: 1, borderColor: 'divider', py: 1.5 }}>
           <Container maxWidth="md">
             <Typography
@@ -87,7 +91,6 @@ export default function ToReviewPage() {
           </Container>
         </Box>
 
-        {/* Content */}
         <Container maxWidth="md" disableGutters>
           <Box sx={{ p: 2, pb: 10 }}>
             {error ? (
@@ -104,4 +107,3 @@ export default function ToReviewPage() {
     </div>
   );
 }
-
