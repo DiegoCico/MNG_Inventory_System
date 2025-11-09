@@ -154,7 +154,7 @@ export class SesStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "SesSendPolicyArn", {
       value: sendPolicy.managedPolicyArn,
-      exportName: "SesSendPolicyArn",
+      exportName: `SesSendPolicyArn-${stage}`,
     });
   }
 }
