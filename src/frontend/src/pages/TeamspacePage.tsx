@@ -459,7 +459,7 @@ function openDeleteFor(id: string, name: string): void {
                 </Select>
               </FormControl>
 
-              {inviteWorkspaceId && (
+              {/* {inviteWorkspaceId && (
                 <Typography
                   variant="body2"
                   sx={{
@@ -471,7 +471,7 @@ function openDeleteFor(id: string, name: string): void {
                 >
                   {teams.find((t) => t.teamId === inviteWorkspaceId)?.GSI_NAME}
                 </Typography>
-              )}
+              )} */}
 
               <TextField
                 fullWidth
