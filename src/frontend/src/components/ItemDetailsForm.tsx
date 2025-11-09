@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React from "react";
 import {
   TextField,
@@ -190,7 +191,7 @@ export default function ItemDetailsForm({
         </Box>
       )}
 
-      {/* ========== Notes (always editable) ========== */}
+      {/* ========== Notes  ========== */}
       {(isEditMode || alwaysEditable("notes")) && (
         <TextField
           label="Notes"

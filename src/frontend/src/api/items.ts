@@ -15,25 +15,24 @@ export async function createItem(
   const currentUser = userId ? { userId } : await me();
   console.log("[createItem] user:", currentUser);
 
-  // ✅ Remove undefined, null, or empty values
-  const input = Object.fromEntries(
-    Object.entries({
-      teamId,
-      name: name?.trim(),
-      actualName: actualName?.trim(),
-      nsn: nsn?.trim(),
-      serialNumber: serialNumber?.trim(),
-      userId: currentUser?.userId,
-      status: "Incomplete",
-      imageLink,
-    }).filter(([_, v]) => v !== undefined && v !== null && v !== "")
-  );
+  const body = {
+    teamId,
+    name,
+    actualName,
+    nsn,
+    serialNumber,
+    userId: currentUser?.userId,
+    status: "Incomplete",
+    imageLink,
+  };
+
+  console.log("[createItem] body:", body);
 
   const res = await fetch(`${TRPC}/createItem`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input }),
+    body: JSON.stringify(body),
   });
 
   console.log("[createItem] response:", res.status);
@@ -85,23 +84,35 @@ export async function getItem(teamId: string, itemId: string) {
 export async function updateItem(
   teamId: string,
   itemId: string,
-  updates: Record<string, any>
+  updates: {
+    name?: string;
+    actualName?: string;
+    nsn?: string;
+    serialNumber?: string;
+    quantity?: number;
+    description?: string;
+    imageLink?: string;
+    status?: string;
+    damageReports?: string[];
+    parent?: string | null;
+    notes?: string;
+  }
 ) {
   const currentUser = await me();
-  console.log("[updateItem] updating:", itemId, updates);
+  const payload = {
+    teamId,
+    itemId,
+    userId: currentUser.userId,
+    ...updates,
+  };
 
-  // ✅ Clean undefined/null values to prevent 400 errors
-  const cleanUpdates = Object.fromEntries(
-    Object.entries(updates).filter(([_, v]) => v !== undefined && v !== null)
-  );
+  console.log("[updateItem] payload:", payload);
 
   const res = await fetch(`${TRPC}/updateItem`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      input: { teamId, itemId, userId: currentUser.userId, ...cleanUpdates },
-    }),
+    body: JSON.stringify(payload),
   });
 
   console.log("[updateItem] response:", res.status);
@@ -121,7 +132,9 @@ export async function deleteItem(teamId: string, itemId: string) {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      input: { teamId, itemId, userId: currentUser.userId },
+      teamId,
+      itemId,
+      userId: currentUser.userId,
     }),
   });
 
@@ -145,7 +158,9 @@ export async function uploadImage(
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      input: { teamId, nsn, imageBase64 },
+      teamId,
+      nsn,
+      imageBase64,
     }),
   });
 
@@ -153,5 +168,8 @@ export async function uploadImage(
   if (!res.ok) throw new Error(`uploadImage failed: ${res.status}`);
   const json = await res.json();
   console.log("[uploadImage] json:", json);
-  return json?.result?.data ?? {};
+  return json?.imageLink
+  ? { imageLink: json.imageLink }
+  : json?.result?.data ?? {};
+
 }

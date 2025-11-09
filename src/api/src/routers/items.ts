@@ -4,14 +4,13 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
-  DeleteCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
   S3Client,
   PutObjectCommand,
-  HeadObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
@@ -27,9 +26,7 @@ const KMS_KEY_ARN = config.KMS_KEY_ARN;
 if (!BUCKET_NAME) throw new Error("❌ Missing S3 bucket name");
 const s3 = new S3Client({ region: REGION });
 
-/* ============================================================
-   HELPERS
-============================================================ */
+/* =========================== HELPERS =========================== */
 function newId(n = 10): string {
   return crypto
     .randomBytes(n)
@@ -38,40 +35,41 @@ function newId(n = 10): string {
 }
 
 function getImageExtension(base64: string): string {
-  const match = base64.match(/^data:image\/(\w+);base64,/);
-  return match ? match[1].toLowerCase() : "png";
+  const m = base64.match(/^data:image\/(\w+);base64,/);
+  return m ? m[1].toLowerCase() : "png";
 }
 
 function stripBase64Header(base64: string): string {
   return base64.replace(/^data:image\/\w+;base64,/, "");
 }
 
-async function resolveS3ImageLink(teamId: string, nsn: string): Promise<string | undefined> {
-  const exts = ["png", "jpg", "jpeg", "webp", "heic"];
-  for (const ext of exts) {
-    const key = `items/${teamId}/${nsn}.${ext}`;
-    try {
-      await s3.send(new HeadObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
-      const signedUrl = await getSignedUrl(
-        s3,
-        new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
-        { expiresIn: 3600 }
-      );
-      console.log(`[S3] ✅ Signed URL generated for ${key}`);
-      return signedUrl;
-    } catch (err: any) {
-      if (err.$metadata?.httpStatusCode !== 404)
-        console.warn(`[S3] ⚠️ Failed checking ${key}:`, err.message);
-      continue;
-    }
+/**
+ * ✅ Takes an S3 URL and returns a presigned URL that works even with KMS encryption.
+ * If it's not an S3 URL, returns it unchanged.
+ */
+async function getPresignedUrlIfNeeded(imageLink?: string): Promise<string | undefined> {
+  if (!imageLink || !imageLink.startsWith("https://")) return imageLink;
+
+  const match = imageLink.match(/amazonaws\.com\/(.+)/);
+  if (!match) return imageLink;
+
+  const key = match[1];
+  try {
+    // Check object exists first
+    await s3.send(new HeadObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
+    const signedUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
+      { expiresIn: 3600 }
+    );
+    return signedUrl;
+  } catch (err: any) {
+    console.warn("[getPresignedUrlIfNeeded] Could not presign:", err.message);
+    return imageLink;
   }
-  console.log(`[S3] ❌ No image found for ${teamId}/${nsn}`);
-  return undefined;
 }
 
-/* ============================================================
-   ROUTER
-============================================================ */
+/* =========================== ROUTER =========================== */
 export const itemsRouter = router({
   /** CREATE ITEM **/
   createItem: publicProcedure
@@ -79,21 +77,24 @@ export const itemsRouter = router({
       z.object({
         teamId: z.string().min(1),
         name: z.string().min(1),
-        description: z.string().optional(),
-        actualName: z.string().optional(),
-        nsn: z.string(),
-        serialNumber: z.string().optional(),
-        quantity: z.number().default(1),
         userId: z.string().min(1),
-        imageBase64: z.string().optional(),
-        damageReports: z.array(z.string()).optional(),
-        status: z.string().optional(),
-        parent: z.string().optional(),
+
+        description: z.string().optional().nullable(),
+        actualName: z.string().optional().nullable(),
+        nsn: z.string().min(1),
+        serialNumber: z.string().optional().nullable(),
+        quantity: z.number().optional().nullable(),
+        imageBase64: z.string().optional().nullable(),
+        imageLink: z.string().optional().nullable(),
+        damageReports: z.array(z.string()).optional().nullable(),
+        status: z.string().optional().nullable(),
+        parent: z.string().optional().nullable(),
       })
     )
     .mutation(async ({ input }) => {
       console.log(`[createItem] Received:`, JSON.stringify(input, null, 2));
       try {
+        // ✅ Prevent duplicate NSNs
         const existing = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
@@ -104,16 +105,12 @@ export const itemsRouter = router({
             },
           })
         );
-        console.log(`[createItem] Found ${existing.Items?.length || 0} existing items.`);
-
         const duplicate = (existing.Items ?? []).find(
-          (item: any) =>
-            item.nsn &&
-            item.nsn.trim().toLowerCase() === input.nsn.trim().toLowerCase()
+          (it: any) =>
+            it.nsn &&
+            it.nsn.trim().toLowerCase() === input.nsn.trim().toLowerCase()
         );
-
         if (duplicate) {
-          console.warn(`[createItem] ❌ Duplicate NSN "${input.nsn}" found.`);
           return {
             success: false,
             error: `An item with NSN "${input.nsn}" already exists.`,
@@ -122,14 +119,14 @@ export const itemsRouter = router({
 
         const itemId = newId(12);
         const now = new Date().toISOString();
-        let imageLink: string | undefined;
 
-        if (input.imageBase64 && input.nsn) {
+        // ✅ Upload new image if provided
+        let finalImageLink = input.imageLink ?? undefined;
+        if (!finalImageLink && input.imageBase64 && input.nsn) {
           const ext = getImageExtension(input.imageBase64);
           const key = `items/${input.teamId}/${input.nsn}.${ext}`;
           const body = Buffer.from(stripBase64Header(input.imageBase64), "base64");
 
-          console.log(`[createItem] Uploading image to ${key}...`);
           await s3.send(
             new PutObjectCommand({
               Bucket: BUCKET_NAME,
@@ -138,20 +135,13 @@ export const itemsRouter = router({
               ContentEncoding: "base64",
               ContentType: `image/${ext}`,
               ...(KMS_KEY_ARN
-                ? {
-                    ServerSideEncryption: "aws:kms",
-                    SSEKMSKeyId: KMS_KEY_ARN,
-                  }
+                ? { ServerSideEncryption: "aws:kms", SSEKMSKeyId: KMS_KEY_ARN }
                 : {}),
             })
           );
 
-          imageLink = await getSignedUrl(
-            s3,
-            new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
-            { expiresIn: 3600 }
-          );
-          console.log(`[createItem] ✅ Image uploaded successfully.`);
+          // Store the static S3 URL
+          finalImageLink = `https://${BUCKET_NAME}.s3.${REGION}.amazonaws.com/${key}`;
         }
 
         const item = {
@@ -161,14 +151,14 @@ export const itemsRouter = router({
           teamId: input.teamId,
           itemId,
           name: input.name,
-          actualName: input.actualName,
+          actualName: input.actualName ?? undefined,
           nsn: input.nsn,
-          serialNumber: input.serialNumber,
-          quantity: input.quantity,
-          description: input.description,
-          imageLink,
+          serialNumber: input.serialNumber ?? undefined,
+          quantity: input.quantity ?? 1,
+          description: input.description ?? undefined,
+          imageLink: finalImageLink,
           damageReports: input.damageReports ?? [],
-          status: input.status || "Incomplete",
+          status: input.status ?? "Incomplete",
           parent: input.parent ?? null,
           createdAt: now,
           updatedAt: now,
@@ -176,12 +166,10 @@ export const itemsRouter = router({
           updateLog: [{ userId: input.userId, action: "create", timestamp: now }],
         };
 
-        console.log(`[createItem] Writing item to DynamoDB:`, JSON.stringify(item, null, 2));
         await doc.send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
-
         return { success: true, itemId, item };
       } catch (err: any) {
-        console.error(`❌ createItem error:`, err);
+        console.error("❌ createItem error:", err);
         return { success: false, error: err.message };
       }
     }),
@@ -190,7 +178,6 @@ export const itemsRouter = router({
   getItems: publicProcedure
     .input(z.object({ teamId: z.string(), userId: z.string() }))
     .query(async ({ input }) => {
-      console.log(`[getItems] Fetching items for team ${input.teamId}`);
       try {
         const result = await doc.send(
           new QueryCommand({
@@ -202,30 +189,25 @@ export const itemsRouter = router({
             },
           })
         );
-        console.log(`[getItems] Retrieved ${result.Items?.length || 0} items.`);
 
         const items = await Promise.all(
           (result.Items ?? []).map(async (raw: any) => {
-            let imageLink = raw.imageLink;
-            if (!imageLink && raw.nsn) {
-              imageLink = await resolveS3ImageLink(raw.teamId, raw.nsn);
-            }
+            const imageLink = await getPresignedUrlIfNeeded(raw.imageLink);
             return { ...raw, imageLink };
           })
         );
 
         return { success: true, items };
       } catch (err: any) {
-        console.error(`❌ getItems error:`, err);
+        console.error("❌ getItems error:", err);
         return { success: false, error: err.message };
       }
     }),
 
-  /** GET ITEM **/
+  /** GET SINGLE ITEM **/
   getItem: publicProcedure
     .input(z.object({ teamId: z.string(), itemId: z.string(), userId: z.string() }))
     .query(async ({ input }) => {
-      console.log(`[getItem] Fetching item ${input.itemId} in ${input.teamId}`);
       try {
         const result = await doc.send(
           new GetCommand({
@@ -233,19 +215,14 @@ export const itemsRouter = router({
             Key: { PK: `TEAM#${input.teamId}`, SK: `ITEM#${input.itemId}` },
           })
         );
-
-        if (!result.Item) {
-          console.warn(`[getItem] ❌ Item not found`);
+        if (!result.Item)
           return { success: false, error: "Item not found" };
-        }
 
-        let imageLink = result.Item.imageLink;
-        if (!imageLink && result.Item.nsn)
-          imageLink = await resolveS3ImageLink(result.Item.teamId, result.Item.nsn);
+        const presigned = await getPresignedUrlIfNeeded(result.Item.imageLink);
 
-        return { success: true, item: { ...result.Item, imageLink } };
+        return { success: true, item: { ...result.Item, imageLink: presigned } };
       } catch (err: any) {
-        console.error(`❌ getItem error:`, err);
+        console.error("❌ getItem error:", err);
         return { success: false, error: err.message };
       }
     }),
@@ -257,33 +234,29 @@ export const itemsRouter = router({
         teamId: z.string(),
         itemId: z.string(),
         userId: z.string(),
-        name: z.string().optional(),
-        actualName: z.string().optional(),
-        nsn: z.string().optional(),
-        serialNumber: z.string().optional(),
-        quantity: z.number().optional(),
-        description: z.string().optional(),
-        imageLink: z.string().optional(),
-        status: z.string().optional(),
-        damageReports: z.array(z.string()).optional(),
-        parent: z.string().optional(),
-        notes: z.string().optional(),
+        name: z.string().optional().nullable(),
+        actualName: z.string().optional().nullable(),
+        nsn: z.string().optional().nullable(),
+        serialNumber: z.string().optional().nullable(),
+        quantity: z.number().optional().nullable(),
+        description: z.string().optional().nullable(),
+        imageLink: z.string().optional().nullable(),
+        status: z.string().optional().nullable(),
+        damageReports: z.array(z.string()).optional().nullable(),
+        parent: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
       })
     )
     .mutation(async ({ input }) => {
-      const logPrefix = `[updateItem][${input.itemId}]`;
+      const log = (m: string, ...args: any[]) =>
+        console.log(`[updateItem][${input.itemId}] ${m}`, ...args);
       try {
-        console.log(`${logPrefix} ⚙️ Starting update...`);
-        console.log(`${logPrefix} Incoming input:`, JSON.stringify(input, null, 2));
-
         const now = new Date().toISOString();
         const updates: string[] = ["updatedAt = :updatedAt"];
         const values: Record<string, any> = { ":updatedAt": now };
         const names: Record<string, string> = {};
 
-        // NSN duplicate check
         if (input.nsn) {
-          console.log(`${logPrefix} 🔍 Checking duplicates for NSN "${input.nsn}"...`);
           const existing = await doc.send(
             new QueryCommand({
               TableName: TABLE_NAME,
@@ -294,45 +267,39 @@ export const itemsRouter = router({
               },
             })
           );
-
           const duplicate = (existing.Items ?? []).find(
             (i: any) =>
               i.nsn &&
               i.itemId !== input.itemId &&
               i.nsn?.trim?.().toLowerCase() === input.nsn?.trim?.().toLowerCase()
           );
-
-          if (duplicate) {
-            console.warn(`${logPrefix} ⚠️ Duplicate NSN detected:`, duplicate);
+          if (duplicate)
             return {
               success: false,
               error: `Another item with NSN "${input.nsn}" already exists.`,
             };
-          }
-
           updates.push("nsn = :nsn");
           values[":nsn"] = input.nsn;
         }
 
-        const pushUpdate = (key: string, val: any, fieldName?: string) => {
-          if (val !== undefined) {
+        const push = (key: string, val: any, fieldName?: string) => {
+          if (val !== undefined && val !== null) {
             updates.push(`${fieldName || key} = :${key}`);
             values[`:${key}`] = val;
             if (key === "name" || key === "status") names[`#${key}`] = key;
-            console.log(`${logPrefix} ✅ Queued "${key}" ->`, val);
           }
         };
 
-        pushUpdate("name", input.name, "#name");
-        pushUpdate("actualName", input.actualName);
-        pushUpdate("serialNumber", input.serialNumber);
-        pushUpdate("quantity", input.quantity);
-        pushUpdate("description", input.description);
-        pushUpdate("imageLink", input.imageLink);
-        pushUpdate("status", input.status, "#status");
-        pushUpdate("damageReports", input.damageReports);
-        pushUpdate("parent", input.parent);
-        pushUpdate("notes", input.notes);
+        push("name", input.name, "#name");
+        push("actualName", input.actualName);
+        push("serialNumber", input.serialNumber);
+        push("quantity", input.quantity);
+        push("description", input.description);
+        push("imageLink", input.imageLink);
+        push("status", input.status, "#status");
+        push("damageReports", input.damageReports);
+        push("parent", input.parent);
+        push("notes", input.notes);
 
         updates.push(
           "updateLog = list_append(if_not_exists(updateLog, :empty), :log)"
@@ -342,26 +309,62 @@ export const itemsRouter = router({
         ];
         values[":empty"] = [];
 
-        console.log(`${logPrefix} 🧩 UpdateExpression:`, updates.join(", "));
-        console.log(`${logPrefix} 🧾 Values:`, JSON.stringify(values, null, 2));
-
+        log("UpdateExpression:", updates.join(", "));
         const result = await doc.send(
           new UpdateCommand({
             TableName: TABLE_NAME,
             Key: { PK: `TEAM#${input.teamId}`, SK: `ITEM#${input.itemId}` },
             UpdateExpression: `SET ${updates.join(", ")}`,
             ExpressionAttributeValues: values,
-            ExpressionAttributeNames:
-              Object.keys(names).length > 0 ? names : undefined,
+            ExpressionAttributeNames: Object.keys(names).length ? names : undefined,
             ReturnValues: "ALL_NEW",
           })
         );
 
-        console.log(`${logPrefix} ✅ Update succeeded:`, result.Attributes);
+        log("✅ Update succeeded");
         return { success: true, item: result.Attributes };
       } catch (err: any) {
-        console.error(`${logPrefix} ❌ updateItem error:`, err);
-        if (err.$metadata) console.error(`${logPrefix} Dynamo metadata:`, err.$metadata);
+        console.error(`[updateItem][${input.itemId}] ❌`, err);
+        return { success: false, error: err.message };
+      }
+    }),
+    uploadImage: publicProcedure
+    .input(
+      z.object({
+        teamId: z.string(),
+        nsn: z.string(),
+        imageBase64: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        console.log("[uploadImage] start", input.nsn);
+        const extMatch = input.imageBase64.match(/^data:image\/(\w+);base64,/);
+        const ext = extMatch ? extMatch[1].toLowerCase() : "png";
+        const body = Buffer.from(
+          input.imageBase64.replace(/^data:image\/\w+;base64,/, ""),
+          "base64"
+        );
+        const key = `items/${input.teamId}/${input.nsn}.${ext}`;
+
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: BUCKET_NAME,
+            Key: key,
+            Body: body,
+            ContentEncoding: "base64",
+            ContentType: `image/${ext}`,
+            ...(KMS_KEY_ARN
+              ? { ServerSideEncryption: "aws:kms", SSEKMSKeyId: KMS_KEY_ARN }
+              : {}),
+          })
+        );
+
+        const imageLink = `https://${BUCKET_NAME}.s3.${REGION}.amazonaws.com/${key}`;
+        console.log("[uploadImage] uploaded:", imageLink);
+        return { success: true, imageLink };
+      } catch (err: any) {
+        console.error("[uploadImage] ❌", err);
         return { success: false, error: err.message };
       }
     }),

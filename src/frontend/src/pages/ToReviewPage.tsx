@@ -36,7 +36,10 @@ export default function ToReviewPage() {
             productName: item.name,
             actualName: item.actualName || item.name,
             subtitle: item.description || 'No description',
-            image: item.imageLink || 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
+            image:
+            item.imageLink && item.imageLink.startsWith("http")
+              ? item.imageLink
+              : 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
             date: new Date(item.createdAt).toLocaleDateString('en-US', {
               month: '2-digit',
               day: '2-digit',

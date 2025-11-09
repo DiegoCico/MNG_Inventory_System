@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from "react";
 import {
   Box, Button, Container, Snackbar, Alert, CircularProgress, Grid,
@@ -59,12 +60,21 @@ export default function ProductReviewPage() {
 
         const res = await getItem(teamId, itemId!);
         if (!res.success || !res.item) throw new Error(res.error);
+
         const item = res.item;
         setProduct(item);
         setEditedProduct(item);
-        setImagePreview(item.imageLink || "");
         setDamageReports(item.damageReports || []);
+
+        if (item.imageLink && item.imageLink.startsWith("http")) {
+          console.log("[ProductReviewPage] Loaded image:", item.imageLink);
+          setImagePreview(item.imageLink);
+        } else {
+          console.log("[ProductReviewPage] No image found for item");
+          setImagePreview("");
+        }
       } catch (err: any) {
+        console.error("[ProductReviewPage] Error loading item:", err);
         setError(err.message);
       } finally {
         setLoading(false);
