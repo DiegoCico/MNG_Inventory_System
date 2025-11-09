@@ -331,98 +331,68 @@ export const authRouter = router({
       }
     }),
   me: publicProcedure.query(async ({ ctx }) => {
-    const cookies = parseCookiesFromCtx(ctx);
-    const accessToken = cookies[COOKIE_ACCESS];
+  const cookies = parseCookiesFromCtx(ctx);
+  const accessToken = cookies[COOKIE_ACCESS];
 
-    if (!accessToken) {
-      return { authenticated: false, message: 'No session' };
-    }
+  if (!accessToken) {
+    return { authenticated: false, message: 'No session' };
+  }
 
-    // Verify the JWT token
-    let decoded;
-    try {
-      decoded = await verifier.verify(accessToken);
-    } catch (err: any) {
-      console.error('me() token verification error:', err);
-      return { authenticated: false, message: `Invalid session token: ${err.message}` };
-    }
+  let decoded;
+  try {
+    decoded = await verifier.verify(accessToken);
+  } catch (err: any) {
+    console.error('me() token verification error:', err);
+    return { authenticated: false, message: `Invalid session token: ${err.message}` };
+  }
 
-    const userId = decoded.sub;
+  const userId = decoded.sub;
 
-    // Check user status in Cognito to detect pending challenges
-    let user;
-    try {
-      user = await cognitoClient.send(
-        new AdminGetUserCommand({
-          UserPoolId: USER_POOL_ID,
-          Username: userId,
-        }),
-      );
-    } catch (cognitoErr: any) {
-      console.error('AdminGetUserCommand error:', cognitoErr);
-      return {
-        authenticated: false,
-        message: `Failed to verify user status: ${cognitoErr.message}`,
-      };
-    }
+  // --- Get user record from DynamoDB ---
+  const { doc } = await import("../aws");
+  const { GetCommand } = await import("@aws-sdk/lib-dynamodb");
+  const TABLE_NAME = config.TABLE_NAME;
 
-    if (user.UserStatus !== 'CONFIRMED') {
-      const clearHeaders = clearAuthCookies(ctx.res);
-      emitCookiesToLambda(ctx, clearHeaders);
+  let record;
+  try {
+    const res = await doc.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { PK: `USER#${userId}`, SK: "METADATA" },
+      })
+    );
+    record = res.Item;
+  } catch (err) {
+    console.error("me() DynamoDB fetch error:", err);
+  }
 
-      return {
-        authenticated: false,
-        message: `Account requires attention: ${user.UserStatus}`,
-        challengeRequired:
-          user.UserStatus === 'FORCE_CHANGE_PASSWORD' ? 'NEW_PASSWORD_REQUIRED' : undefined,
-      };
-    }
+  // --- fallback name/role ---
+  const emailStr = typeof decoded.email === "string" ? decoded.email : "";
+  const name =
+    record?.name ||
+    decoded["cognito:username"] ||
+    (emailStr ? emailStr.split("@")[0] : "User");
 
-    // TODO simplify this...
-    // Extract email
-    let email: string | undefined =
-      typeof decoded.email === 'string'
-        ? decoded.email
-        : typeof decoded['email'] === 'string'
-          ? decoded['email']
-          : typeof decoded['cognito:username'] === 'string' &&
-              decoded['cognito:username'].includes('@')
-            ? decoded['cognito:username']
-            : undefined;
+  const role = record?.role || "User";
 
-    if (!email) {
-      const emailAttr = user.UserAttributes?.find((a) => a.Name === 'email');
-      email = emailAttr?.Value ?? `unknown-${userId}@example.com`;
-    }
 
-    // Build username
-    const username =
-      decoded['cognito:username'] || (email ? email.split('@')[0] : `user-${userId}`);
+  const email =
+    decoded.email ||
+    decoded["email"] ||
+    decoded["cognito:username"] ||
+    record?.email ||
+    `${userId}@example.com`;
 
-    // Ensure user record exists
-    let userRecord;
-    try {
-      userRecord = await ensureUserRecord({
-        sub: userId,
-        email,
-      });
-    } catch (dynamoErr: any) {
-      console.error('ensureUserRecord error:', dynamoErr);
-      return {
-        authenticated: false,
-        message: `Failed to retrieve user record: ${dynamoErr.message}`,
-      };
-    }
+  return {
+    authenticated: true,
+    userId,
+    email,
+    name,
+    role,
+    message: "User session verified",
+  };
+}),
 
-    return {
-      authenticated: true,
-      message: 'User session verified',
-      userId: userRecord.sub,
-      email: userRecord.email,
-      username,
-      accountId: userRecord.accountId,
-    };
-  }),
 
   refresh: publicProcedure.mutation(async ({ ctx }) => {
     try {
