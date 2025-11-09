@@ -24,7 +24,7 @@ import {
 } from '../helpers/cookies';
 import { decodeJwtNoVerify } from '../helpers/authUtils';
 import { ensureUserRecord } from '../helpers/awsUsers';
-import { loadConfig } from "../process";
+import { loadConfig } from '../process';
 
 const config = loadConfig();
 export const USER_POOL_ID = config.COGNITO_USER_POOL_ID;
@@ -91,7 +91,7 @@ const inviteUser = async (params: { email: string }) => {
 const signIn = async (params: { email: string; password: string }) => {
   const command = new AdminInitiateAuthCommand({
     UserPoolId: USER_POOL_ID,
-    ClientId: USER_POOL_CLIENT_ID, 
+    ClientId: USER_POOL_CLIENT_ID,
     AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
     AuthParameters: { USERNAME: params.email, PASSWORD: params.password },
   });
@@ -338,87 +338,90 @@ export const authRouter = router({
       return { authenticated: false, message: 'No session' };
     }
 
+    // Verify the JWT token
+    let decoded;
     try {
-      const decoded = await verifier.verify(accessToken);
-      const userId = decoded.sub;
-
-      let user;
-      try {
-        // Check user status in Cognito to detect pending challenges
-        user = await cognitoClient.send(
-          new AdminGetUserCommand({
-            UserPoolId: USER_POOL_ID,
-            Username: userId,
-          }),
-        );
-      } catch (cognitoErr: any) {
-        console.error('AdminGetUserCommand error:', cognitoErr);
-        return {
-          authenticated: false,
-          message: `Failed to verify user status: ${cognitoErr.message}`,
-        };
-      }
-
-      if (user.UserStatus !== 'CONFIRMED') {
-        const clearHeaders = clearAuthCookies(ctx.res);
-        emitCookiesToLambda(ctx, clearHeaders);
-
-        return {
-          authenticated: false,
-          message: `Account requires attention: ${user.UserStatus}`,
-          challengeRequired:
-            user.UserStatus === 'FORCE_CHANGE_PASSWORD' ? 'NEW_PASSWORD_REQUIRED' : undefined,
-        };
-      }
-
-      // TODO simplify this...
-      // Extract email
-      let email: string | undefined =
-        typeof decoded.email === 'string'
-          ? decoded.email
-          : typeof decoded['email'] === 'string'
-            ? decoded['email']
-            : typeof decoded['cognito:username'] === 'string' &&
-                decoded['cognito:username'].includes('@')
-              ? decoded['cognito:username']
-              : undefined;
-
-      if (!email) {
-        const emailAttr = user.UserAttributes?.find((a) => a.Name === 'email');
-        email = emailAttr?.Value ?? `unknown-${userId}@example.com`;
-      }
-
-      // Build username
-      const username =
-        decoded['cognito:username'] || (email ? email.split('@')[0] : `user-${userId}`);
-
-      // Ensure user record exists
-      let userRecord;
-      try {
-        userRecord = await ensureUserRecord({
-          sub: userId,
-          email,
-        });
-      } catch (dynamoErr: any) {
-        console.error('ensureUserRecord error:', dynamoErr);
-        return {
-          authenticated: false,
-          message: `Failed to retrieve user record: ${dynamoErr.message}`,
-        };
-      }
-
-      return {
-        authenticated: true,
-        message: 'User session verified',
-        userId: userRecord.sub,
-        email: userRecord.email,
-        username,
-        accountId: userRecord.accountId,
-      };
+      decoded = await verifier.verify(accessToken);
     } catch (err: any) {
       console.error('me() token verification error:', err);
       return { authenticated: false, message: `Invalid session token: ${err.message}` };
     }
+
+    const userId = decoded.sub;
+
+    // Check user status in Cognito to detect pending challenges
+    let user;
+    try {
+      user = await cognitoClient.send(
+        new AdminGetUserCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: userId,
+        }),
+      );
+    } catch (cognitoErr: any) {
+      console.error('AdminGetUserCommand error:', cognitoErr);
+      return {
+        authenticated: false,
+        message: `Failed to verify user status: ${cognitoErr.message}`,
+      };
+    }
+
+    if (user.UserStatus !== 'CONFIRMED') {
+      const clearHeaders = clearAuthCookies(ctx.res);
+      emitCookiesToLambda(ctx, clearHeaders);
+
+      return {
+        authenticated: false,
+        message: `Account requires attention: ${user.UserStatus}`,
+        challengeRequired:
+          user.UserStatus === 'FORCE_CHANGE_PASSWORD' ? 'NEW_PASSWORD_REQUIRED' : undefined,
+      };
+    }
+
+    // TODO simplify this...
+    // Extract email
+    let email: string | undefined =
+      typeof decoded.email === 'string'
+        ? decoded.email
+        : typeof decoded['email'] === 'string'
+          ? decoded['email']
+          : typeof decoded['cognito:username'] === 'string' &&
+              decoded['cognito:username'].includes('@')
+            ? decoded['cognito:username']
+            : undefined;
+
+    if (!email) {
+      const emailAttr = user.UserAttributes?.find((a) => a.Name === 'email');
+      email = emailAttr?.Value ?? `unknown-${userId}@example.com`;
+    }
+
+    // Build username
+    const username =
+      decoded['cognito:username'] || (email ? email.split('@')[0] : `user-${userId}`);
+
+    // Ensure user record exists
+    let userRecord;
+    try {
+      userRecord = await ensureUserRecord({
+        sub: userId,
+        email,
+      });
+    } catch (dynamoErr: any) {
+      console.error('ensureUserRecord error:', dynamoErr);
+      return {
+        authenticated: false,
+        message: `Failed to retrieve user record: ${dynamoErr.message}`,
+      };
+    }
+
+    return {
+      authenticated: true,
+      message: 'User session verified',
+      userId: userRecord.sub,
+      email: userRecord.email,
+      username,
+      accountId: userRecord.accountId,
+    };
   }),
 
   refresh: publicProcedure.mutation(async ({ ctx }) => {
