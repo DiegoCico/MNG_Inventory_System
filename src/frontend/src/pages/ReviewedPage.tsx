@@ -53,30 +53,47 @@ export default function ReviewedPage() {
         const result = await getItems(teamId);
 
         if (result.success && result.items) {
+          const itemsArray = Array.isArray(result.items) ? result.items : [];
+
+          // Recursive mapper to properly map all children
           const mapItem = (item: any): ItemListItem => ({
             id: item.itemId,
             productName: item.name,
             actualName: item.actualName || item.name,
             subtitle: item.description || 'No description',
-            image: item.imageLink || 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
+            image:
+              item.imageLink && item.imageLink.startsWith("http")
+                ? item.imageLink
+                : 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
             date: new Date(item.createdAt).toLocaleDateString('en-US', {
               month: '2-digit',
               day: '2-digit',
               year: '2-digit'
-            })
+            }),
+            parent: item.parent,
+            children: item.children ? item.children.map(mapItem) : []
           });
 
           // Filter items by status
-          const completed = result.items
-            .filter((item: any) => item.status === 'Found')
+          const completed = itemsArray
+            .filter((item: any) => {
+              const s = (item.status ?? "").toLowerCase();
+              return s === "completed" || s === "complete" || s === "found";
+            })
             .map(mapItem);
 
-          const shortages = result.items
-            .filter((item: any) => item.status === 'Missing')
+          const shortages = itemsArray
+            .filter((item: any) => {
+              const s = (item.status ?? "").toLowerCase();
+              return s === "shortage" || s === "shortages" || s === "missing";
+            })
             .map(mapItem);
 
-          const damaged = result.items
-            .filter((item: any) => item.status === 'Damaged')
+          const damaged = itemsArray
+            .filter((item: any) => {
+              const s = (item.status ?? "").toLowerCase();
+              return s === "damaged" || s === "in repair";
+            })
             .map(mapItem);
 
           setCompletedItems(completed);

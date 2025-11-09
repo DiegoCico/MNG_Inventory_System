@@ -10,9 +10,6 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { loadConfig } from "../process";
 
-/* ============================================================================
-   Environment + Client Setup
-============================================================================ */
 const config = loadConfig();
 const REGION = config.REGION;
 const BUCKET_NAME = config.BUCKET_NAME;
@@ -23,9 +20,6 @@ const s3 = new S3Client({ region: REGION });
 if (!BUCKET_NAME) throw new Error("❌ Missing S3_BUCKET_NAME");
 if (!KMS_KEY_ARN) console.warn("⚠️ No KMS key ARN provided — uploads not encrypted");
 
-/* ============================================================================
-   Utility: Parse Data URL → Buffer
-============================================================================ */
 function parseDataUrl(dataUrl: string) {
   const match = /^data:([^;]+);base64,(.+)$/i.exec(dataUrl);
   if (!match) throw new Error("Invalid data URL format");
@@ -34,13 +28,7 @@ function parseDataUrl(dataUrl: string) {
   return { mime, buffer };
 }
 
-/* ============================================================================
-   TRPC Router
-============================================================================ */
 export const s3Router = router({
-  /* ============================================================
-     Upload Profile Image (KMS encrypted)
-  ============================================================ */
   uploadProfileImage: publicProcedure
     .input(
       z.object({
@@ -80,9 +68,6 @@ export const s3Router = router({
       return { key, url };
     }),
 
-  /* ============================================================
-     Get Profile Image (Signed URL)
-  ============================================================ */
   getProfileImage: publicProcedure
     .input(z.object({ userId: z.string().min(3) }))
     .query(async ({ input }) => {
