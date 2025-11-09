@@ -1,56 +1,113 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from "react";
-import { Box, Card, Chip, Stack, Typography } from "@mui/material";
-import { useNavigate } from "react-router-dom";
-import { StatusChip } from "./Producthelpers";
+import React, { useState } from 'react';
+import { Box, Card, Chip, Collapse, IconButton, Stack, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
-export default function ChildrenTree({
-  editedProduct,
-  teamId,
-}: {
+interface ChildrenTreeProps {
   editedProduct: any;
   teamId: string;
-}) {
-  const navigate = useNavigate();
+}
 
-  const renderChildren = (children: any[], level = 0): React.ReactNode => {
-    if (!children || children.length === 0) return null;
+export default function ChildrenTree({ editedProduct, teamId }: ChildrenTreeProps) {
+  const navigate = useNavigate();
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  console.log('[ChildrenTree] editedProduct:', editedProduct);
+  console.log('[ChildrenTree] children:', editedProduct?.children);
+
+  // Don't show anything if no children
+  if (!editedProduct?.children || editedProduct.children.length === 0) {
+    return null;
+  }
+
+  const toggleExpand = (itemId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const renderChild = (child: any, level = 0) => {
+    const hasChildren = child.children && child.children.length > 0;
+    const isExpanded = expandedItems.has(child.itemId);
+
     return (
-      <Stack spacing={1} sx={{ ml: level * 2 }}>
-        {children.map((child: any) => (
-          <Box key={child.itemId}>
-            <Card
-              onClick={() => navigate(`/teams/${teamId}/items/${child.itemId}`)}
-              sx={{
-                p: 1,
-                cursor: "pointer",
-                bgcolor: level === 0 ? "white" : `rgba(25,118,210,${0.05 * (level + 1)})`,
-                "&:hover": { bgcolor: "#e3f2fd" },
-              }}
-            >
+      <Box key={child.itemId}>
+        <Card
+          onClick={() => navigate(`/teams/${teamId}/items/${child.itemId}`)}  // FIXED
+          sx={{
+            p: 1.5,
+            cursor: 'pointer',
+            bgcolor: level === 0 ? 'white' : `rgba(25, 118, 210, ${0.05 * (level + 1)})`,
+            '&:hover': { bgcolor: '#e3f2fd' },
+            borderLeft: level > 0 ? `3px solid rgba(25, 118, 210, ${0.3 + level * 0.2})` : 'none',
+            ml: level * 2,
+            mb: 1
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ flex: 1 }}>
               <Typography variant="body2" fontWeight={600}>
-                {child.name}
+                {'  '.repeat(level)}├─ {child.name}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {child.actualName || ""}
+                {'  '.repeat(level)} {child.actualName || child.name}
               </Typography>
-              {child.status && <StatusChip value={child.status} />}
-            </Card>
-            {child.children?.length > 0 && renderChildren(child.children, level + 1)}
+              {child.status && (
+                <Chip
+                  label={child.status}
+                  size="small"
+                  sx={{ ml: 1, mt: 0.5 }}
+                  color={
+                    child.status === 'Found' ? 'success' :
+                      child.status === 'Damaged' ? 'error' :
+                        child.status === 'Missing' ? 'warning' :
+                          child.status === 'Incomplete' ? 'default' :
+                            'default'
+                  }
+                />
+              )}
+            </Box>
+
+            {hasChildren && (
+              <IconButton
+                onClick={(e) => toggleExpand(child.itemId, e)}
+                sx={{ color: 'primary.main' }}
+                size="small"
+              >
+                {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
+            )}
           </Box>
-        ))}
-      </Stack>
+        </Card>
+
+        {hasChildren && (
+          <Collapse in={isExpanded} timeout="auto">
+            <Box sx={{ mt: 0.5 }}>
+              {child.children.map((subChild: any) => renderChild(subChild, level + 1))}
+            </Box>
+          </Collapse>
+        )}
+      </Box>
     );
   };
 
-  if (!editedProduct.children || editedProduct.children.length === 0) return null;
-
   return (
-    <Box sx={{ mb: 2, p: 2, bgcolor: "#f0f7ff", borderRadius: 2 }}>
+    <Box sx={{ mt: 3, p: 2, bgcolor: '#f0f7ff', borderRadius: 2 }}>
       <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-        📦 Kit Contents ({editedProduct.children.length} items)
+        📦 Kit Contents ({editedProduct.children.length} item{editedProduct.children.length !== 1 ? 's' : ''})
       </Typography>
-      {renderChildren(editedProduct.children, 0)}
+      <Stack spacing={0.5}>
+        {editedProduct.children.map((child: any) => renderChild(child, 0))}
+      </Stack>
     </Box>
   );
 }

@@ -3,8 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Box, CircularProgress, Container, Tab, Tabs, Typography } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import ItemListComponent, { ItemListItem } from '../components/ItemListComponent';
-import PercentageBar from '../components/PercentageBar';
 import NavBar from '../components/NavBar';
+import TopBar from '../components/TopBar';
+import Profile from '../components/Profile';
 import { useTheme } from '@mui/material/styles';
 import { getItems } from '../api/items';
 
@@ -38,6 +39,9 @@ export default function ReviewedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchReviewedItems = async () => {
       if (!teamId) {
@@ -45,56 +49,78 @@ export default function ReviewedPage() {
         setLoading(false);
         return;
       }
-
       try {
         setLoading(true);
         setError(null);
-
         const result = await getItems(teamId);
 
         if (result.success && result.items) {
           const itemsArray = Array.isArray(result.items) ? result.items : [];
 
-          // Recursive mapper to properly map all children
-          const mapItem = (item: any): ItemListItem => ({
-            id: item.itemId,
-            productName: item.name,
-            actualName: item.actualName || item.name,
-            subtitle: item.description || 'No description',
-            image:
-              item.imageLink && item.imageLink.startsWith("http")
-                ? item.imageLink
-                : 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
-            date: new Date(item.createdAt).toLocaleDateString('en-US', {
-              month: '2-digit',
-              day: '2-digit',
-              year: '2-digit'
-            }),
-            parent: item.parent,
-            children: item.children ? item.children.map(mapItem) : []
-          });
+          // Build hierarchy from ALL items
+          const buildHierarchy = (flatItems: any[]): ItemListItem[] => {
+            const map: Record<string, ItemListItem> = {};
+            const roots: ItemListItem[] = [];
 
-          // Filter items by status
-          const completed = itemsArray
-            .filter((item: any) => {
-              const s = (item.status ?? "").toLowerCase();
-              return s === "completed" || s === "complete" || s === "found";
-            })
-            .map(mapItem);
+            // First pass - create all items
+            flatItems.forEach((item: any) => {
+              map[item.itemId] = {
+                id: item.itemId,
+                productName: item.name,
+                actualName: item.actualName || item.name,
+                subtitle: item.description || 'No description',
+                image: item.imageLink && item.imageLink.startsWith('http')
+                  ? item.imageLink
+                  : 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
+                date: new Date(item.createdAt).toLocaleDateString('en-US', {
+                  month: '2-digit',
+                  day: '2-digit',
+                  year: '2-digit'
+                }),
+                parent: item.parent,
+                status: item.status,
+                children: []
+              };
+            });
 
-          const shortages = itemsArray
-            .filter((item: any) => {
-              const s = (item.status ?? "").toLowerCase();
-              return s === "shortage" || s === "shortages" || s === "missing";
-            })
-            .map(mapItem);
+            // Second pass - build parent-child relationships
+            flatItems.forEach((item: any) => {
+              const mappedItem = map[item.itemId];
+              if (item.parent && map[item.parent]) {
+                map[item.parent].children!.push(mappedItem);
+              } else {
+                roots.push(mappedItem);
+              }
+            });
 
-          const damaged = itemsArray
-            .filter((item: any) => {
-              const s = (item.status ?? "").toLowerCase();
-              return s === "damaged" || s === "in repair";
-            })
-            .map(mapItem);
+            return roots;
+          };
+
+          // Check if item or any descendant has any of the target statuses
+          const hasStatusInTree = (item: ItemListItem, targetStatuses: string[]): boolean => {
+            const itemStatus = (item.status ?? '').toLowerCase();
+            if (targetStatuses.some(s => s.toLowerCase() === itemStatus)) return true;
+            if (item.children) {
+              return item.children.some(child => hasStatusInTree(child, targetStatuses));
+            }
+            return false;
+          };
+
+          // Build full hierarchy
+          const fullHierarchy = buildHierarchy(itemsArray);
+
+          // Filter by status, showing parent if it or any child matches
+          const completed = fullHierarchy.filter(item =>
+            hasStatusInTree(item, ['completed', 'complete', 'found'])
+          );
+
+          const shortages = fullHierarchy.filter(item =>
+            hasStatusInTree(item, ['shortage', 'shortages', 'missing'])
+          );
+
+          const damaged = fullHierarchy.filter(item =>
+            hasStatusInTree(item, ['damaged', 'in repair'])
+          );
 
           setCompletedItems(completed);
           setShortagesItems(shortages);
@@ -108,12 +134,21 @@ export default function ReviewedPage() {
         setLoading(false);
       }
     };
-
     fetchReviewedItems();
   }, [teamId]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setSelectedTab(newValue);
+  };
+
+  const handleProfileImageChange = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target && typeof e.target.result === "string") {
+        setProfileImage(e.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   if (loading) {
@@ -125,9 +160,14 @@ export default function ReviewedPage() {
   }
 
   return (
-    <div>
-      <PercentageBar />
-      <Box sx={{ width: '100%', bgcolor: '#e8e8e8', minHeight: '100vh' }}>
+    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <TopBar
+        isLoggedIn={true}
+        profileImage={profileImage}
+        onProfileClick={() => setProfileOpen(true)}
+      />
+
+      <Box sx={{ flex: 1, width: '100%', bgcolor: '#e8e8e8' }}>
         {/* Tabs Header - Full Width */}
         <Box sx={{ bgcolor: 'white', borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
@@ -195,7 +235,15 @@ export default function ReviewedPage() {
           </Box>
         </Container>
       </Box>
-      <NavBar />
-    </div>
+
+      <Profile
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+      />
+
+      <Box sx={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+        <NavBar />
+      </Box>
+    </Box>
   );
 }

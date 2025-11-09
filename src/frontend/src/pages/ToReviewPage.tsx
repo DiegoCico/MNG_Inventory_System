@@ -4,7 +4,8 @@ import { Alert, Box, CircularProgress, Container, Typography } from '@mui/materi
 import { useParams } from 'react-router-dom';
 import ItemListComponent, { ItemListItem } from '../components/ItemListComponent';
 import NavBar from '../components/NavBar';
-import PercentageBar from '../components/PercentageBar';
+import TopBar from '../components/TopBar';
+import Profile from '../components/Profile';
 import { getItems } from '../api/items';
 
 export default function ToReviewPage() {
@@ -13,6 +14,9 @@ export default function ToReviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchIncompleteItems = async () => {
       if (!teamId) {
@@ -20,38 +24,67 @@ export default function ToReviewPage() {
         setLoading(false);
         return;
       }
-
       try {
         setLoading(true);
         setError(null);
-
         const result = await getItems(teamId);
 
         if (result.success && result.items) {
           const itemsArray = Array.isArray(result.items) ? result.items : [];
 
-          // Recursive mapper to properly map all children
-          const mapItem = (item: any): ItemListItem => ({
-            id: item.itemId,
-            productName: item.name,
-            actualName: item.actualName || item.name,
-            subtitle: item.description || 'No description',
-            image:
-            item.imageLink && item.imageLink.startsWith("http")
-              ? item.imageLink
-              : 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
-            date: new Date(item.createdAt).toLocaleDateString('en-US', {
-              month: '2-digit',
-              day: '2-digit',
-              year: '2-digit'
-            }),
-            parent: item.parent,
-            children: item.children ? item.children.map(mapItem) : []
-          });
+          // Build hierarchy from ALL items first
+          const buildHierarchy = (flatItems: any[]): ItemListItem[] => {
+            const map: Record<string, ItemListItem> = {};
+            const roots: ItemListItem[] = [];
 
-          const incompleteItems = itemsArray
-            .filter((item: any) => item.status === 'Incomplete')
-            .map(mapItem);
+            // First pass - create all items
+            flatItems.forEach((item: any) => {
+              map[item.itemId] = {
+                id: item.itemId,
+                productName: item.name,
+                actualName: item.actualName || item.name,
+                subtitle: item.description || 'No description',
+                image: item.imageLink && item.imageLink.startsWith('http')
+                  ? item.imageLink
+                  : 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
+                date: new Date(item.createdAt).toLocaleDateString('en-US', {
+                  month: '2-digit',
+                  day: '2-digit',
+                  year: '2-digit'
+                }),
+                parent: item.parent,
+                status: item.status,
+                children: []
+              };
+            });
+
+            // Second pass - build parent-child relationships
+            flatItems.forEach((item: any) => {
+              const mappedItem = map[item.itemId];
+              if (item.parent && map[item.parent]) {
+                map[item.parent].children!.push(mappedItem);
+              } else {
+                roots.push(mappedItem);
+              }
+            });
+
+            return roots;
+          };
+
+          // Check if item or any descendant has the target status
+          const hasStatusInTree = (item: ItemListItem, targetStatus: string): boolean => {
+            if (item.status === targetStatus) return true;
+            if (item.children) {
+              return item.children.some(child => hasStatusInTree(child, targetStatus));
+            }
+            return false;
+          };
+
+          // Build full hierarchy from all items
+          const fullHierarchy = buildHierarchy(itemsArray);
+
+          // Filter to only roots that have "Incomplete" somewhere in their tree
+          const incompleteItems = fullHierarchy.filter(item => hasStatusInTree(item, 'Incomplete'));
 
           setItems(incompleteItems);
         } else {
@@ -63,9 +96,18 @@ export default function ToReviewPage() {
         setLoading(false);
       }
     };
-
     fetchIncompleteItems();
   }, [teamId]);
+
+  const handleProfileImageChange = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target && typeof e.target.result === "string") {
+        setProfileImage(e.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (loading) {
     return (
@@ -76,9 +118,14 @@ export default function ToReviewPage() {
   }
 
   return (
-    <div>
-      <PercentageBar />
-      <Box sx={{ width: '100%', bgcolor: '#e8e8e8', minHeight: '100vh' }}>
+    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <TopBar
+        isLoggedIn={true}
+        profileImage={profileImage}
+        onProfileClick={() => setProfileOpen(true)}
+      />
+
+      <Box sx={{ flex: 1, width: '100%', bgcolor: '#e8e8e8' }}>
         <Box sx={{ bgcolor: 'white', borderBottom: 1, borderColor: 'divider', py: 1.5 }}>
           <Container maxWidth="md">
             <Typography
@@ -106,7 +153,15 @@ export default function ToReviewPage() {
           </Box>
         </Container>
       </Box>
-      <NavBar />
-    </div>
+
+      <Profile
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+      />
+
+      <Box sx={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+        <NavBar />
+      </Box>
+    </Box>
   );
 }

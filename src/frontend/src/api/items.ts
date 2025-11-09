@@ -9,11 +9,11 @@ export async function createItem(
   actualName: string,
   nsn: string,
   serialNumber: string,
-  userId?: string,
-  imageLink?: string
+  imageLink?: string,
+  description?: string,
+  parent?: string | null
 ) {
-  const currentUser = userId ? { userId } : await me();
-  console.log("[createItem] user:", currentUser);
+  const currentUser = await me();
 
   const body = {
     teamId,
@@ -21,9 +21,11 @@ export async function createItem(
     actualName,
     nsn,
     serialNumber,
-    userId: currentUser?.userId,
+    userId: currentUser.userId,
     status: "Incomplete",
     imageLink,
+    description,
+    parent,
   };
 
   console.log("[createItem] body:", body);
@@ -41,6 +43,7 @@ export async function createItem(
   console.log("[createItem] json:", json);
   return json?.result?.data ?? {};
 }
+
 
 /** 🟢 GET ALL ITEMS */
 export async function getItems(teamId: string) {
@@ -169,7 +172,7 @@ export async function uploadImage(
   const json = await res.json();
   console.log("[uploadImage] json:", json);
   return json?.imageLink
-  ? { imageLink: json.imageLink }
-  : json?.result?.data ?? {};
+    ? { imageLink: json.imageLink }
+    : json?.result?.data ?? {};
 
 }
