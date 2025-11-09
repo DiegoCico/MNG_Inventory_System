@@ -178,19 +178,21 @@ api.apiFn.addToRolePolicy(
 );
 
 // SES stack for custom invite / transactional email
+const isDevLike =
+  cfg.name.toLowerCase().includes("dev") ||
+  cfg.name.toLowerCase().includes("local") ||
+  cfg.name.toLowerCase().includes("beta");
+
 const ses = new SesStack(app, `MngSes-${cfg.name}`, {
   env: { account, region },
   stage: cfg.name,
-  // no Route53 lookup for dev or non-domain stages
-  rootDomain:
-    cfg.name.toLowerCase().startsWith("dev") ||
-    cfg.name.toLowerCase().includes("beta")
-      ? undefined
-      : "example.com",
+  // Prevent Route53 lookup entirely for dev/beta/local stages
+  rootDomain: isDevLike ? "" : "example.com",
   fromLocalPart: "noreply",
   createFeedbackTopic: true,
   emailFrom: sesFromAddress,
 });
+
 
 // Give Lambda permission to send via SES + pass SES config
 api.apiFn.role?.addManagedPolicy(
