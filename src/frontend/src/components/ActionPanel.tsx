@@ -7,6 +7,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { createItem, updateItem, uploadImage, deleteItem } from "../api/items";
 import { me } from "../api/auth";
+import { useNavigate } from "react-router-dom";
 
 export default function ActionPanel({
   isCreateMode,
@@ -20,6 +21,8 @@ export default function ActionPanel({
   imagePreview,
   setShowSuccess,
 }: any) {
+  const navigate = useNavigate();
+
   const handleSave = async (isQuickUpdate = false) => {
     try {
       const currentUser = await me();
@@ -73,12 +76,16 @@ export default function ActionPanel({
           currentUser.userId,
           finalImage
         );
-        if (res.success) setShowSuccess(true);
+        if (res.success) {
+          setShowSuccess(true);
+          navigate(`/teams/to-review/${teamId}`);
+        }
       } else {
         const res = await updateItem(teamId, itemId, payload);
         if (res.success) {
           if (!isQuickUpdate) setIsEditMode(false);
           setShowSuccess(true);
+          navigate(`/teams/to-review/${teamId}`);
         }
       }
     } catch (err) {
