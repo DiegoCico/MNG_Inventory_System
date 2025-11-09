@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Card, CardMedia, Typography, Stack, IconButton, Collapse } from '@mui/material';
+import { Box, Card, CardMedia, Typography, Stack, IconButton, Collapse, Chip } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -12,6 +12,7 @@ export interface ItemListItem {
   image: string;
   date: string;
   parent?: string | null;
+  status?: string;
   children?: ItemListItem[];
 }
 
@@ -34,8 +35,17 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
     );
   }
 
+  const getStatusColor = (status?: string) => {
+    const s = (status ?? '').toLowerCase();
+    if (s === 'found' || s === 'complete' || s === 'completed') return 'success';
+    if (s === 'damaged') return 'error';
+    if (s === 'missing' || s === 'shortage' || s === 'shortages') return 'warning';
+    if (s === 'incomplete') return 'default';
+    if (s === 'in repair') return 'info';
+    return 'default';
+  };
+
   const handleItemClick = (itemId: string | number, event: React.MouseEvent) => {
-    // Don't navigate if clicking the expand button
     if ((event.target as HTMLElement).closest('.expand-button')) {
       return;
     }
@@ -78,7 +88,6 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
             },
           }}
         >
-          {/* Image Section */}
           <Box
             sx={{
               width: { xs: 70, sm: 85, md: 100 },
@@ -101,7 +110,6 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
             />
           </Box>
 
-          {/* Text Section */}
           <Box sx={{ ml: { xs: 1.5, sm: 2 }, flex: 1, display: 'flex', flexDirection: 'column', alignSelf: 'start' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
               <Typography
@@ -146,26 +154,36 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
               sx={{
                 color: '#333',
                 fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                mb: 0.5
               }}
             >
               {item.subtitle}
             </Typography>
 
-            {hasChildren && (
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'primary.main',
-                  fontWeight: 600,
-                  mt: 0.5
-                }}
-              >
-                📦 Contains {item.children!.length} item{item.children!.length !== 1 ? 's' : ''}
-              </Typography>
-            )}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              {item.status && (
+                <Chip
+                  label={item.status}
+                  size="small"
+                  color={getStatusColor(item.status)}
+                  sx={{ fontWeight: 600 }}
+                />
+              )}
+
+              {hasChildren && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'primary.main',
+                    fontWeight: 600,
+                  }}
+                >
+                  📦 {item.children!.length} item{item.children!.length !== 1 ? 's' : ''}
+                </Typography>
+              )}
+            </Box>
           </Box>
 
-          {/* Expand/Collapse Button */}
           {hasChildren && (
             <IconButton
               className="expand-button"
@@ -180,7 +198,6 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
           )}
         </Card>
 
-        {/* Render children when expanded */}
         {hasChildren && (
           <Collapse in={isExpanded} timeout="auto">
             <Box sx={{ mt: 1 }}>
@@ -198,4 +215,3 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
     </Stack>
   );
 }
-
