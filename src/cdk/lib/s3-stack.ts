@@ -36,7 +36,7 @@ export class S3UploadsStack extends Stack {
 
 
     this.bucket = new s3.Bucket(this, "UploadsBucket", {
-      bucketName: `mng-${stage}-uploads-${cdk.Aws.ACCOUNT_ID}`,
+      bucketName: `mng-${stage.toLowerCase()}-uploads-${cdk.Aws.ACCOUNT_ID}`,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.KMS,
       encryptionKey: this.key,
