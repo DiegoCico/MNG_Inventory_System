@@ -39,7 +39,7 @@ export default function NavBar() {
         navigate(`/teams/reviewed/${teamId}`);
         break;
       case "export":
-        navigate("/teams/export/:teamId");
+        navigate(`/teams/export/${teamId}`);
         break;
       default:
         break;
