@@ -107,7 +107,7 @@ export default function HomePage() {
           .fill(0)
           .map((_, i) => `${HOURS_BACK - i}h ago`); // ["5h ago", "4h ago", ..., "1h ago"]
 
-        const followUps: Array<{ itemId: string; name: string; status: string; updatedAt: string; createdBy: string }> = [];
+        const followUps: Array<{ itemId: string; name: string; status: string; updatedAt: string; createdBy: string; notes: string; parent: string }> = [];
 
         for (const item of items) {
           const status = (item.status ?? "To Review").toLowerCase();
@@ -155,6 +155,8 @@ export default function HomePage() {
               itemId: item.itemId,
               name: item.name,
               status,
+              parent: item.parent ?? "N/A",
+              notes: item.notes ?? "",
               updatedAt: item.updatedAt ?? "",
               createdBy,
             });
@@ -484,7 +486,7 @@ export default function HomePage() {
                         dashboardData.followUps.map((item: any) => (
                           <tr key={item.itemId}>
                             <td>{item.name}</td>
-                            <td>{item.kit ?? "N/A"}</td>
+                            <td>{item.parent ?? "N/A"}</td>
                             <td>{item.status}</td>
                             <td>
                               {item.updatedAt
