@@ -83,8 +83,8 @@ export default function ToReviewPage() {
           // Build full hierarchy from all items
           const fullHierarchy = buildHierarchy(itemsArray);
 
-          // Filter to only roots that have "Incomplete" somewhere in their tree
-          const incompleteItems = fullHierarchy.filter(item => hasStatusInTree(item, 'Incomplete'));
+          // Filter to only roots that have "To Review" somewhere in their tree
+          const incompleteItems = fullHierarchy.filter(item => hasStatusInTree(item, 'To Review'));
 
           setItems(incompleteItems);
         } else {

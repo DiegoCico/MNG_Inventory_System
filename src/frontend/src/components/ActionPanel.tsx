@@ -79,7 +79,7 @@ export default function ActionPanel({
         quantity: Number(editedProduct.quantity) || 1,
         description: editedProduct.description || '',
         imageLink: finalImage || '',
-        status: editedProduct.status || 'Incomplete',
+        status: editedProduct.status || 'To Review',
         notes: editedProduct.notes || '',
         parent: editedProduct.parent?.itemId || null,
         damageReports: editedProduct.damageReports || []
@@ -100,7 +100,7 @@ export default function ActionPanel({
         );
         if (res.success) {
           setShowSuccess(true);
-          navigate(`/teams/${teamId}/items/${res.itemId}`, { replace: true });
+          navigate(`/teams/to-review/${teamId}`, { replace: true });
         }
       } else {
         // Update the main item
@@ -114,6 +114,7 @@ export default function ActionPanel({
 
           if (!isQuickUpdate) setIsEditMode(false);
           setShowSuccess(true);
+          navigate(`/teams/to-review/${teamId}`, { replace: true });
         }
       }
     } catch (err) {

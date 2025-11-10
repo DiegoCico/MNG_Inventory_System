@@ -22,7 +22,7 @@ export async function createItem(
     nsn,
     serialNumber,
     userId: currentUser.userId,
-    status: "Incomplete",
+    status: "To Review",
     imageLink,
     description,
     parent,

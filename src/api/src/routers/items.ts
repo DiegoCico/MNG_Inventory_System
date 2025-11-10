@@ -158,7 +158,7 @@ export const itemsRouter = router({
           description: input.description ?? undefined,
           imageLink: finalImageLink,
           damageReports: input.damageReports ?? [],
-          status: input.status ?? "Incomplete",
+          status: input.status ?? "To Review",
           parent: input.parent ?? null,
           createdAt: now,
           updatedAt: now,

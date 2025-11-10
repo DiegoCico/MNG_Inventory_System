@@ -110,29 +110,22 @@ export default function HomePage() {
         const followUps: Array<{ itemId: string; name: string; status: string; updatedAt: string; createdBy: string }> = [];
 
         for (const item of items) {
-          const status = (item.status ?? "Incomplete").toLowerCase();
+          const status = (item.status ?? "To Review").toLowerCase();
           const createdBy = item.createdBy ?? "unknown";
           const updatedAt = item.updatedAt ? new Date(item.updatedAt) : null;
 
           // Count totals
           switch (status) {
-            case "incomplete":
-            case "unreviewed":
             case "to review":
               totals.toReview++;
               break;
             case "completed":
-            case "complete":
-            case "found":
               totals.completed++;
               break;
-            case "shortage":
             case "shortages":
-            case "missing":
               totals.shortages++;
               break;
             case "damaged":
-            case "in repair":
               totals.damaged++;
               break;
             default:
@@ -141,8 +134,8 @@ export default function HomePage() {
 
           // Track user stats
           if (!users[createdBy]) users[createdBy] = { completed: 0, shortages: 0, damaged: 0 };
-          if (status.includes("complete")) users[createdBy].completed++;
-          if (status.startsWith("shortage")) users[createdBy].shortages++;
+          if (status.includes("completed")) users[createdBy].completed++;
+          if (status.startsWith("shortages")) users[createdBy].shortages++;
           if (status === "damaged") users[createdBy].damaged++;
 
           // --- Histogram: last X hours ---

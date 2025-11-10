@@ -67,10 +67,10 @@ export default function ChildrenTree({ editedProduct, teamId }: ChildrenTreeProp
                   size="small"
                   sx={{ ml: 1, mt: 0.5 }}
                   color={
-                    child.status === 'Found' ? 'success' :
+                    child.status === 'Completed' ? 'success' :
                       child.status === 'Damaged' ? 'error' :
-                        child.status === 'Missing' ? 'warning' :
-                          child.status === 'Incomplete' ? 'default' :
+                        child.status === 'Shortages' ? 'warning' :
+                          child.status === 'To Review' ? 'default' :
                             'default'
                   }
                 />

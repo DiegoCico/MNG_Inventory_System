@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import { StatusChip } from "./Producthelpers";
 
-const STATUSES = ["Incomplete", "Found", "Damaged", "Missing", "In Repair"];
+const STATUSES = ["To Review", "Completed", "Shortages", "Damaged"];
 
 export default function StatusSection({
   editedProduct,
@@ -34,7 +34,7 @@ export default function StatusSection({
           <Select
             fullWidth
             size="small"
-            value={editedProduct.status || "Incomplete"}
+            value={editedProduct.status || "To Review"}
             onChange={(e) => handleChange(e.target.value)}
           >
             {STATUSES.map((s) => (

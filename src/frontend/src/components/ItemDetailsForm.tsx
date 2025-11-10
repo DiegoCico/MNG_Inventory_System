@@ -181,11 +181,10 @@ export default function ItemDetailsForm({
               value={editedProduct.status}
               onChange={(e) => handleChange("status", e.target.value)}
             >
-              <MenuItem value="Incomplete">Incomplete</MenuItem>
-              <MenuItem value="Found">Found</MenuItem>
+              <MenuItem value="To Review">To Review</MenuItem>
+              <MenuItem value="Completed">Completed</MenuItem>
+              <MenuItem value="Shortages">Shortages</MenuItem>
               <MenuItem value="Damaged">Damaged</MenuItem>
-              <MenuItem value="Missing">Missing</MenuItem>
-              <MenuItem value="In Repair">In Repair</MenuItem>
             </Select>
           </FormControl>
         </Box>

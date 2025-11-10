@@ -55,7 +55,7 @@ export default function ProductReviewPage() {
             description: '',
             serialNumber: '',
             quantity: 1,
-            status: 'Incomplete'
+            status: 'To Review',
           };
           setProduct(blank);
           setEditedProduct(blank);

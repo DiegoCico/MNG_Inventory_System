@@ -38,7 +38,7 @@ export default function NavBar() {
       case "reviewed":
         navigate(`/teams/reviewed/${teamId}`);
         break;
-      case "send":
+      case "export":
         navigate("/teams/export/:teamId");
         break;
       default:
@@ -79,8 +79,8 @@ export default function NavBar() {
           icon={<CheckBoxIcon />}
         />
         <BottomNavigationAction
-          label="Send"
-          value="send"
+          label="Export"
+          value="export"
           icon={<OutboxIcon />}
         />
       </BottomNavigation>

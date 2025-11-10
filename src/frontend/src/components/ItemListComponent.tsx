@@ -37,11 +37,10 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
 
   const getStatusColor = (status?: string) => {
     const s = (status ?? '').toLowerCase();
-    if (s === 'found' || s === 'complete' || s === 'completed') return 'success';
+    if (s === 'completed') return 'success';
     if (s === 'damaged') return 'error';
-    if (s === 'missing' || s === 'shortage' || s === 'shortages') return 'warning';
-    if (s === 'incomplete') return 'default';
-    if (s === 'in repair') return 'info';
+    if (s === 'shortages') return 'warning';
+    if (s === 'to review') return 'default';
     return 'default';
   };
 

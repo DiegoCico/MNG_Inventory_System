@@ -6,7 +6,9 @@ import ProductReviewPage from './pages/ProductReviewPage';
 import HomePage from './pages/HomePage';
 import TeamsPage from './pages/TeamspacePage';
 import ExportPage from "./pages/ExportPage";
-import ThemeContextProvider from './ThemeContext'; // your provider
+import ThemeContextProvider from './ThemeContext';
+import ToReviewPage from './pages/ToReviewPage';
+import ReviewedPage from './pages/ReviewedPage';
 
 export default function App() {
   return (
@@ -20,6 +22,9 @@ export default function App() {
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/teams/home/:teamId" element={<HomePage />} /> 
           <Route path="/teams/export/:teamId" element={<ExportPage />} />
+          <Route path="/teams/to-review/:teamId" element={<ToReviewPage />} />
+          <Route path="/teams/:teamId/items/:itemId" element={<ProductReviewPage />} />
+          <Route path="/teams/reviewed/:teamId" element={<ReviewedPage />} />
         </Routes>
       </BrowserRouter>
     </ThemeContextProvider>
