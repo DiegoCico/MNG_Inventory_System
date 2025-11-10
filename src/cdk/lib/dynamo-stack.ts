@@ -25,18 +25,14 @@ export class DynamoStack extends Stack {
     const stage = props.stage.toLowerCase();
     const isProd = stage === "prod";
 
-    /* =========================================================================
-       KMS Key
-    ========================================================================= */
+
     const key = new kms.Key(this, "TableKey", {
       alias: `${service}-${stage}-dynamodb-key`,
       enableKeyRotation: true,
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     });
 
-    /* =========================================================================
-       DynamoDB Table
-    ========================================================================= */
+
     this.table = new dynamodb.Table(this, "Table", {
       tableName: `${service}-${stage}-data`,
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -106,6 +102,7 @@ export class DynamoStack extends Stack {
         parameters: {
           RequestItems: {
             [`${service}-${stage}-data`]: [
+              // ==== OWNER ====
               {
                 PutRequest: {
                   Item: {
@@ -113,10 +110,11 @@ export class DynamoStack extends Stack {
                     SK: { S: "ROLE#OWNER" },
                     name: { S: "Owner" },
                     description: {
-                      S: "Full control over the team and its workspaces.",
+                      S: "Full administrative control over the system.",
                     },
                     permissions: {
                       S: JSON.stringify([
+                        // Core admin
                         "team.create",
                         "team.add_member",
                         "team.remove_member",
@@ -125,12 +123,32 @@ export class DynamoStack extends Stack {
                         "role.add",
                         "role.modify",
                         "role.remove",
+                        "role.view",
+                        // Item admin
+                        "item.create",
+                        "item.update",
+                        "item.delete",
+                        "item.view",
+                        "item.upload_image",
+                        "item.manage_damage",
+                        // Damage reports
+                        "damage.create",
+                        "damage.update",
+                        "damage.delete",
+                        "damage.view",
+                        // S3 and logs
+                        "s3.upload",
+                        "s3.delete",
+                        "s3.view",
+                        "log.view",
+                        "log.export",
                       ]),
                     },
                     createdAt: { S: new Date().toISOString() },
                   },
                 },
               },
+              // ==== MANAGER ====
               {
                 PutRequest: {
                   Item: {
@@ -138,19 +156,26 @@ export class DynamoStack extends Stack {
                     SK: { S: "ROLE#MANAGER" },
                     name: { S: "Manager" },
                     description: {
-                      S: "Manage members and create workspaces.",
+                      S: "Manage members, items, and reports.",
                     },
                     permissions: {
                       S: JSON.stringify([
                         "team.add_member",
                         "team.remove_member",
                         "workspace.create",
+                        "item.create",
+                        "item.view",
+                        "item.update",
+                        "damage.create",
+                        "damage.view",
+                        "s3.upload",
                       ]),
                     },
                     createdAt: { S: new Date().toISOString() },
                   },
                 },
               },
+              // ==== MEMBER ====
               {
                 PutRequest: {
                   Item: {
@@ -158,9 +183,15 @@ export class DynamoStack extends Stack {
                     SK: { S: "ROLE#MEMBER" },
                     name: { S: "Member" },
                     description: {
-                      S: "Basic access without administrative abilities.",
+                      S: "Limited access to view and report items.",
                     },
-                    permissions: { S: JSON.stringify([]) },
+                    permissions: {
+                      S: JSON.stringify([
+                        "item.view",
+                        "damage.create",
+                        "damage.view",
+                      ]),
+                    },
                     createdAt: { S: new Date().toISOString() },
                   },
                 },
@@ -181,9 +212,6 @@ export class DynamoStack extends Stack {
     // Run seeder after table creation
     seedProvider.node.addDependency(this.table);
 
-    /* =========================================================================
-        Outputs
-    ========================================================================= */
     new CfnOutput(this, "TableName", { value: this.table.tableName });
     new CfnOutput(this, "TableArn", { value: this.table.tableArn });
     new CfnOutput(this, "KmsKeyArn", { value: key.keyArn });

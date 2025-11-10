@@ -5,7 +5,7 @@ export async function loginUser(email: string, password: string) {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }), 
+    body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw new Error(`signIn failed: ${res.status}`);
   const json = await res.json();
@@ -38,7 +38,7 @@ export async function completeNewPassword(session: string, newPassword: string, 
       session,
       newPassword,
       email,
-    }), 
+    }),
   });
   if (!res.ok) throw new Error(`respondToChallenge failed: ${res.status}`);
   const json = await res.json();
@@ -50,7 +50,7 @@ export async function refresh() {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}), 
+    body: JSON.stringify({}),
   });
   if (!res.ok) throw new Error(`refresh failed: ${res.status}`);
   const json = await res.json();
@@ -62,7 +62,7 @@ export async function logout() {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}), 
+    body: JSON.stringify({}),
   });
   if (!res.ok) throw new Error(`logout failed: ${res.status}`);
   const json = await res.json();
@@ -74,16 +74,11 @@ export async function me() {
     method: "GET",
     credentials: "include",
   });
-
   if (!res.ok) throw new Error(`me failed: ${res.status}`);
-
   const json = await res.json();
-
   const data = json?.result?.data;
   if (!data) throw new Error("unexpected response from /me");
-
   const userId = data.userId || data.sub || data.id || data.email;
-
   return {
     userId,
     email: data.email,
@@ -91,7 +86,6 @@ export async function me() {
     authenticated: data.authenticated ?? true,
   };
 }
-
 
 export async function submitOtp(
   challengeName: 'EMAIL_OTP' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA',
@@ -109,3 +103,4 @@ export async function submitOtp(
   const json = await res.json();
   return json?.result?.data;
 }
+

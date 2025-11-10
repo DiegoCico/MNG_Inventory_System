@@ -21,7 +21,7 @@ interface TopBarProps {
   isLoggedIn: boolean;
   onProfileClick?: () => void;
   profileImage?: string | null;
-  onRequestAccess?: () => void; // only needed when not logged in
+  onRequestAccess?: () => void; 
 }
 
 export default function TopBar({
