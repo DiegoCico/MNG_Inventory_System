@@ -1,11 +1,9 @@
 import {
-  AppBar,
   Box,
   Button,
   Container,
   Divider,
   Stack,
-  Toolbar,
   Typography,
   TextField,
   CircularProgress,
@@ -22,10 +20,8 @@ import {
   Grid,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
 import GroupAddIcon from "@mui/icons-material/GroupAdd";
 import AddIcon from "@mui/icons-material/Add";
-import MilitaryTechIcon from "@mui/icons-material/MilitaryTech";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import { useEffect, useState } from "react";
@@ -39,6 +35,7 @@ import {
 } from "../api/teamspace";
 import { me, inviteUser } from "../api/auth";
 import TopBar from "../components/TopBar";
+import Profile from "../components/Profile";
 
 export interface Team {
   teamId: string;
@@ -48,7 +45,7 @@ export interface Team {
 
 export default function TeamsPage() {
   const theme = useTheme();
-  const downSm = useMediaQuery(theme.breakpoints.down("sm"));
+  //const downSm = useMediaQuery(theme.breakpoints.down("sm"));
   const [teams, setTeams] = useState<Team[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,7 +54,7 @@ export default function TeamsPage() {
   const [inviteMode, setInviteMode] = useState<"teamspace" | "platform">("teamspace");
 
   const [profileOpen, setProfileOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  //const [profileImage, setProfileImage] = useState<string | null>(null);
 
   // Dialogs
   const [openCreate, setOpenCreate] = useState(false);
@@ -116,6 +113,7 @@ function openDeleteFor(id: string, name: string): void {
   setDeleteWorkspaceName(name);
   setOpenDelete(true);
 }
+
 
   // ---------------------------
   // CREATE TEAM
@@ -271,8 +269,13 @@ function openDeleteFor(id: string, name: string): void {
       {/* Top Bar */}
       <TopBar
         isLoggedIn={true}
-        profileImage={profileImage}
         onProfileClick={() => setProfileOpen(true)}
+      />
+
+      {/* Profile */}
+      <Profile
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
       />
 
       {/* Main */}
@@ -354,24 +357,62 @@ function openDeleteFor(id: string, name: string): void {
 
         {/* Teams */}
         {!loading && !error && filteredTeams.length > 0 && (
-          <Grid container spacing={2.5} justifyContent="flex-start">
+          <Grid
+            container
+            spacing={{ xs: 2, sm: 2.5, md: 3 }}
+            justifyContent="flex-start"
+            sx={{
+              px: { xs: 1.5, sm: 2, md: 3 }, // inner padding to match header margins
+            }}
+          >
             {filteredTeams.map((team) => (
               <Grid
                 key={team.teamId}
-                size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
-                sx={{ display: "flex", justifyContent: "center" }}
+                size = {{xs: 6, sm: 4, md: 3, lg: 2.4}}
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                }}
               >
-                <TeamIcon
-                  id={team.teamId}
-                  name={team.GSI_NAME}
-                  description={team.description}
-                  onInvite={() => setOpenInvite(true)}
-                  onRemove={() => openRemoveFor(team.teamId, team.GSI_NAME)}
-                  onDelete={() => openDeleteFor(team.teamId, team.GSI_NAME)}
-                />
+
+                <Box
+                  sx={{
+                    width: "100%",
+                    //mb: { xs: 2, sm: 2.5, md: 3 }, // matches container spacing
+                  }}
+                >
+                <Box
+                  sx={{
+                    width: "100%",
+                    aspectRatio: "1 / 1", // keeps all cards square
+                    display: "flex",
+                    alignItems: "stretch",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      //maxWidth: 250, // prevents cards from stretching too large
+                      //flexShrink: 0,
+                    }}
+                  >
+                    <TeamIcon
+                      id={team.teamId}
+                      name={team.GSI_NAME}
+                      description={team.description}
+                      onInvite={() => setOpenInvite(true)}
+                      onRemove={() => openRemoveFor(team.teamId, team.GSI_NAME)}
+                      onDelete={() => openDeleteFor(team.teamId, team.GSI_NAME)}
+                    />
+                  </Box>
+                </Box>
+                </Box>
               </Grid>
             ))}
           </Grid>
+
         )}
 
         {/* Empty */}

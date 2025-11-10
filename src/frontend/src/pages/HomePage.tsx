@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Grid from "@mui/material/Grid";
 import { useTheme, alpha } from "@mui/material/styles";
 import { useParams, Link } from "react-router-dom";
@@ -31,7 +31,8 @@ import NavBar from "../components/NavBar";
 import RestartProcess from "../components/RestartProcess";
 import Profile from "../components/Profile";
 import TopBar from "../components/TopBar";
-import { loadDashboard } from "../api/home";
+//import { loadDashboard } from "../api/home";
+import { getItems } from "../api/items";
 
 export default function HomePage() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -39,7 +40,7 @@ export default function HomePage() {
   const cardBorder = `1px solid ${theme.palette.divider}`;
 
   const [profileOpen, setProfileOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  //const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const [dashboardData, setDashboardData] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,46 +48,156 @@ export default function HomePage() {
 
   const navigate = useNavigate();
 
-  const name = "Ben Tran";
-  const email = "tran.b@northeastern.edu";
-  const team = "MNG INVENTORY";
-  const permissions = "Admin";
+  // // Load dashboard data
+  // useEffect(() => {
+  //   async function getDashboardData(): Promise<void> {
+  //     if (!teamId) {
+  //       console.log("teamId is undefined");
+  //       return;
+  //     }
+  //     try {
+  //       setLoading(true);
+  //       setError(null);
+  //       const data = await loadDashboard(teamId);
+  //       console.log("📋 Loaded dashboard:", data);
+  //       setDashboardData(data.overview);
+  //     } catch (err) {
+  //       const message =
+  //         err instanceof Error ? err.message : "Failed to load dashboard data";
+  //       setError(message);
+  //       console.error(message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+  //   getDashboardData();
+  // }, [teamId]);
 
-  // 🟩 Load dashboard data
   useEffect(() => {
-    async function getDashboardData(): Promise<void> {
+    const getDashboardData = async (): Promise<void> => {
       if (!teamId) {
-        console.log("teamId is undefined");
+        setError("Missing team ID");
+        setLoading(false);
         return;
       }
+
       try {
         setLoading(true);
         setError(null);
-        const data = await loadDashboard(teamId);
-        console.log("📋 Loaded dashboard:", data);
-        setDashboardData(data.overview);
+
+        const result = await getItems(teamId);
+
+        if (!result.success || !result.items) {
+          setError(result.error || "Failed to fetch items");
+          return;
+        }
+
+        const items = Array.isArray(result.items) ? result.items : [];
+
+        console.log("📋 Sample item from getItems:", items[0]);
+
+        // --- Compute totals & teamStats ---
+        const totals = { toReview: 0, completed: 0, shortages: 0, damaged: 0 };
+        const users: Record<string, { completed: number; shortages: number; damaged: number }> = {};
+
+        const now = new Date();
+        const HOURS_BACK = 5; // last 5 hours
+        const hourlyCounts = Array(HOURS_BACK).fill(0); // histogram buckets
+        const hourlyLabels = Array(HOURS_BACK)
+          .fill(0)
+          .map((_, i) => `${HOURS_BACK - i}h ago`); // ["5h ago", "4h ago", ..., "1h ago"]
+
+        const followUps: Array<{ itemId: string; name: string; status: string; updatedAt: string; createdBy: string }> = [];
+
+        for (const item of items) {
+          const status = (item.status ?? "Incomplete").toLowerCase();
+          const createdBy = item.createdBy ?? "unknown";
+          const updatedAt = item.updatedAt ? new Date(item.updatedAt) : null;
+
+          // Count totals
+          switch (status) {
+            case "incomplete":
+            case "unreviewed":
+            case "to review":
+              totals.toReview++;
+              break;
+            case "completed":
+            case "complete":
+            case "found":
+              totals.completed++;
+              break;
+            case "shortage":
+            case "shortages":
+            case "missing":
+              totals.shortages++;
+              break;
+            case "damaged":
+            case "in repair":
+              totals.damaged++;
+              break;
+            default:
+              totals.toReview++;
+          }
+
+          // Track user stats
+          if (!users[createdBy]) users[createdBy] = { completed: 0, shortages: 0, damaged: 0 };
+          if (status.includes("complete")) users[createdBy].completed++;
+          if (status.startsWith("shortage")) users[createdBy].shortages++;
+          if (status === "damaged") users[createdBy].damaged++;
+
+          // --- Histogram: last X hours ---
+          if (updatedAt) {
+            const diffHours = (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60);
+            if (diffHours <= HOURS_BACK) {
+              const bucket = Math.floor(HOURS_BACK - diffHours);
+              if (bucket >= 0 && bucket < HOURS_BACK) {
+                hourlyCounts[bucket]++;
+              }
+            }
+          }
+
+          // --- Follow-Ups ---
+          if (status === "damaged" || status.startsWith("shortage")) {
+            followUps.push({
+              itemId: item.itemId,
+              name: item.name,
+              status,
+              updatedAt: item.updatedAt ?? "",
+              createdBy,
+            });
+          }
+        }
+
+        const totalReviewed = totals.completed + totals.shortages + totals.damaged;
+        const totalCount = totalReviewed + totals.toReview;
+        const percentReviewed = totalCount > 0 ? Math.round((totalReviewed / totalCount) * 100) : 0;
+
+        const overview = {
+          totals,
+          percentReviewed,
+          teamStats: Object.entries(users).map(([userId, data]) => ({ userId, ...data })),
+          lastXHoursHistogram: {
+            labels: hourlyLabels,   // ["5h ago", "4h ago", ..., "1h ago"]
+            counts: hourlyCounts,   // [0, 2, 5, 1, 0]
+          },
+          followUps, // ready for the table component
+        };
+
+        setDashboardData(overview);
+        console.log("📋 Dashboard overview with histogram and follow-ups:", overview);
+
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to load dashboard data";
-        setError(message);
-        console.error(message);
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+        console.error(err);
       } finally {
         setLoading(false);
       }
-    }
+    };
+
     getDashboardData();
   }, [teamId]);
 
-  const handleProfileImageChange = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target && typeof e.target.result === "string") {
-        setProfileImage(e.target.result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
+  
   // 🟩 derived values
   const totals = dashboardData?.totals || {
     toReview: 0,
@@ -97,13 +208,20 @@ export default function HomePage() {
   const percentReviewed = dashboardData?.percentReviewed || 0;
   const teamStats = dashboardData?.teamStats || [];
 
-  const reviewData = [
-    { hour: "1h ago", reviewed: 3 },
-    { hour: "2h ago", reviewed: 4 },
-    { hour: "3h ago", reviewed: 1 },
-    { hour: "4h ago", reviewed: 5 },
-    { hour: "5h ago", reviewed: 2 },
-  ];
+  // const reviewData = [
+  //   { hour: "1h ago", reviewed: 3 },
+  //   { hour: "2h ago", reviewed: 4 },
+  //   { hour: "3h ago", reviewed: 1 },
+  //   { hour: "4h ago", reviewed: 5 },
+  //   { hour: "5h ago", reviewed: 2 },
+  // ];
+
+  const reviewData = dashboardData?.lastXHoursHistogram
+  ? dashboardData.lastXHoursHistogram.labels.map((label: string, i: number) => ({
+      hour: label,
+      reviewed: dashboardData.lastXHoursHistogram.counts[i] ?? 0,
+    }))
+  : [];
 
   return (
     <Box
@@ -117,7 +235,6 @@ export default function HomePage() {
       {/* ✅ Only one TopBar */}
       <TopBar
         isLoggedIn={true}
-        profileImage={profileImage}
         onProfileClick={() => setProfileOpen(true)}
       />
 
@@ -142,6 +259,25 @@ export default function HomePage() {
           </Typography>
         )}
 
+        {/* Back button row */}
+        <Box mb={3} display="flex" justifyContent="flex-start">
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate("/teams")}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              color: theme.palette.text.primary,
+              "&:hover": {
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
+              },
+            }}
+          >
+            Back
+          </Button>
+        </Box>
+
+
         {!loading && !error && (
           <Grid container spacing={3}>
             {/* Left side */}
@@ -163,7 +299,7 @@ export default function HomePage() {
                   mb={2}
                 >
                   <Stack direction="row" alignItems="center" spacing={1.5}>
-                    <Button
+                    {/* <Button
                       startIcon={<ArrowBackIcon />}
                       onClick={() => navigate("/teams")}
                       sx={{
@@ -176,10 +312,10 @@ export default function HomePage() {
                       }}
                     >
                       Back
-                    </Button>
-
+                    </Button> */}
+                    {/* Need to connect name */}
                     <Typography variant="h6" fontWeight={800}>
-                      {team}'s Inventory Status
+                      {teamId}'s Inventory Status
                     </Typography>
                   </Stack>
                 </Stack>
@@ -305,8 +441,7 @@ export default function HomePage() {
                     </Box>
                   </Stack>
                 </Paper>
-
-                {/* 🟩 Follow-Ups Table (restored) */}
+                {/* Follow-Ups */}
                 <Paper
                   elevation={0}
                   sx={{
@@ -318,17 +453,64 @@ export default function HomePage() {
                   <Typography variant="h6" fontWeight={800} mb={2}>
                     Follow-Ups
                   </Typography>
-                  <List dense>
-                    <ListItem disableGutters>
-                      <ListItemText primary="Camera Kit missing charger — assigned to Dana (10/28/25)" />
-                    </ListItem>
-                    <ListItem disableGutters>
-                      <ListItemText primary="Speaker cable damage — pending review (10/26/25)" />
-                    </ListItem>
-                    <ListItem disableGutters>
-                      <ListItemText primary="Projector bulb replacement — completed (10/25/25)" />
-                    </ListItem>
-                  </List>
+                  <Box
+                    component="table"
+                    sx={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: {
+                        xs: "0.75rem",
+                        sm: "0.8rem",
+                        md: "0.9rem",
+                      },
+                      "& th, & td": {
+                        textAlign: "left",
+                        padding: "6px 8px",
+                        borderBottom: `1px solid ${theme.palette.divider}`,
+                        whiteSpace: "normal",
+                        wordWrap: "break-word",
+                        overflowWrap: "break-word",
+                      },
+                      "& th": {
+                        bgcolor: alpha(theme.palette.primary.main, 0.05),
+                        fontWeight: 700,
+                      },
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        <th>Item</th>
+                        <th>Kit</th>
+                        <th>Status</th>
+                        <th>Reviewed On</th>
+                        <th>Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dashboardData?.followUps?.length > 0 ? (
+                        dashboardData.followUps.map((item: any) => (
+                          <tr key={item.itemId}>
+                            <td>{item.name}</td>
+                            <td>{item.kit ?? "N/A"}</td>
+                            <td>{item.status}</td>
+                            <td>
+                              {item.updatedAt
+                                ? new Date(item.updatedAt).toLocaleDateString()
+                                : "N/A"}
+                            </td>
+                            <td>{item.notes ?? ""}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} style={{ textAlign: "center" }}>
+                            No follow-ups
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+
+                  </Box>
                 </Paper>
               </Stack>
             </Grid>
@@ -336,8 +518,8 @@ export default function HomePage() {
             {/* Right side */}
             <Grid size={{ xs: 12, md: 4 }}>
               <Stack spacing={3}>
-                                {/* Add Inventory */}
-                                <Paper
+                {/* Add Inventory */}
+                <Paper
                   elevation={0}
                   sx={{
                     p: 3,
@@ -364,10 +546,10 @@ export default function HomePage() {
                 </Paper>
 
                 {/* Restart Process */}
-                <RestartProcess />
+                <RestartProcess teamId={teamId!} />
 
                 {/* Recent Notes */}
-                <Paper
+                {/* <Paper
                   elevation={0}
                   sx={{
                     p: 3,
@@ -389,7 +571,7 @@ export default function HomePage() {
                       <ListItemText primary="Micro USB Cable: Tested and verified (10/21/25)" />
                     </ListItem>
                   </List>
-                </Paper>
+                </Paper> */}
 
                 {/* Team Activity (from API) */}
                 <Paper
@@ -482,12 +664,6 @@ export default function HomePage() {
       <Profile
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
-        profileImage={profileImage}
-        onProfileImageChange={handleProfileImageChange}
-        name={name}
-        email={email}
-        team={team}
-        permissions={permissions}
       />
 
       <Box sx={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
