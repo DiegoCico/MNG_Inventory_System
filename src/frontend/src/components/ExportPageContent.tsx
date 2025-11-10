@@ -11,11 +11,8 @@ import {
 import { useParams } from "react-router-dom";
 import PrintIcon from "@mui/icons-material/Print";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import TopBar from "../components/TopBar";
-import CircularProgressBar from "../components/CircularProgressBar";
-import NavBar from "../components/NavBar";
-import ExportPreview from "../components/ExportPreview";
-import Profile from "../components/Profile";
+import CircularProgressBar from "./CircularProgressBar";
+import ExportPreview from "./ExportPreview";
 import { getInventoryForm } from "../api/api";
 
 export default function ExportPageContent() {
@@ -23,8 +20,6 @@ export default function ExportPageContent() {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   // Local state for fetched PDF
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -33,20 +28,7 @@ export default function ExportPageContent() {
   const completion = 80;
   const cardBorder = `1px solid ${theme.palette.divider}`;
   const team = "MNG INVENTORY";
-  const name = "Ben Tran";
-  const email = "tran.b@northeastern.edu";
-  const permissions = "Admin";
-  const nsn = "2404"; // 👈 replace or make dynamic later
 
-  const handleProfileImageChange = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target && typeof e.target.result === "string") {
-        setProfileImage(e.target.result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
 
   const handlePrint = () => window.print();
 
@@ -58,9 +40,13 @@ export default function ExportPageContent() {
       } else {
         alert("PDF not found or could not be retrieved.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching inventory form:", err);
-      alert(err.message || "Failed to fetch PDF.");
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert("Failed to fetch PDF.");
+      }
     }
   };
 
@@ -73,9 +59,13 @@ export default function ExportPageContent() {
       } else {
         alert("PDF not found.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching preview:", err);
-      alert(err.message || "Failed to open preview.");
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert("Failed to open preview.");
+      }
     }
   };
 

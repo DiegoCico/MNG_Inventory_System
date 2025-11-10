@@ -12,7 +12,7 @@ import {
 import { useParams } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import NavBar from "../components/NavBar";
-import ExportPageContent from "./ExportPageContent";
+import ExportPageContent from "../components/ExportPageContent";
 
 export default function ExportPage() {
   const { teamId } = useParams<{ teamId: string }>();
