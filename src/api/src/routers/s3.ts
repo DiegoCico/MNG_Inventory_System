@@ -331,6 +331,37 @@ export const s3Router = router({
         prefix: basePrefix,
       };
     }),
+
+  getInventoryForm: protectedProcedure
+    .input(
+      z.object({
+        teamId: z.string().optional(),
+        nsn: z.string().min(1, "NSN is required"),
+      })
+    )
+    .query(async (opts) => {
+      const { input, ctx } = opts as ProcArgs<{ teamId?: string; nsn: string }>;
+      const BUCKET = requireBucket();
+
+      // Derive teamId from context or override if provided
+      const teamId = input.teamId ?? getTeamId(ctx);
+
+      // S3 key: Documents/:teamId/inventoryForm/:nsn.pdf
+      const Key = `Documents/${teamId}/inventoryForm/${input.nsn}.pdf`;
+
+      // Check existence first
+      const exists = await headObjectExists(BUCKET, Key);
+      if (!exists) throw new Error(`Inventory form for NSN ${input.nsn} not found`);
+
+      // Generate a presigned URL for GET (download/view)
+      const url = await getSignedUrl(
+        s3 as unknown as any,
+        new HeadObjectCommand({ Bucket: BUCKET, Key }),
+        { expiresIn: 600 } // 10 min
+      );
+
+      return { url, key: Key };
+    }),
 });
 
 export type S3Router = typeof s3Router;
