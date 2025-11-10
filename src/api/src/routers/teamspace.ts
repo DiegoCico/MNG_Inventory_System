@@ -8,8 +8,10 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import crypto from "crypto";
 import { doc } from "../aws";
+import { loadConfig } from "../process";
 
-const TABLE_NAME = process.env.DDB_TABLE_NAME || "mng-dev-data";
+const config = loadConfig();
+const TABLE_NAME = config.TABLE_NAME;
 
 function newId(n = 10): string {
   return crypto
@@ -34,7 +36,6 @@ async function hasPermission(
     const member = res.Item as { role?: string } | undefined;
     if (!member) return false;
 
-    // ✅ Fast-path for owner
     if (member.role?.toLowerCase() === "owner") return true;
 
     const roleRes = await doc.send(

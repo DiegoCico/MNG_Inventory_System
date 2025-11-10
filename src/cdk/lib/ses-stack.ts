@@ -6,14 +6,15 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as sns from "aws-cdk-lib/aws-sns";
 
 export interface SesStackProps extends cdk.StackProps {
-  /** Root domain for prod/staging identities */
-  rootDomain: string;
+  /** Root domain for prod/staging identities (optional for dev) */
+  rootDomain?: string;
   /** Local part if using domain identity (default: noreply) */
   fromLocalPart?: string;
   /** Create SNS feedback topic (default: true) */
   createFeedbackTopic?: boolean;
   /** Deployment stage name (dev | staging | prod ...) */
   stage?: string;
+  /** Specific verified email address to use in dev/test */
   emailFrom?: string;
 }
 
@@ -30,34 +31,47 @@ export class SesStack extends cdk.Stack {
       fromLocalPart = "noreply",
       createFeedbackTopic = true,
       stage = "dev",
-      emailFrom = "cicotoste.d@northeastern.edu",    
+      emailFrom = "cicotoste.d@northeastern.edu",
     } = props;
 
-    //  determine identity type 
     let identity: ses.EmailIdentity;
     let fromAddress: string;
 
-    if (stage === "dev") {
-      // simple verified-email identity (no Route53 required)
-      fromAddress = emailFrom ;
-      identity = new ses.EmailIdentity(this, "EmailIdentityDev", {
-        identity: ses.Identity.email(fromAddress),
-      });
+    // Determine whether to use email or domain identity
+    const isDevStage =
+      !rootDomain ||
+      rootDomain.trim() === "" ||
+      stage.toLowerCase().includes("dev") ||
+      stage.toLowerCase().includes("local") ||
+      stage.toLowerCase().includes("beta") ||
+      stage.toLowerCase().includes("test");
+
+    if (isDevStage) {
+      // Use existing verified email identity (avoid duplicates)
+      fromAddress = emailFrom;
+      const existingIdentityArn = `arn:aws:ses:${this.region}:${this.account}:identity/${fromAddress}`;
+
+      // Create a fake EmailIdentity object for output compatibility
+      identity = {
+        emailIdentityArn: existingIdentityArn,
+      } as unknown as ses.EmailIdentity;
     } else {
-      // domain identity for non-dev environments
+      // Domain-based identity for prod/staging environments
       const zone = route53.HostedZone.fromLookup(this, "HostedZone", {
-        domainName: rootDomain,
+        domainName: rootDomain!,
       });
+
       identity = new ses.EmailIdentity(this, "DomainIdentity", {
         identity: ses.Identity.publicHostedZone(zone),
         mailFromDomain: `mail.${rootDomain}`,
       });
+
       fromAddress = `${fromLocalPart}@${rootDomain}`;
     }
 
     this.fromAddress = fromAddress;
 
-    //  configuration set 
+    // Configuration Set for metrics and event tracking
     const cfgName = `cfg-${cdk.Stack.of(this).stackName}`;
     const cfg = new ses.CfnConfigurationSet(this, "ConfigSet", {
       name: cfgName,
@@ -68,8 +82,7 @@ export class SesStack extends cdk.Stack {
     });
     this.configurationSetName = cfg.name!;
 
-    //  optional SNS feedback topic
-    let feedbackTopicArn: string | undefined;
+    // Optional SNS topic for bounce/complaint notifications
     if (createFeedbackTopic) {
       const feedbackTopic = new sns.Topic(this, "SesFeedbackTopic", {
         displayName: `SES Feedback (${stage})`,
@@ -92,7 +105,7 @@ export class SesStack extends cdk.Stack {
       new ses.CfnConfigurationSetEventDestination(this, "CfgSetEvents", {
         configurationSetName: cfgName,
         eventDestination: {
-          name: "sns-destination",
+          name: `sns-destination-${stage.toLocaleLowerCase()}`,
           enabled: true,
           matchingEventTypes: [
             "SEND",
@@ -108,11 +121,11 @@ export class SesStack extends cdk.Stack {
         },
       });
 
-      feedbackTopicArn = feedbackTopic.topicArn;
-      this.feedbackTopicArn = feedbackTopicArn;
+
+      this.feedbackTopicArn = feedbackTopic.topicArn;
     }
 
-    //  managed policy for Lambda/API to send mail 
+    // Managed policy for Lambda/API SES send permissions
     const sendPolicy = new iam.ManagedPolicy(this, "SesSendPolicy", {
       description:
         "Allow sending via SES from the configured address & configuration set.",
@@ -130,17 +143,22 @@ export class SesStack extends cdk.Stack {
       ],
     });
 
-    //  outputs 
+    // CloudFormation Outputs
     new cdk.CfnOutput(this, "Stage", { value: stage });
     new cdk.CfnOutput(this, "FromAddress", { value: this.fromAddress });
     new cdk.CfnOutput(this, "IdentityArn", { value: identity.emailIdentityArn });
     new cdk.CfnOutput(this, "ConfigSetName", { value: this.configurationSetName });
-    if (feedbackTopicArn) {
-      new cdk.CfnOutput(this, "FeedbackTopicArn", { value: feedbackTopicArn });
+
+    if (this.feedbackTopicArn) {
+      new cdk.CfnOutput(this, "FeedbackTopicArn", {
+        value: this.feedbackTopicArn,
+      });
     }
+
+    // ✅ Make export name unique per stage to avoid collisions
     new cdk.CfnOutput(this, "SesSendPolicyArn", {
       value: sendPolicy.managedPolicyArn,
-      exportName: "SesSendPolicyArn",
+      exportName: `SesSendPolicyArn-${stage}`,
     });
   }
 }

@@ -38,6 +38,7 @@ import {
   deleteTeamspace,
 } from "../api/teamspace";
 import { me, inviteUser } from "../api/auth";
+import TopBar from "../components/TopBar";
 
 export interface Team {
   teamId: string;
@@ -54,6 +55,9 @@ export default function TeamsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [inviteMode, setInviteMode] = useState<"teamspace" | "platform">("teamspace");
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   // Dialogs
   const [openCreate, setOpenCreate] = useState(false);
@@ -265,24 +269,11 @@ function openDeleteFor(id: string, name: string): void {
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default }}>
       {/* Top Bar */}
-      <AppBar
-        position="sticky"
-        elevation={0}
-        sx={{
-          bgcolor: theme.palette.primary.main,
-          color: theme.palette.primary.contrastText,
-          borderBottom: `1px solid ${theme.palette.divider}`,
-        }}
-      >
-        <Toolbar sx={{ minHeight: { xs: 56, sm: 60 } }}>
-          <Stack direction="row" spacing={1.2} alignItems="center" sx={{ flexGrow: 1 }}>
-            <MilitaryTechIcon />
-            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.5 }}>
-              SupplyNet
-            </Typography>
-          </Stack>
-        </Toolbar>
-      </AppBar>
+      <TopBar
+        isLoggedIn={true}
+        profileImage={profileImage}
+        onProfileClick={() => setProfileOpen(true)}
+      />
 
       {/* Main */}
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
@@ -366,12 +357,8 @@ function openDeleteFor(id: string, name: string): void {
           <Grid container spacing={2.5} justifyContent="flex-start">
             {filteredTeams.map((team) => (
               <Grid
-                item
-                xs={12}
-                sm={6}
-                md={4}
-                lg={3}
                 key={team.teamId}
+                size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
                 sx={{ display: "flex", justifyContent: "center" }}
               >
                 <TeamIcon
@@ -472,7 +459,7 @@ function openDeleteFor(id: string, name: string): void {
                 </Select>
               </FormControl>
 
-              {inviteWorkspaceId && (
+              {/* {inviteWorkspaceId && (
                 <Typography
                   variant="body2"
                   sx={{
@@ -484,7 +471,7 @@ function openDeleteFor(id: string, name: string): void {
                 >
                   {teams.find((t) => t.teamId === inviteWorkspaceId)?.GSI_NAME}
                 </Typography>
-              )}
+              )} */}
 
               <TextField
                 fullWidth

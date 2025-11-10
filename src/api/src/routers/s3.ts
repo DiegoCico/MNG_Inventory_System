@@ -1,227 +1,45 @@
-// File: src/api/src/routers/s3.ts
-// s3 router (images folded in). Private-by-default uploads, presigned access.
-// Uses Zod + tRPC, AWS SDK v3. Keys are stable for DB joins.
-
 import { z } from "zod";
-import { router, protectedProcedure, publicProcedure } from "./trpc";
+import { router, publicProcedure } from "./trpc";
 import {
   S3Client,
   PutObjectCommand,
-  DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
-  ListObjectsV2Command,
+  PutObjectCommandInput,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { randomUUID } from "crypto";
+import { loadConfig } from "../process";
 
-/**
- * ---------------------------------------------------------------------------
- * S3 Router — Unified Image and File Upload Service
- * ---------------------------------------------------------------------------
- * Endpoints
- *   • `s3health` — ping
- *   • `uploadImage` — upload from data URL; server derives teamId and uses serialNumber as filename
- *   • `getSignedUrl` — presigned HEAD URL
- *   • `deleteObject` — delete by key (+ optional DB cleanup)
- *   • `listImages` — list objects under team/scope/item prefix (teamId derived server-side)
- * Behavior
- *   • Objects private by default; presign to access.
- *   • In tests, a dummy bucket is used.
- * ---------------------------------------------------------------------------
- */
+const config = loadConfig();
+const REGION = config.REGION;
+const BUCKET_NAME = config.BUCKET_NAME;
+const KMS_KEY_ARN = config.KMS_KEY_ARN;
 
-/* ------------------------- Local Context Typing ------------------------- */
-
-type ImageRepo = {
-  save?: (row: {
-    id?: string;
-    teamId: string;
-    scope: "item" | "team" | "report";
-    itemId?: string;
-    serialNumber?: string;
-    key: string;
-    contentType: string;
-    alt?: string;
-    bytes: number;
-    createdAt: string;
-  }) => Promise<any>;
-  removeByKey?: (key: string) => Promise<any>;
-};
-
-type AppLogger = { warn?: (meta: any, msg?: string) => void };
-
-// Your app likely provides teamId on the context via session/auth.
-// We support several common locations; customize if needed.
-type S3Ctx = {
-  repos?: { images?: ImageRepo };
-  logger?: AppLogger;
-  teamId?: string;
-  user?: { teamId?: string };
-  session?: { teamId?: string };
-  auth?: { teamId?: string };
-};
-type ProcArgs<T> = { input: T; ctx: S3Ctx };
-
-/* ------------------------- Env / Client ------------------------- */
-
-const REGION = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? "us-east-1";
 const s3 = new S3Client({ region: REGION });
 
-function requireBucket(): string {
-  const bucket =
-    process.env.S3_BUCKET ||
-    (process.env.NODE_ENV === "test" ? "unit-test-bucket" : "");
-  if (!bucket) throw new Error("S3_BUCKET env var is required");
-  return bucket;
-}
+if (!BUCKET_NAME) throw new Error("❌ Missing S3_BUCKET_NAME");
+if (!KMS_KEY_ARN) console.warn("⚠️ No KMS key ARN provided — uploads not encrypted");
 
-/* ------------------------- Schemas ------------------------- */
-
-const Scope = z.enum(["item", "team", "report"]);
-
-// NOTE: teamId REMOVED (derived from ctx)
-// NOTE: filenameHint REMOVED (we use serialNumber as filename)
-export const UploadInput = z.object({
-  scope: Scope,
-  serialNumber: z.string().optional(),
-  itemId: z.string().optional(),
-  dataUrl: z.string().url().or(z.string().startsWith("data:")).describe("RFC2397 data URL"),
-  alt: z.string().max(200).optional(),
-});
-
-const GetUrlInput = z.object({
-  key: z.string().min(3),
-  expiresIn: z.number().int().positive().max(3600).default(600),
-});
-
-const DeleteInput = z.object({ key: z.string().min(3) });
-
-// NOTE: teamId REMOVED (derived from ctx)
-const ListInput = z.object({
-  scope: Scope,
-  serialNumber: z.string().optional(),
-  itemId: z.string().optional(),
-  limit: z.number().int().positive().max(1000).default(50),
-  cursor: z.string().optional(),
-});
-
-/* ------------------------- Utils ------------------------- */
-
-const MIME_TO_EXT: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/jpg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-  "image/heic": ".heic",
-  "image/heif": ".heif",
-};
-
-const isAllowedMime = (m: string) => Object.prototype.hasOwnProperty.call(MIME_TO_EXT, m);
-const extFromMime = (m: string) => MIME_TO_EXT[m] ?? "";
-
-const sanitizeFilename = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, "_");
-
-const decodeURIComponentSafe = (s: string) => {
-  try {
-    return decodeURIComponent(s);
-  } catch {
-    return s;
-  }
-};
-
-function parseDataUrl(dataUrl: string): { mime: string; buffer: Buffer } {
-  const raw = decodeURIComponentSafe(dataUrl);
-  const m = /^data:([^;,]+);base64,(.+)$/i.exec(raw);
-  if (!m) throw new Error("Invalid data URL (expected data:<mime>;base64,<data>)");
-  const mime = m[1].toLowerCase();
-  if (!isAllowedMime(mime)) throw new Error(`Unsupported mime: ${mime}`);
-  const buffer = Buffer.from(m[2].replace(/\s/g, "").replace(/ /g, "+"), "base64");
-  if (!buffer.byteLength) throw new Error("Empty image payload");
+function parseDataUrl(dataUrl: string) {
+  const match = /^data:([^;]+);base64,(.+)$/i.exec(dataUrl);
+  if (!match) throw new Error("Invalid data URL format");
+  const mime = match[1];
+  const buffer = Buffer.from(match[2], "base64");
   return { mime, buffer };
 }
 
-const datePath = () => {
-  const [y, m, d] = new Date().toISOString().slice(0, 10).split("-");
-  return `${y}/${m}/${d}`;
-};
-
-// Pull team id from context in a flexible way (customize as needed for your app)
-function getTeamId(ctx: S3Ctx): string {
-  const fromCtx =
-    ctx?.teamId ??
-    ctx?.session?.teamId ??
-    ctx?.user?.teamId ??
-    ctx?.auth?.teamId;
-
-  // Allow tests to run without wiring a full auth context.
-  const fallbackForTests =
-    process.env.NODE_ENV === "test"
-      ? (process.env.TEST_TEAM_ID ?? "alpha")
-      : undefined;
-
-  const teamId = fromCtx ?? fallbackForTests;
-
-  if (!teamId) throw new Error("Missing teamId in server context");
-  return sanitizeFilename(teamId);
-}
-
-// Build the prefix using explicit teamId
-function prefixFor(teamId: string, args: Pick<z.infer<typeof UploadInput>, "scope" | "itemId" | "serialNumber">): string {
-  const parts = ["teams", teamId, args.scope];
-  if (args.scope === "item") {
-    const itemPart = args.itemId
-      ? `item-${sanitizeFilename(args.itemId)}`
-      : args.serialNumber
-      ? `serial-${sanitizeFilename(args.serialNumber)}`
-      : "item-unknown";
-    parts.push("items", itemPart);
-  } else if (args.scope === "report") {
-    parts.push("reports");
-  }
-  return parts.join("/");
-}
-
-const stripExt = (name: string) => name.replace(/\.[a-z0-9]+$/i, "");
-
-// s3://<bucket>/teams/<teamId>/<scope>/.../YYYY/MM/DD/<uuid>_<hint>.<ext>
-// Hint selection: serialNumber (preferred) → itemId → "image"
-function buildKey(
-  teamId: string,
-  args: z.infer<typeof UploadInput>,
-  mime: string
-): string {
-  const id = randomUUID();
-  const baseHint = args.serialNumber ?? args.itemId ?? "image";
-  const hint = sanitizeFilename(stripExt(baseHint));
-  return `${prefixFor(teamId, args)}/${datePath()}/${id}_${hint}${extFromMime(mime)}`;
-}
-
-async function headObjectExists(bucket: string, key: string): Promise<boolean> {
-  try {
-    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/* ------------------------- Router ------------------------- */
-
 export const s3Router = router({
-  s3health: publicProcedure.query(() => ({ ok: true, scope: "s3" })),
-
-  // FRONTEND INPUT NOW: { scope, serialNumber?, itemId?, dataUrl, alt? }
-  // - teamId is derived from ctx
-  // - filename uses serialNumber (or itemId) automatically
-  uploadImage: publicProcedure
-    .input(UploadInput)
-    .mutation(async (opts) => {
-      const { input, ctx } = opts as ProcArgs<z.infer<typeof UploadInput>>;
-      const BUCKET = requireBucket();
-      const teamId = getTeamId(ctx);
-
+  uploadProfileImage: publicProcedure
+    .input(
+      z.object({
+        userId: z.string().min(3),
+        dataUrl: z.string().startsWith("data:"),
+      })
+    )
+    .mutation(async ({ input }) => {
       const { mime, buffer } = parseDataUrl(input.dataUrl);
-      const Key = buildKey(teamId, input, mime);
+      const ext = mime.split("/")[1] || "jpg";
+      const key = `Profile/${input.userId}.${ext}`;
 
       await s3.send(
         new PutObjectCommand({
@@ -274,6 +92,7 @@ export const s3Router = router({
       const exists = await headObjectExists(BUCKET, input.key);
       if (!exists) throw new Error("Object not found");
 
+      // Generate a presigned URL for GET (download/view)
       const url = await getSignedUrl(
         s3 as unknown as any,
         new HeadObjectCommand({ Bucket: BUCKET, Key: input.key }),
@@ -365,6 +184,3 @@ export const s3Router = router({
 });
 
 export type S3Router = typeof s3Router;
-
-/* ------------------------- Testable helpers ------------------------- */
-export const __testables = { parseDataUrl, buildKey, extFromMime, sanitizeFilename };

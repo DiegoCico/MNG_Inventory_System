@@ -41,7 +41,7 @@ export default function TeamIcon({
     setAnchorEl(e.currentTarget);
   };
   const handleClose = () => setAnchorEl(null);
-  const handleOpenTeam = () => navigate(`/teams/${id}`);
+  const handleOpenTeam = () => navigate(`/teams/home/${id}`);
 
   const blue = "#283996";
   const borderColor = alpha("#000", 0.08);

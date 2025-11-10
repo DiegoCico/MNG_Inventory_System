@@ -6,8 +6,10 @@ import {
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
 import crypto from "crypto";
+import { loadConfig } from "../process";
 
 // ===== AWS CONFIG =====
+const config = loadConfig();
 const AWS_REGION = "us-east-1";
 const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 const credentials = isLambda ? undefined : fromIni({ profile: "mng" });
@@ -20,7 +22,7 @@ const baseClient = new DynamoDBClient({
 
 export const dynamoClient = DynamoDBDocumentClient.from(baseClient);
 
-const USERS_TABLE = process.env.USERS_TABLE || "mng-dev-data";
+const USERS_TABLE = config.TABLE_NAME;
 
 // ===== HELPERS =====
 function newAccountId() {
