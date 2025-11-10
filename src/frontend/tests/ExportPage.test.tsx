@@ -28,7 +28,7 @@ describe("ExportPage", () => {
     expect(screen.getByRole("button", { name: /home/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /to review/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /reviewed/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /export/i })).toBeInTheDocument();
   });
 
   it("clicking Create Documents shows loading state", () => {
@@ -52,7 +52,7 @@ describe("ExportPage", () => {
 
     // Bottom nav buttons
     expect(screen.getByRole("button", { name: /home/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /export/i })).toBeInTheDocument();
   });
 
   it("does not crash during interaction", () => {
