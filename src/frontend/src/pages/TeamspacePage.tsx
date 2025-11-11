@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Box,
   Button,
@@ -18,6 +19,8 @@ import {
   Tabs,
   Tab,
   Grid,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import GroupAddIcon from "@mui/icons-material/GroupAdd";
@@ -45,16 +48,13 @@ export interface Team {
 
 export default function TeamsPage() {
   const theme = useTheme();
-  //const downSm = useMediaQuery(theme.breakpoints.down("sm"));
   const [teams, setTeams] = useState<Team[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [inviteMode, setInviteMode] = useState<"teamspace" | "platform">("teamspace");
-
   const [profileOpen, setProfileOpen] = useState(false);
-  //const [profileImage, setProfileImage] = useState<string | null>(null);
 
   // Dialogs
   const [openCreate, setOpenCreate] = useState(false);
@@ -73,6 +73,11 @@ export default function TeamsPage() {
   const [deleteWorkspaceId, setDeleteWorkspaceId] = useState("");
   const [deleteWorkspaceName, setDeleteWorkspaceName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
+
+  // Notifications
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [emailError, setEmailError] = useState(false);
+  const [emailErrorText, setEmailErrorText] = useState("");
 
   // Fetch user ID
   async function getUserId(): Promise<string> {
@@ -103,85 +108,75 @@ export default function TeamsPage() {
   }, []);
 
   function openRemoveFor(id: string, name: string): void {
-  setRemoveWorkspaceId(id);
-  setRemoveWorkspaceName(name);
-  setOpenRemove(true);
-}
+    setRemoveWorkspaceId(id);
+    setRemoveWorkspaceName(name);
+    setOpenRemove(true);
+  }
 
-function openDeleteFor(id: string, name: string): void {
-  setDeleteWorkspaceId(id);
-  setDeleteWorkspaceName(name);
-  setOpenDelete(true);
-}
+  function openDeleteFor(id: string, name: string): void {
+    setDeleteWorkspaceId(id);
+    setDeleteWorkspaceName(name);
+    setOpenDelete(true);
+  }
 
-
-  // ---------------------------
   // CREATE TEAM
-  // ---------------------------
   async function handleCreate(): Promise<void> {
     try {
       setLoading(true);
       const userId = await getUserId();
-      console.log("🎯 Creating teamspace:", {
-        userId,
-        name: workspaceName,
-        description: workspaceDesc,
-      });
-
       const result = await createTeamspace(workspaceName, workspaceDesc, userId);
 
       if (!result?.success) {
-        // alert(`❌ ${result.error || "Failed to create team."}`);
+        setSnackbar({ open: true, message: result.error || "Failed to create team.", severity: "error" });
         return;
       }
 
-      // alert("✅ Teamspace created successfully!");
+      setSnackbar({ open: true, message: "✅ Teamspace created successfully!", severity: "success" });
       setOpenCreate(false);
       setWorkspaceName("");
       setWorkspaceDesc("");
       await refreshTeams();
     } catch (err) {
       console.error("❌ handleCreate error:", err);
-      // alert(err instanceof Error ? err.message : String(err));
+      setSnackbar({ open: true, message: "Error creating team.", severity: "error" });
     } finally {
       setLoading(false);
     }
   }
 
-  // ---------------------------
-  // INVITE MEMBER TO TEAM
-  // ---------------------------
+  // INVITE MEMBER
   async function handleInvite(): Promise<void> {
     try {
-      if (!inviteWorkspaceId) {
-        // alert("Please select a team first.");
-        return;
-      }
-      setLoading(true);
+      setEmailError(false);
+      setEmailErrorText("");
+      if (!inviteWorkspaceId) return;
+
       const userId = await getUserId();
       const result = await addUserTeamspace(userId, memberEmail, inviteWorkspaceId);
 
       if (!result?.success) {
-        // alert(`❌ ${result.error || "Failed to add member."}`);
+        if (result?.error?.includes("not found")) {
+          setEmailError(true);
+          setEmailErrorText("Email is not valid or not found");
+        }
+        setSnackbar({ open: true, message: result?.error || "Failed to add member.", severity: "error" });
         return;
       }
 
-      // alert("✅ Member added successfully.");
+      setSnackbar({ open: true, message: `✅ Invited ${memberEmail} successfully`, severity: "success" });
       setOpenInvite(false);
       setInviteWorkspaceId("");
       setMemberEmail("");
       await refreshTeams();
     } catch (err) {
       console.error("❌ handleInvite error:", err);
-      // alert(err instanceof Error ? err.message : String(err));
+      setSnackbar({ open: true, message: "Unexpected error adding member.", severity: "error" });
     } finally {
       setLoading(false);
     }
   }
 
-  // ---------------------------
   // REMOVE MEMBER
-  // ---------------------------
   async function handleRemove(): Promise<void> {
     try {
       setLoading(true);
@@ -189,11 +184,11 @@ function openDeleteFor(id: string, name: string): void {
       const result = await removeUserTeamspace(userId, removeMemberEmail, removeWorkspaceId);
 
       if (!result?.success) {
-        // alert(`❌ ${result.error || "Failed to remove member."}`);
+        setSnackbar({ open: true, message: result?.error || "Failed to remove member.", severity: "error" });
         return;
       }
 
-      // alert("✅ Member removed successfully.");
+      setSnackbar({ open: true, message: "✅ Member removed successfully.", severity: "success" });
       setOpenRemove(false);
       setRemoveWorkspaceId("");
       setRemoveWorkspaceName("");
@@ -201,15 +196,13 @@ function openDeleteFor(id: string, name: string): void {
       await refreshTeams();
     } catch (err) {
       console.error("❌ handleRemove error:", err);
-      // alert(err instanceof Error ? err.message : String(err));
+      setSnackbar({ open: true, message: "Error removing member.", severity: "error" });
     } finally {
       setLoading(false);
     }
   }
 
-  // ---------------------------
   // DELETE TEAMSPACE
-  // ---------------------------
   async function handleDelete(): Promise<void> {
     try {
       setLoading(true);
@@ -217,42 +210,40 @@ function openDeleteFor(id: string, name: string): void {
       const result = await deleteTeamspace(deleteWorkspaceId, userId);
 
       if (!result?.success) {
-        // alert(`❌ ${result.error || "Failed to delete team."}`);
+        setSnackbar({ open: true, message: result?.error || "Failed to delete team.", severity: "error" });
         return;
       }
 
-      // alert("✅ Teamspace deleted successfully.");
+      setSnackbar({ open: true, message: "✅ Teamspace deleted successfully.", severity: "success" });
       setOpenDelete(false);
       setDeleteWorkspaceId("");
       setDeleteWorkspaceName("");
       await refreshTeams();
     } catch (err) {
-      // console.error("❌ handleDelete error:", err);
-      // alert(err instanceof Error ? err.message : String(err));
+      console.error("❌ handleDelete error:", err);
+      setSnackbar({ open: true, message: "Error deleting team.", severity: "error" });
     } finally {
       setLoading(false);
     }
   }
 
-  // ---------------------------
   // INVITE PLATFORM USER
-  // ---------------------------
   async function handlePlatformInvite() {
     try {
       const email = inviteEmail.trim();
-      if (!email) return alert("Please enter an email.");
+      if (!email) {
+        setSnackbar({ open: true, message: "Please enter a valid email.", severity: "error" });
+        return;
+      }
       const result = await inviteUser(email);
+      setSnackbar({ open: true, message: `✅ Invite sent to ${email}`, severity: "success" });
       console.log("✅ Invite success:", result);
-      // alert(`✅ Invite sent to ${email}`);
     } catch (err) {
-      // console.error("❌ Invite failed:", err);
-      // alert(err instanceof Error ? err.message : "Failed to send invite.");
+      console.error("❌ Invite failed:", err);
+      setSnackbar({ open: true, message: "Failed to send invite.", severity: "error" });
     }
   }
 
-  // ---------------------------
-  // UI
-  // ---------------------------
   const filteredTeams = teams.filter((t) =>
     t.GSI_NAME.toLowerCase().includes(search.toLowerCase())
   );
@@ -266,156 +257,66 @@ function openDeleteFor(id: string, name: string): void {
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default }}>
-      {/* Top Bar */}
-      <TopBar
-        isLoggedIn={true}
-        onProfileClick={() => setProfileOpen(true)}
-      />
+      <TopBar isLoggedIn={true} onProfileClick={() => setProfileOpen(true)} />
+      <Profile open={profileOpen} onClose={() => setProfileOpen(false)} />
 
-      {/* Profile */}
-      <Profile
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-      />
-
-      {/* Main */}
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
-        {/* Header */}
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
-          gap={2}
-          mb={2.5}
-        >
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: 900, color: theme.palette.text.primary }}
-          >
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={2} mb={2.5}>
+          <Typography variant="h4" sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
             Teamspaces
           </Typography>
-
           <Stack direction="row" spacing={1}>
-            <Button
-              variant="contained"
-              color="warning"
-              onClick={() => setOpenCreate(true)}
-              startIcon={<AddIcon />}
-              sx={{ fontWeight: 900, textTransform: "none" }}
-            >
+            <Button variant="contained" color="warning" onClick={() => setOpenCreate(true)} startIcon={<AddIcon />} sx={{ fontWeight: 900, textTransform: "none" }}>
               Create Team
             </Button>
-            <Button
-              variant="contained"
-              color="warning"
-              onClick={() => setOpenInvite(true)}
-              startIcon={<GroupAddIcon />}
-              sx={{ fontWeight: 900, textTransform: "none" }}
-            >
+            <Button variant="contained" color="warning" onClick={() => setOpenInvite(true)} startIcon={<GroupAddIcon />} sx={{ fontWeight: 900, textTransform: "none" }}>
               Invite Member
             </Button>
           </Stack>
         </Stack>
 
-        {/* Search */}
-        <Stack
-          direction="row"
-          sx={{
-            mb: 3,
-            bgcolor: theme.palette.background.paper,
-            p: 2,
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-          }}
-        >
-          <TextField
-            label="Search Teams"
-            fullWidth
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <Stack direction="row" sx={{ mb: 3, bgcolor: theme.palette.background.paper, p: 2, borderRadius: 2, border: `1px solid ${theme.palette.divider}` }}>
+          <TextField label="Search Teams" fullWidth value={search} onChange={(e) => setSearch(e.target.value)} />
         </Stack>
 
         <Divider sx={{ mb: 3 }} />
 
-        {/* Loading */}
         {loading && (
           <Box textAlign="center" mt={6}>
             <CircularProgress />
-            <Typography sx={{ mt: 2, color: theme.palette.text.secondary }}>
-              Loading your teams...
-            </Typography>
+            <Typography sx={{ mt: 2, color: theme.palette.text.secondary }}>Loading your teams...</Typography>
           </Box>
         )}
 
-        {/* Error */}
         {!loading && error && (
           <Box textAlign="center" mt={6}>
             <Typography color="error">{error}</Typography>
           </Box>
         )}
 
-        {/* Teams */}
         {!loading && !error && filteredTeams.length > 0 && (
-          <Grid
-            container
-            spacing={{ xs: 2, sm: 2.5, md: 3 }}
-            justifyContent="flex-start"
-            sx={{
-              px: { xs: 1.5, sm: 2, md: 3 }, // inner padding to match header margins
-            }}
-          >
+          <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} justifyContent="flex-start" sx={{ px: { xs: 1.5, sm: 2, md: 3 } }}>
             {filteredTeams.map((team) => (
-              <Grid
-                key={team.teamId}
-                size = {{xs: 6, sm: 4, md: 3, lg: 2.4}}
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                }}
-              >
-
-                <Box
-                  sx={{
-                    width: "100%",
-                    //mb: { xs: 2, sm: 2.5, md: 3 }, // matches container spacing
-                  }}
-                >
-                <Box
-                  sx={{
-                    width: "100%",
-                    aspectRatio: "1 / 1", // keeps all cards square
-                    display: "flex",
-                    alignItems: "stretch",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: "100%",
-                      height: "100%",
-                      //maxWidth: 250, // prevents cards from stretching too large
-                      //flexShrink: 0,
-                    }}
-                  >
-                    <TeamIcon
-                      id={team.teamId}
-                      name={team.GSI_NAME}
-                      description={team.description}
-                      onInvite={() => setOpenInvite(true)}
-                      onRemove={() => openRemoveFor(team.teamId, team.GSI_NAME)}
-                      onDelete={() => openDeleteFor(team.teamId, team.GSI_NAME)}
-                    />
+              <Grid key={team.teamId} size={{ xs: 6, sm: 4, md: 3, lg: 2.4 }} sx={{ display: "flex", justifyContent: "center" }}>
+                <Box sx={{ width: "100%" }}>
+                  <Box sx={{ width: "100%", aspectRatio: "1 / 1", display: "flex", alignItems: "stretch", justifyContent: "center" }}>
+                    <Box sx={{ width: "100%", height: "100%" }}>
+                      <TeamIcon
+                        id={team.teamId}
+                        name={team.GSI_NAME}
+                        description={team.description}
+                        onInvite={() => setOpenInvite(true)}
+                        onRemove={() => openRemoveFor(team.teamId, team.GSI_NAME)}
+                        onDelete={() => openDeleteFor(team.teamId, team.GSI_NAME)}
+                      />
+                    </Box>
                   </Box>
-                </Box>
                 </Box>
               </Grid>
             ))}
           </Grid>
-
         )}
 
-        {/* Empty */}
         {!loading && !error && filteredTeams.length === 0 && (
           <Box textAlign="center" mt={6}>
             <Typography>No teams found</Typography>
@@ -423,65 +324,32 @@ function openDeleteFor(id: string, name: string): void {
         )}
       </Container>
 
-      {/* Dialogs */}
-      {/* CREATE */}
+      {/* CREATE DIALOG */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} fullWidth maxWidth="xs">
         <DialogTitle>Create New Teamspace</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <TextField
-            fullWidth
-            label="Teamspace Name"
-            value={workspaceName}
-            onChange={(e) => setWorkspaceName(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Description"
-            value={workspaceDesc}
-            onChange={(e) => setWorkspaceDesc(e.target.value)}
-          />
+          <TextField fullWidth label="Teamspace Name" value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} sx={{ mb: 2 }} />
+          <TextField fullWidth label="Description" value={workspaceDesc} onChange={(e) => setWorkspaceDesc(e.target.value)} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenCreate(false)}>Cancel</Button>
-          <Button onClick={handleCreate} variant="contained" color="primary">
-            Create
-          </Button>
+          <Button onClick={handleCreate} variant="contained" color="primary">Create</Button>
         </DialogActions>
       </Dialog>
 
-      {/* INVITE */}
+      {/* INVITE DIALOG */}
       <Dialog open={openInvite} onClose={() => setOpenInvite(false)} fullWidth maxWidth="xs">
         <DialogTitle>Invite Member</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
-            <Tabs
-              value={inviteMode}
-              onChange={(_, v) => setInviteMode(v)}
-              textColor="inherit"
-              indicatorColor="warning"
-              centered
-            >
-              <Tab
-                label="Add to Teamspace"
-                value="teamspace"
-                sx={{ fontWeight: 700, textTransform: "none" }}
-              />
-              <Tab
-                label="Invite to Platform"
-                value="platform"
-                sx={{ fontWeight: 700, textTransform: "none" }}
-              />
+            <Tabs value={inviteMode} onChange={(_, v) => setInviteMode(v)} textColor="inherit" indicatorColor="warning" centered>
+              <Tab label="Add to Teamspace" value="teamspace" sx={{ fontWeight: 700, textTransform: "none" }} />
+              <Tab label="Invite to Platform" value="platform" sx={{ fontWeight: 700, textTransform: "none" }} />
             </Tabs>
           </Box>
 
           {inviteMode === "platform" ? (
-            <TextField
-              fullWidth
-              label="User Email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-            />
+            <TextField fullWidth label="User Email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
           ) : (
             <>
               <FormControl fullWidth sx={{ mb: 2 }}>
@@ -500,25 +368,17 @@ function openDeleteFor(id: string, name: string): void {
                 </Select>
               </FormControl>
 
-              {/* {inviteWorkspaceId && (
-                <Typography
-                  variant="body2"
-                  sx={{
-                    mb: 2,
-                    color: "warning.main",
-                    fontWeight: 700,
-                    textAlign: "center",
-                  }}
-                >
-                  {teams.find((t) => t.teamId === inviteWorkspaceId)?.GSI_NAME}
-                </Typography>
-              )} */}
-
               <TextField
                 fullWidth
                 label="Member Email"
                 value={memberEmail}
-                onChange={(e) => setMemberEmail(e.target.value)}
+                onChange={(e) => {
+                  setMemberEmail(e.target.value);
+                  setEmailError(false);
+                  setEmailErrorText("");
+                }}
+                error={emailError}
+                helperText={emailErrorText}
               />
             </>
           )}
@@ -526,64 +386,53 @@ function openDeleteFor(id: string, name: string): void {
 
         <DialogActions>
           <Button onClick={() => setOpenInvite(false)}>Cancel</Button>
-          <Button
-            onClick={inviteMode === "platform" ? handlePlatformInvite : handleInvite}
-            variant="contained"
-            color="warning"
-          >
+          <Button onClick={inviteMode === "platform" ? handlePlatformInvite : handleInvite} variant="contained" color="warning">
             {inviteMode === "platform" ? "Invite" : "Add"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* REMOVE */}
+      {/* REMOVE DIALOG */}
       <Dialog open={openRemove} onClose={() => setOpenRemove(false)} fullWidth maxWidth="xs">
         <DialogTitle>Remove Member</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <Typography sx={{ mb: 1.5, fontWeight: 600 }}>
-            Workspace: {removeWorkspaceName}
-          </Typography>
-          <TextField
-            fullWidth
-            label="Member Email"
-            value={removeMemberEmail}
-            onChange={(e) => setRemoveMemberEmail(e.target.value)}
-          />
+          <Typography sx={{ mb: 1.5, fontWeight: 600 }}>Workspace: {removeWorkspaceName}</Typography>
+          <TextField fullWidth label="Member Email" value={removeMemberEmail} onChange={(e) => setRemoveMemberEmail(e.target.value)} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenRemove(false)}>Cancel</Button>
-          <Button
-            onClick={handleRemove}
-            variant="contained"
-            color="warning"
-            startIcon={<RemoveCircleOutlineIcon />}
-          >
+          <Button onClick={handleRemove} variant="contained" color="warning" startIcon={<RemoveCircleOutlineIcon />}>
             Remove
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* DELETE */}
+      {/* DELETE DIALOG */}
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)} fullWidth maxWidth="xs">
         <DialogTitle>Delete Teamspace</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Typography sx={{ mb: 2 }}>This action cannot be undone.</Typography>
-          <Typography sx={{ mb: 2, fontWeight: 600 }}>
-            Workspace: {deleteWorkspaceName}
-          </Typography>
+          <Typography sx={{ mb: 2, fontWeight: 600 }}>Workspace: {deleteWorkspaceName}</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDelete(false)}>Cancel</Button>
-          <Button
-            onClick={handleDelete}
-            variant="contained"
-            color="error"
-            startIcon={<DeleteIcon />}
-          >
+          <Button onClick={handleDelete} variant="contained" color="error" startIcon={<DeleteIcon />}>
             Delete
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* SNACKBAR */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity as "success" | "error"} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

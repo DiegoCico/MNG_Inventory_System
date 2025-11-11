@@ -46,7 +46,7 @@ export async function addUserTeamspace(
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, userEmail, teamspaceId }),
+    body: JSON.stringify({ userId, memberEmail: userEmail, inviteWorkspaceId: teamspaceId }),
   });
 
   if (!res.ok) throw new Error(`addUserTeamspace failed: ${res.status}`);

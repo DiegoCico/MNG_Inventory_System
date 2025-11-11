@@ -31,8 +31,9 @@ function newAccountId() {
 
 /**
  * ensureUserRecord
- * - Checks for an existing user by Cognito sub via GSI_UsersByUid (UID#<sub>)
- * - If missing, creates a new minimal user entry
+ * - Looks up a user by Cognito sub (via GSI_UsersByUid)
+ * - If not found, creates a proper record with real lowercase email
+ * - Ensures consistent email field for GSI_UsersByEmail
  * - Returns { sub, email, accountId }
  */
 export async function ensureUserRecord(user: { sub: string; email?: string }) {
@@ -40,21 +41,19 @@ export async function ensureUserRecord(user: { sub: string; email?: string }) {
   const pk = `USER#${uid}`;
   const sk = "METADATA";
 
-  // --- Check if user exists via GSI_UsersByUid ---
-  const queryResp = await dynamoClient.send(
+  // --- Check if user already exists via GSI_UsersByUid ---
+  const existing = await dynamoClient.send(
     new QueryCommand({
       TableName: USERS_TABLE,
       IndexName: "GSI_UsersByUid",
       KeyConditionExpression: "GSI6PK = :pk",
-      ExpressionAttributeValues: {
-        ":pk": `UID#${uid}`,
-      },
+      ExpressionAttributeValues: { ":pk": `UID#${uid}` },
       Limit: 1,
     })
   );
 
-  if (queryResp.Items && queryResp.Items.length > 0) {
-    const item = queryResp.Items[0];
+  if (existing.Items && existing.Items.length > 0) {
+    const item = existing.Items[0];
     return {
       sub: uid,
       email: item.email ?? user.email ?? `${uid}@example.com`,
@@ -62,29 +61,30 @@ export async function ensureUserRecord(user: { sub: string; email?: string }) {
     };
   }
 
-  // --- Ensure valid email format ---
-  let email = user.email;
+  // --- Normalize email ---
+  let email = user.email?.toLowerCase().trim();
   if (!email || !email.includes("@")) {
-    // fallback if Cognito didn’t return a real email
     email = `${uid}@example.com`;
     console.warn(`⚠️ User ${uid} has no valid email — using ${email}`);
   }
 
-  // --- Create new user record ---
-  const accountId = crypto.randomUUID();
-  const nowIso = new Date().toISOString();
+  // --- Create a new user record ---
+  const accountId = newAccountId();
+  const now = new Date().toISOString();
 
   const newUser = {
     PK: pk,
     SK: sk,
     Type: "User",
     sub: uid,
-    email,
     accountId,
-    createdAt: nowIso,
-    updatedAt: nowIso,
+    email, 
+    createdAt: now,
+    updatedAt: now,
+    // GSIs
     GSI6PK: `UID#${uid}`,
     GSI6SK: `USER#${uid}`,
+    GSI_NAME: email, // optional alias for lookup
   };
 
   await dynamoClient.send(
@@ -98,4 +98,3 @@ export async function ensureUserRecord(user: { sub: string; email?: string }) {
 
   return { sub: uid, email, accountId };
 }
-
