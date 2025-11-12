@@ -227,7 +227,7 @@ def s3_put_pdf(bucket: str, key: str, body: bytes):
         ACL="private"
     )
 
-# ====== Mapping (with N/A fallbacks) ======
+
 def to_pdf_values(payload):
     """
     Accepts either direct request fields OR a DDB-shaped dict.
@@ -256,7 +256,7 @@ def to_pdf_values(payload):
         elif isinstance(r_legacy, str):
             remarks_list = [s for s in r_legacy.splitlines() if s.strip()]
         else:
-            remarks_list = ["N/A"]  # <-- N/A when missing
+            remarks_list = ["N/A"] 
 
     return {
         "ORGANIZATION":       pick("organization", "ORGANIZATION"),
@@ -343,7 +343,7 @@ def lambda_handler(event, context):
     except Exception as e:
         return _resp(500, {"error": f"Template read failed: {e}"})
 
-    # build values (DDB or direct payload)
+    # build values 
     try:
         if pk:
             ddb_item = ddb_get(pk, sk)
