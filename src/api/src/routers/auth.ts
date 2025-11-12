@@ -377,11 +377,12 @@ export const authRouter = router({
 
 
   const email =
+    record?.email ||
     decoded.email ||
     decoded["email"] ||
     decoded["cognito:username"] ||
-    record?.email ||
-    `${userId}@example.com`;
+    (record?.GSI_NAME && record.GSI_NAME.includes("@") ? record.GSI_NAME : `${userId}@example.com`);
+
 
   return {
     authenticated: true,

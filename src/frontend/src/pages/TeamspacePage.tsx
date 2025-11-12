@@ -146,7 +146,7 @@ export default function TeamsPage() {
         return;
       }
 
-      setSnackbar({ open: true, message: "✅ Teamspace created successfully!", severity: "success" });
+      setSnackbar({ open: true, message: "Teamspace created successfully!", severity: "success" });
       setOpenCreate(false);
       setWorkspaceName("");
       setWorkspaceDesc("");

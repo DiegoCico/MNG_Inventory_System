@@ -29,14 +29,21 @@ export const profileRouter = router({
     try {
       const decoded = await verifier.verify(token);
       const userId = decoded.sub;
-      const email =
+
+      const decodedEmailRaw =
         decoded.email ||
+        decoded["email"] ||
         decoded["cognito:username"] ||
         `${userId}@example.com`;
 
+      const decodedEmail =
+        typeof decodedEmailRaw === "string"
+          ? decodedEmailRaw
+          : `${userId}@example.com`;
+
       console.log("🔹 [Profile] Fetching user:", userId);
 
-      // ---- GET USER RECORD (alias 'name') ----
+      // ---- GET USER RECORD ----
       const userRes = await doc.send(
         new GetCommand({
           TableName: TABLE_NAME,
@@ -49,22 +56,22 @@ export const profileRouter = router({
 
       let user = userRes.Item;
 
-      // ---- CREATE IF MISSING ----
+      // ---- CREATE RECORD IF MISSING ----
       if (!user) {
-        console.log("⚠️ No user record found, creating default...");
+        console.log("⚠️ No user record found, creating new one...");
         const now = new Date().toISOString();
 
-        const nameFromEmail =
-          typeof email === "string" && email.includes("@")
-            ? email.split("@")[0]
+        const defaultName =
+          typeof decodedEmail === "string" && decodedEmail.includes("@")
+            ? decodedEmail.split("@")[0]
             : "User";
 
         user = {
           PK: `USER#${userId}`,
           SK: "METADATA",
           sub: userId,
-          email,
-          name: nameFromEmail,
+          email: decodedEmail,
+          name: defaultName,
           role: "User",
           createdAt: now,
           updatedAt: now,
@@ -79,7 +86,25 @@ export const profileRouter = router({
           })
         );
 
-        console.log("✅ Created new user record:", email);
+        console.log("✅ Created new user record:", decodedEmail);
+      } else if (
+        (!user.email || user.email !== decodedEmail) &&
+        typeof decodedEmail === "string" &&
+        decodedEmail.includes("@")
+      ) {
+        await doc.send(
+          new UpdateCommand({
+            TableName: TABLE_NAME,
+            Key: { PK: `USER#${userId}`, SK: "METADATA" },
+            UpdateExpression: "SET email = :email, updatedAt = :u",
+            ExpressionAttributeValues: {
+              ":email": decodedEmail,
+              ":u": new Date().toISOString(),
+            },
+          })
+        );
+        user.email = decodedEmail;
+        console.log("🔄 Synced Dynamo email:", decodedEmail);
       }
 
       // ---- TEAM LOOKUP ----
@@ -101,6 +126,7 @@ export const profileRouter = router({
       console.log("📘 [Profile] Returning:", {
         name: user.name,
         role: user.role,
+        email: user.email,
         team: teamName,
       });
 
@@ -117,6 +143,7 @@ export const profileRouter = router({
       return { authenticated: false, message: "Invalid or expired session" };
     }
   }),
+
   updateProfile: publicProcedure
     .input(
       z.object({
@@ -129,7 +156,6 @@ export const profileRouter = router({
       try {
         console.log("🟡 [Profile] updateProfile input:", input);
 
-        // 1️⃣ Ensure user exists
         const existing = await doc.send(
           new GetCommand({
             TableName: TABLE_NAME,
@@ -162,7 +188,6 @@ export const profileRouter = router({
           );
         }
 
-        // Prepare update expression with aliases
         const updates: string[] = [];
         const values: Record<string, any> = {
           ":updatedAt": new Date().toISOString(),
@@ -185,7 +210,6 @@ export const profileRouter = router({
         updates.push("updatedAt = :updatedAt");
         const updateExpr = `SET ${updates.join(", ")}`;
 
-        //  Execute update
         await doc.send(
           new UpdateCommand({
             TableName: TABLE_NAME,

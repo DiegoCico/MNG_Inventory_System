@@ -1,9 +1,15 @@
-import { Stack, StackProps, CfnOutput, Duration, RemovalPolicy } from "aws-cdk-lib";
+import {
+  Stack,
+  StackProps,
+  CfnOutput,
+  Duration,
+  RemovalPolicy,
+} from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 
 export interface AuthStackProps extends StackProps {
-  stage: string;                       
+  stage: string;
   serviceName?: string;
   webOrigins: string[];
   callbackUrls?: string[];
@@ -25,7 +31,7 @@ export class AuthStack extends Stack {
     const stage = props.stage.toLowerCase();
     const mfaMode = props.mfaMode ?? "ON";
 
-    // derive callback/logout urls from webOrigins if not explicitly provided
+    // --- Callback and logout URLs ---
     const callbacks = props.callbackUrls?.length
       ? props.callbackUrls
       : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/callback`);
@@ -33,7 +39,7 @@ export class AuthStack extends Stack {
       ? props.logoutUrls
       : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/logout`);
 
-
+    // --- Email channel setup ---
     const verificationEmailChannel = props.sesVerifiedDomain
       ? cognito.UserPoolEmail.withSES({
           sesRegion: this.region,
@@ -43,13 +49,18 @@ export class AuthStack extends Stack {
         })
       : cognito.UserPoolEmail.withCognito();
 
-    // L2 user pool
+    // --- User Pool ---
     this.userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: `${service}-${stage}-users`,
       selfSignUpEnabled: false,
       signInAliases: { email: true },
       autoVerify: { email: true },
-      standardAttributes: { email: { required: true, mutable: false } },
+      standardAttributes: {
+        email: { required: true, mutable: false },
+      },
+      customAttributes: {
+        name: new cognito.StringAttribute({ mutable: true }),
+      },
       userVerification: {
         emailSubject: "Verify your email for MNG Inventory System",
         emailBody: "Hello, your verification code is {####}",
@@ -65,36 +76,29 @@ export class AuthStack extends Stack {
         requireSymbols: false,
         tempPasswordValidity: Duration.days(7),
       },
-      // accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       email: verificationEmailChannel,
-      removalPolicy: stage === "dev" ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
+      removalPolicy:
+        stage === "dev" ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
     });
 
-    // L1 overrides required for EMAIL_OTP
+    // --- L1 overrides for EMAIL_OTP ---
     const cfnPool = this.userPool.node.defaultChild as cognito.CfnUserPool;
-
-    // enable EMAIL_OTP
     cfnPool.enabledMfas = ["EMAIL_OTP"];
+    cfnPool.mfaConfiguration = mfaMode;
 
-    // enforce MFA policy at L1
-    cfnPool.mfaConfiguration = mfaMode; // "ON" or "OPTIONAL"
-
-    // EMAIL_OTP requires "DEVELOPER" with your SES identity
-    // Using "COGNITO" here will prevent EMAIL_OTP from sending.
     cfnPool.emailConfiguration = {
       emailSendingAccount: "DEVELOPER",
       from: props.sesFromAddress,
       sourceArn: props.sesIdentityArn,
-      // replyToEmailAddress?: "support@yourdomain.com",
     };
 
-    // Hosted UI domain (optional but handy)
+    // --- Hosted UI Domain (optional) ---
     const domainPrefix = `${service}-${stage}`.replace(/[^a-z0-9-]/g, "");
     const domain = this.userPool.addDomain("HostedUiDomain", {
       cognitoDomain: { domainPrefix },
     });
 
-    // Web client (no secret; SPA)
+    // --- Web Client ---
     this.webClient = new cognito.UserPoolClient(this, "WebClient", {
       userPool: this.userPool,
       userPoolClientName: `${service}-${stage}-web`,
@@ -106,18 +110,34 @@ export class AuthStack extends Stack {
         flows: { authorizationCodeGrant: true },
         callbackUrls: callbacks,
         logoutUrls: logouts,
-        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.PROFILE,
+        ],
       },
       accessTokenValidity: Duration.hours(1),
       idTokenValidity: Duration.hours(1),
       refreshTokenValidity: Duration.days(30),
-      supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.COGNITO,
+      ],
+
+      // ✅ Include email + name attributes in tokens (works with all CDK versions)
+      readAttributes: new cognito.ClientAttributes()
+        .withStandardAttributes({ email: true })
+        .withCustomAttributes("name"),
+      writeAttributes: new cognito.ClientAttributes()
+        .withStandardAttributes({ email: true })
+        .withCustomAttributes("name"),
     });
 
-    // outputs
+    // --- Outputs ---
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });
     new CfnOutput(this, "UserPoolArn", { value: this.userPool.userPoolArn });
-    new CfnOutput(this, "UserPoolClientId", { value: this.webClient.userPoolClientId });
+    new CfnOutput(this, "UserPoolClientId", {
+      value: this.webClient.userPoolClientId,
+    });
     new CfnOutput(this, "HostedUiDomain", { value: domain.domainName });
     new CfnOutput(this, "IssuerUrl", {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`,
