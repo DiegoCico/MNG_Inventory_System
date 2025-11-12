@@ -179,7 +179,7 @@ export const itemsRouter = router({
     .input(z.object({ teamId: z.string(), userId: z.string() }))
     .query(async ({ input }) => {
       try {
-        // Get the team metadata to extract the team name
+        // Fetch the team metadata for teamName
         const teamRes = await doc.send(
           new GetCommand({
             TableName: TABLE_NAME,
@@ -193,7 +193,7 @@ export const itemsRouter = router({
           teamRes.Item?.teamName ||
           "Unknown Team";
 
-        // Query all items under the same TEAM#
+        // Query all items under this team
         const result = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
@@ -205,11 +205,21 @@ export const itemsRouter = router({
           })
         );
 
-        // Attach presigned URLs and team name inside every item
+        const rawItems = result.Items ?? [];
+
+        // Build a map of itemId -> name for parent lookup
+        const itemNameMap: Record<string, string> = {};
+        for (const i of rawItems) {
+          if (i.itemId && i.name) itemNameMap[i.itemId] = i.name;
+        }
+
+        // Attach presigned URL, teamName, and parent info
         const items = await Promise.all(
-          (result.Items ?? []).map(async (raw: any) => {
+          rawItems.map(async (raw: any) => {
             const imageLink = await getPresignedUrlIfNeeded(raw.imageLink);
-            return { ...raw, imageLink, teamName };
+            const parentId = raw.parent || null;
+            const parentName = parentId ? itemNameMap[parentId] || "Unknown Parent" : null;
+            return { ...raw, imageLink, teamName, parent: parentId, parentName };
           })
         );
 
