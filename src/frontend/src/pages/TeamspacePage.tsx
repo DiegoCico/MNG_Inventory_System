@@ -288,7 +288,20 @@ export default function TeamsPage() {
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default }}>
       <TopBar isLoggedIn={true} onProfileClick={() => setProfileOpen(true)} />
-      <Profile open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <Profile
+        open={profileOpen}
+        onClose={async () => {
+          setProfileOpen(false);
+          const user = await me();
+          if (!user?.name || user.name.trim() === "" || user.name === "User") {
+            setShowNameDialog(true);  
+          } else {
+            setShowNameDialog(false);
+            refreshTeams();
+          }
+        }}
+      />
+
 
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} gap={2} mb={2.5}>
@@ -455,7 +468,7 @@ export default function TeamsPage() {
       {/* MISSING NAME DIALOG */}
     <Dialog
       open={showNameDialog}
-      onClose={() => setShowNameDialog(false)}
+      onClose={() => {}}
       fullWidth
       maxWidth="xs"
     >
@@ -473,8 +486,7 @@ export default function TeamsPage() {
       <DialogActions sx={{ justifyContent: "center", pb: 2 }}>
         <Button
           onClick={() => {
-            setShowNameDialog(false);
-            setProfileOpen(true);
+            setProfileOpen(true);  
           }}
           variant="contained"
           color="warning"
