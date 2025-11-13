@@ -20,6 +20,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { createItem, deleteItem, updateItem, uploadImage } from "../api/items";
 import { me } from "../api/auth";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
 
 async function getUserId(): Promise<string> {
   try {
@@ -43,6 +44,7 @@ export default function ActionPanel({
   setShowSuccess,
 }: any) {
   const navigate = useNavigate();
+  const theme = useTheme();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -60,7 +62,6 @@ export default function ActionPanel({
     }
   };
 
-  // your handleSave stays the same
   const handleSave = async (isQuickUpdate = false) => {
     try {
       const userId = await getUserId();
@@ -139,10 +140,20 @@ export default function ActionPanel({
           position: "sticky",
           top: 16,
           borderRadius: 3,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 2px 10px rgba(0,0,0,0.4)"
+              : "0 2px 8px rgba(0,0,0,0.05)",
+          bgcolor: theme.palette.background.paper,
         }}
       >
-        <CardHeader title="Actions" />
+        <CardHeader
+          title="Actions"
+          sx={{
+            color: theme.palette.text.primary,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
+        />
         <CardContent>
           <Stack spacing={1}>
             {(isEditMode || isCreateMode) && (
@@ -153,8 +164,8 @@ export default function ActionPanel({
                   startIcon={<SaveIcon />}
                   onClick={() => handleSave()}
                   sx={{
-                    bgcolor: "#2e7d32",
-                    "&:hover": { bgcolor: "#1b5e20" },
+                    bgcolor: theme.palette.success.main,
+                    "&:hover": { bgcolor: theme.palette.success.dark },
                     fontWeight: 600,
                   }}
                 >
@@ -167,9 +178,15 @@ export default function ActionPanel({
                     startIcon={<CancelIcon />}
                     onClick={() => setIsEditMode(false)}
                     sx={{
-                      color: "#ef6c00",
-                      borderColor: "#ef6c00",
-                      "&:hover": { bgcolor: "#fff3e0" },
+                      color: theme.palette.warning.main,
+                      borderColor: theme.palette.warning.main,
+                      "&:hover": {
+                        bgcolor:
+                          theme.palette.mode === "dark"
+                            ? "rgba(255, 152, 0, 0.1)"
+                            : "#fff3e0",
+                      },
+                      fontWeight: 600,
                     }}
                   >
                     Cancel
@@ -188,8 +205,8 @@ export default function ActionPanel({
                   onClick={() => handleSave(true)}
                   sx={{
                     fontWeight: 600,
-                    bgcolor: "#2e7d32",
-                    "&:hover": { bgcolor: "#1b5e20" },
+                    bgcolor: theme.palette.success.main,
+                    "&:hover": { bgcolor: theme.palette.success.dark },
                   }}
                 >
                   Save
@@ -202,8 +219,8 @@ export default function ActionPanel({
                   startIcon={<EditIcon />}
                   onClick={() => setIsEditMode(true)}
                   sx={{
-                    bgcolor: "#1565c0",
-                    "&:hover": { bgcolor: "#0d47a1" },
+                    bgcolor: theme.palette.primary.main,
+                    "&:hover": { bgcolor: theme.palette.primary.dark },
                     fontWeight: 600,
                   }}
                 >
@@ -217,9 +234,11 @@ export default function ActionPanel({
                   startIcon={<DeleteIcon />}
                   onClick={() => setDeleteOpen(true)}
                   sx={{
-                    bgcolor: "#d32f2f",
-                    "&:hover": { bgcolor: "#b71c1c" },
-                    color: "white",
+                    bgcolor: theme.palette.error.main,
+                    "&:hover": { bgcolor: theme.palette.error.dark },
+                    color: theme.palette.getContrastText(
+                      theme.palette.error.main
+                    ),
                     fontWeight: 600,
                   }}
                 >
@@ -231,7 +250,7 @@ export default function ActionPanel({
         </CardContent>
       </Card>
 
-      {/* 🧩 Custom Delete Confirmation Popup */}
+      {/* 🧩 Delete Confirmation Dialog */}
       <Dialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
@@ -239,6 +258,7 @@ export default function ActionPanel({
           sx: {
             borderRadius: 3,
             p: 1,
+            bgcolor: theme.palette.background.paper,
           },
         }}
       >
@@ -248,7 +268,7 @@ export default function ActionPanel({
             alignItems: "center",
             gap: 1,
             fontWeight: 800,
-            color: "#b71c1c",
+            color: theme.palette.error.main,
           }}
         >
           <WarningAmberIcon color="error" />
@@ -256,7 +276,7 @@ export default function ActionPanel({
         </DialogTitle>
 
         <DialogContent dividers>
-          <Typography>
+          <Typography sx={{ color: theme.palette.text.primary }}>
             Are you sure you want to permanently delete this item? This action
             cannot be undone.
           </Typography>
@@ -265,7 +285,10 @@ export default function ActionPanel({
         <DialogActions>
           <Button
             onClick={() => setDeleteOpen(false)}
-            sx={{ color: "#555", fontWeight: 600 }}
+            sx={{
+              color: theme.palette.text.secondary,
+              fontWeight: 600,
+            }}
           >
             Cancel
           </Button>

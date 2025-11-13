@@ -541,7 +541,8 @@ export default function HomePage() {
                 </Paper>
 
                 {/* Restart Process */}
-                <RestartProcess teamId={teamId!} />
+                <RestartProcess teamId={teamId!}
+                onRestart={() => window.location.reload()} />
 
                 {/* Recent Notes */}
                 {/* <Paper

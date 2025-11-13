@@ -9,6 +9,8 @@ import {
   Tooltip,
   Alert,
   Fade,
+  useTheme,
+  alpha,
 } from "@mui/material";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -23,6 +25,7 @@ export default function DamageReportsSection({
   setDamageReports: (r: string[]) => void;
   isEditMode?: boolean;
 }) {
+  const theme = useTheme();
   const [current, setCurrent] = useState("");
 
   const handleAdd = () => {
@@ -43,9 +46,16 @@ export default function DamageReportsSection({
         sx={{
           mt: 2,
           p: 2,
-          bgcolor: "#fff8e1",
+          bgcolor:
+            theme.palette.mode === "light"
+              ? alpha(theme.palette.warning.light, 0.5)
+              : alpha(theme.palette.warning.dark, 0.3),
           borderRadius: 2,
-          border: "1px solid #ffe082",
+          border: `1px solid ${
+            theme.palette.mode === "light"
+              ? theme.palette.warning.main
+              : alpha(theme.palette.warning.main, 0.5)
+          }`,
         }}
       >
         <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
@@ -57,8 +67,11 @@ export default function DamageReportsSection({
             icon={<InfoOutlinedIcon fontSize="small" />}
             severity="info"
             sx={{
-              bgcolor: "#e3f2fd",
-              color: "#0d47a1",
+              bgcolor:
+                theme.palette.mode === "light"
+                  ? alpha(theme.palette.info.light, 0.3)
+                  : alpha(theme.palette.info.dark, 0.3),
+              color: theme.palette.info.main,
               borderRadius: 2,
               mb: 1.5,
             }}
@@ -74,9 +87,12 @@ export default function DamageReportsSection({
                 onDelete={() => handleDelete(i)}
                 deleteIcon={<DeleteIcon />}
                 sx={{
-                  bgcolor: "#fffde7",
-                  border: "1px solid #fbc02d",
-                  "& .MuiChip-deleteIcon": { color: "#f57f17" },
+                  bgcolor:
+                    theme.palette.mode === "light"
+                      ? alpha(theme.palette.warning.light, 0.3)
+                      : alpha(theme.palette.warning.dark, 0.3),
+                  border: `1px solid ${theme.palette.warning.main}`,
+                  "& .MuiChip-deleteIcon": { color: theme.palette.warning.dark },
                 }}
               />
             ))}
@@ -97,15 +113,21 @@ export default function DamageReportsSection({
                   handleAdd();
                 }
               }}
+              sx={{
+                bgcolor:
+                  theme.palette.mode === "light"
+                    ? theme.palette.background.paper
+                    : theme.palette.background.default,
+              }}
             />
             <Tooltip title="Add Report">
               <IconButton
                 color="primary"
                 onClick={handleAdd}
                 sx={{
-                  bgcolor: "#1976d2",
-                  color: "white",
-                  "&:hover": { bgcolor: "#0d47a1" },
+                  bgcolor: theme.palette.primary.main,
+                  color: theme.palette.getContrastText(theme.palette.primary.main),
+                  "&:hover": { bgcolor: theme.palette.primary.dark },
                 }}
               >
                 <AddCircleIcon />

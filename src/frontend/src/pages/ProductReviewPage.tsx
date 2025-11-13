@@ -1,23 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Container, Grid, Snackbar } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useNavigate, useParams } from 'react-router-dom';
-import NavBar from '../components/NavBar';
-import ImagePanel from '../components/ImagePanel';
-import ItemDetailsForm from '../components/ItemDetailsForm';
-import DamageReportsSection from '../components/DamageReportsSection';
-import ActionPanel from '../components/ActionPanel';
-import { flattenTree } from '../components/Producthelpers';
-import { getItem, getItems } from '../api/items';
-import ChildrenTree from '../components/ChildrenTree';
-import TopBar from '../components/TopBar';
-import Profile from '../components/Profile';
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  Grid,
+  Snackbar,
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useNavigate, useParams } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
+import NavBar from "../components/NavBar";
+import ImagePanel from "../components/ImagePanel";
+import ItemDetailsForm from "../components/ItemDetailsForm";
+import DamageReportsSection from "../components/DamageReportsSection";
+import ActionPanel from "../components/ActionPanel";
+import { flattenTree } from "../components/Producthelpers";
+import { getItem, getItems } from "../api/items";
+import ChildrenTree from "../components/ChildrenTree";
+import TopBar from "../components/TopBar";
+import Profile from "../components/Profile";
 
 export default function ProductReviewPage() {
   const { teamId, itemId } = useParams<{ teamId: string; itemId: string }>();
   const navigate = useNavigate();
-  const isCreateMode = itemId === 'new';
+  const theme = useTheme();
+
+  const isCreateMode = itemId === "new";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +37,10 @@ export default function ProductReviewPage() {
   const [product, setProduct] = useState<any>(null);
   const [editedProduct, setEditedProduct] = useState<any>(null);
   const [itemsList, setItemsList] = useState<any[]>([]);
-  const [imagePreview, setImagePreview] = useState('');
+  const [imagePreview, setImagePreview] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [damageReports, setDamageReports] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState("");
 
   const [isEditMode, setIsEditMode] = useState(isCreateMode);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -41,7 +52,7 @@ export default function ProductReviewPage() {
   useEffect(() => {
     (async () => {
       try {
-        if (!teamId) throw new Error('Missing team ID');
+        if (!teamId) throw new Error("Missing team ID");
         const all = await getItems(teamId);
         if (all.success && all.items) {
           const flat = flattenTree(all.items);
@@ -50,12 +61,12 @@ export default function ProductReviewPage() {
 
         if (isCreateMode) {
           const blank = {
-            productName: '',
-            actualName: '',
-            description: '',
-            serialNumber: '',
+            productName: "",
+            actualName: "",
+            description: "",
+            serialNumber: "",
             quantity: 1,
-            status: 'To Review',
+            status: "To Review",
           };
           setProduct(blank);
           setEditedProduct(blank);
@@ -72,20 +83,20 @@ export default function ProductReviewPage() {
         const allItemsRes = await getItems(teamId);
         if (allItemsRes.success && allItemsRes.items) {
           const children = allItemsRes.items.filter((i: any) => i.parent === itemId);
-          item.children = children;  // Add children to item
+          item.children = children; // Add children to item
         }
 
         setProduct(item);
         setEditedProduct(item);
         setDamageReports(item.damageReports || []);
 
-        if (item.imageLink && item.imageLink.startsWith('http')) {
+        if (item.imageLink && item.imageLink.startsWith("http")) {
           setImagePreview(item.imageLink);
         } else {
-          setImagePreview('');
+          setImagePreview("");
         }
       } catch (err: any) {
-        console.error('[ProductReviewPage] Error loading item:', err);
+        console.error("[ProductReviewPage] Error loading item:", err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -96,7 +107,7 @@ export default function ProductReviewPage() {
   const handleProfileImageChange = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      if (e.target && typeof e.target.result === 'string') {
+      if (e.target && typeof e.target.result === "string") {
         setProfileImage(e.target.result);
       }
     };
@@ -110,6 +121,7 @@ export default function ProductReviewPage() {
         justifyContent="center"
         alignItems="center"
         minHeight="60vh"
+        sx={{ bgcolor: theme.palette.background.default }}
       >
         <CircularProgress />
       </Box>
@@ -123,7 +135,7 @@ export default function ProductReviewPage() {
     );
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default, display: "flex", flexDirection: "column" }}>
       <TopBar
         isLoggedIn={true}
         profileImage={profileImage}
@@ -133,8 +145,8 @@ export default function ProductReviewPage() {
       <Box
         sx={{
           flex: 1,
-          bgcolor: 'linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%)',
-          pb: 10
+          bgcolor: theme.palette.background.default,
+          pb: 10,
         }}
       >
         <Container
@@ -142,20 +154,25 @@ export default function ProductReviewPage() {
           sx={{
             pt: 3,
             pb: 8,
-            backgroundColor: 'white',
+            backgroundColor: theme.palette.background.paper,
             borderRadius: 3,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.05)',
-            mt: 3
+            boxShadow: theme.palette.mode === "dark" ? "0 4px 20px rgba(0,0,0,0.4)" : "0 4px 16px rgba(0,0,0,0.05)",
+            mt: 3,
           }}
         >
           <Button
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate(-1)}
             sx={{
-              textTransform: 'none',
-              color: 'text.secondary',
+              textTransform: "none",
+              color: theme.palette.text.secondary,
               mb: 2,
-              '&:hover': { bgcolor: 'rgba(0,0,0,0.04)' }
+              "&:hover": {
+                bgcolor:
+                  theme.palette.mode === "dark"
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(0,0,0,0.04)",
+              },
             }}
           >
             Back
@@ -186,10 +203,10 @@ export default function ProductReviewPage() {
                 setEditedProduct={setEditedProduct}
                 itemsList={itemsList}
                 isEditMode={isEditMode}
-                alwaysEditableFields={['status', 'description', 'notes']}
+                alwaysEditableFields={["status", "description", "notes"]}
               />
 
-              {editedProduct?.status === 'Damaged' && (
+              {editedProduct?.status === "Damaged" && (
                 <DamageReportsSection
                   isEditMode={true}
                   editedProduct={editedProduct}
@@ -200,7 +217,6 @@ export default function ProductReviewPage() {
 
               <ChildrenTree editedProduct={editedProduct} teamId={teamId!} />
             </Grid>
-
 
             {/* === RIGHT: ACTIONS === */}
             <Grid item xs={12} md={3}>
@@ -229,12 +245,22 @@ export default function ProductReviewPage() {
         </Container>
       </Box>
 
-      <Profile
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-      />
+      <Profile open={profileOpen} onClose={() => setProfileOpen(false)} />
 
-      <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          bgcolor: theme.palette.background.paper,
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 -2px 8px rgba(0,0,0,0.6)"
+              : "0 -2px 8px rgba(0,0,0,0.05)",
+        }}
+      >
         <NavBar />
       </Box>
     </Box>
