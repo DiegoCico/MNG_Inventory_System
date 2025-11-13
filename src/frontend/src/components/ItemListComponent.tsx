@@ -3,6 +3,7 @@ import { Box, Card, CardMedia, Typography, Stack, IconButton, Collapse, Chip } f
 import { useNavigate, useParams } from 'react-router-dom';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import { useTheme, alpha } from '@mui/material/styles';
 
 export interface ItemListItem {
   id: string | number;
@@ -23,13 +24,14 @@ interface ItemListComponentProps {
 export default function ItemListComponent({ items = [] }: ItemListComponentProps) {
   const navigate = useNavigate();
   const { teamId } = useParams<{ teamId: string }>();
+  const theme = useTheme();
   const [expandedItems, setExpandedItems] = useState<Set<string | number>>(new Set());
 
   const rootItems = items.filter(item => !item.parent);
 
   if (rootItems.length === 0) {
     return (
-      <Typography sx={{ textAlign: 'center', color: '#999', py: 4 }}>
+      <Typography sx={{ textAlign: 'center', color: theme.palette.text.disabled, py: 4 }}>
         No items to display
       </Typography>
     );
@@ -45,9 +47,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
   };
 
   const handleItemClick = (itemId: string | number, event: React.MouseEvent) => {
-    if ((event.target as HTMLElement).closest('.expand-button')) {
-      return;
-    }
+    if ((event.target as HTMLElement).closest('.expand-button')) return;
     navigate(`/teams/${teamId}/items/${itemId}`);
   };
 
@@ -55,11 +55,8 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
     event.stopPropagation();
     setExpandedItems(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId);
-      } else {
-        newSet.add(itemId);
-      }
+      if (newSet.has(itemId)) newSet.delete(itemId);
+      else newSet.add(itemId);
       return newSet;
     });
   };
@@ -76,11 +73,11 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
             display: 'flex',
             alignItems: 'center',
             padding: { xs: 1.5, sm: 2 },
-            backgroundColor: 'white',
+            backgroundColor: theme.palette.background.paper,
             boxShadow: 'none',
             borderRadius: 2,
             ml: level * 3,
-            borderLeft: level > 0 ? '3px solid #1976d2' : 'none',
+            borderLeft: level > 0 ? `3px solid ${theme.palette.primary.main}` : 'none',
             '&:hover': {
               boxShadow: 2,
               cursor: 'pointer',
@@ -93,7 +90,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
               height: { xs: 70, sm: 85, md: 100 },
               borderRadius: 2,
               overflow: 'hidden',
-              backgroundColor: '#f0f0f0',
+              backgroundColor: alpha(theme.palette.text.primary, 0.05),
               flexShrink: 0,
             }}
           >
@@ -116,7 +113,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
                 component="h2"
                 sx={{
                   fontWeight: 500,
-                  color: '#333',
+                  color: theme.palette.text.primary,
                   fontSize: { xs: '0.95rem', sm: '1rem', md: '1.1rem' },
                 }}
               >
@@ -124,7 +121,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
               </Typography>
               <Typography
                 sx={{
-                  color: '#999',
+                  color: theme.palette.text.secondary,
                   fontSize: { xs: '0.75rem', sm: '0.8rem' },
                   fontWeight: 400,
                   ml: 2,
@@ -140,7 +137,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
               component="h2"
               sx={{
                 fontWeight: 500,
-                color: 'primary.main',
+                color: theme.palette.primary.main,
                 fontSize: { xs: '0.75rem', sm: '0.825rem' },
                 marginBottom: '0.4rem'
               }}
@@ -151,7 +148,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
             <Typography
               variant="body2"
               sx={{
-                color: '#333',
+                color: theme.palette.text.primary,
                 fontSize: { xs: '0.8rem', sm: '0.875rem' },
                 mb: 0.5
               }}
@@ -173,7 +170,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
                 <Typography
                   variant="caption"
                   sx={{
-                    color: 'primary.main',
+                    color: theme.palette.primary.main,
                     fontWeight: 600,
                   }}
                 >
@@ -189,7 +186,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
               onClick={(e) => toggleExpand(item.id, e)}
               sx={{
                 ml: 1,
-                color: 'primary.main',
+                color: theme.palette.primary.main,
               }}
             >
               {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}

@@ -96,7 +96,6 @@ export default function ReviewedPage() {
             return roots;
           };
 
-          // Check if item or any descendant has any of the target statuses
           const hasStatusInTree = (item: ItemListItem, targetStatuses: string[]): boolean => {
             const itemStatus = (item.status ?? '').toLowerCase();
             if (targetStatuses.some(s => s.toLowerCase() === itemStatus)) return true;
@@ -106,18 +105,14 @@ export default function ReviewedPage() {
             return false;
           };
 
-          // Build full hierarchy
           const fullHierarchy = buildHierarchy(itemsArray);
 
-          // Filter by status, showing parent if it or any child matches
           const completed = fullHierarchy.filter(item =>
             hasStatusInTree(item, ['completed', 'complete', 'found'])
           );
-
           const shortages = fullHierarchy.filter(item =>
             hasStatusInTree(item, ['shortage', 'shortages', 'missing'])
           );
-
           const damaged = fullHierarchy.filter(item =>
             hasStatusInTree(item, ['damaged', 'in repair'])
           );
@@ -160,16 +155,16 @@ export default function ReviewedPage() {
   }
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", bgcolor: theme.palette.background.default }}>
       <TopBar
         isLoggedIn={true}
         profileImage={profileImage}
         onProfileClick={() => setProfileOpen(true)}
       />
 
-      <Box sx={{ flex: 1, width: '100%', bgcolor: '#e8e8e8' }}>
+      <Box sx={{ flex: 1, width: '100%', bgcolor: theme.palette.background.default }}>
         {/* Tabs Header - Full Width */}
-        <Box sx={{ bgcolor: 'white', borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ bgcolor: theme.palette.background.paper, borderBottom: 1, borderColor: theme.palette.divider }}>
           <Tabs
             value={selectedTab}
             onChange={handleTabChange}
@@ -207,7 +202,7 @@ export default function ReviewedPage() {
               {completedItems.length > 0 ? (
                 <ItemListComponent items={completedItems} />
               ) : (
-                <Typography sx={{ textAlign: 'center', color: '#999', py: 4 }}>
+                <Typography sx={{ textAlign: 'center', color: theme.palette.text.disabled, py: 4 }}>
                   No completed items
                 </Typography>
               )}
@@ -217,7 +212,7 @@ export default function ReviewedPage() {
               {shortagesItems.length > 0 ? (
                 <ItemListComponent items={shortagesItems} />
               ) : (
-                <Typography sx={{ textAlign: 'center', color: '#999', py: 4 }}>
+                <Typography sx={{ textAlign: 'center', color: theme.palette.text.disabled, py: 4 }}>
                   No shortages reported
                 </Typography>
               )}
@@ -227,7 +222,7 @@ export default function ReviewedPage() {
               {damagedItems.length > 0 ? (
                 <ItemListComponent items={damagedItems} />
               ) : (
-                <Typography sx={{ textAlign: 'center', color: '#999', py: 4 }}>
+                <Typography sx={{ textAlign: 'center', color: theme.palette.text.disabled, py: 4 }}>
                   No damaged items
                 </Typography>
               )}

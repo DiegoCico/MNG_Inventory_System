@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { Alert, Box, CircularProgress, Container, Typography } from '@mui/material';
+import { useTheme, alpha } from '@mui/material/styles';
 import { useParams } from 'react-router-dom';
 import ItemListComponent, { ItemListItem } from '../components/ItemListComponent';
 import NavBar from '../components/NavBar';
@@ -10,6 +11,8 @@ import { getItems } from '../api/items';
 
 export default function ToReviewPage() {
   const { teamId } = useParams<{ teamId: string }>();
+  const theme = useTheme();
+
   const [items, setItems] = useState<ItemListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,22 +121,35 @@ export default function ToReviewPage() {
   }
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", bgcolor: theme.palette.background.default }}>
       <TopBar
         isLoggedIn={true}
         profileImage={profileImage}
         onProfileClick={() => setProfileOpen(true)}
       />
 
-      <Box sx={{ flex: 1, width: '100%', bgcolor: '#e8e8e8' }}>
-        <Box sx={{ bgcolor: 'white', borderBottom: 1, borderColor: 'divider', py: 1.5 }}>
+      <Box
+        sx={{
+          flex: 1,
+          width: '100%',
+          bgcolor: theme.palette.background.default,
+        }}
+      >
+        <Box
+          sx={{
+            bgcolor: theme.palette.background.paper,
+            borderBottom: 1,
+            borderColor: theme.palette.divider,
+            py: 1.5,
+          }}
+        >
           <Container maxWidth="md">
             <Typography
               variant="h5"
               sx={{
                 fontWeight: 550,
-                color: '#333',
-                fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                color: theme.palette.text.primary,
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
               }}
             >
               Inventory To Review ({items.length})
