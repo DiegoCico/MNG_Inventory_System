@@ -14,9 +14,9 @@ from reportlab.lib import colors
 import boto3
 
 # ---------- Env / Clients ----------
-UPLOADS_BUCKET = os.environ.get("UPLOADS_BUCKET", "").strip()   # required in Lambda
-PHOTO_BUCKET   = os.environ.get("PHOTO_BUCKET", "").strip()     # for item images (S3 keys)
-TABLE_NAME     = os.environ.get("TABLE_NAME", "").strip()       # required in Lambda
+UPLOADS_BUCKET = os.environ.get("UPLOADS_BUCKET", "").strip()  
+PHOTO_BUCKET   = os.environ.get("PHOTO_BUCKET", "").strip()    
+TABLE_NAME     = os.environ.get("TABLE_NAME", "").strip()      
 
 _s3  = None
 _ddb = None
