@@ -1,21 +1,16 @@
-import { z } from "zod";
-import { router, publicProcedure } from "./trpc";
-import {
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  UpdateCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { z } from 'zod';
+import { router, publicProcedure } from './trpc';
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import crypto from "crypto";
-import { doc } from "../aws";
-import { loadConfig } from "../process";
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import crypto from 'crypto';
+import { doc } from '../aws';
+import { loadConfig } from '../process';
 
 const config = loadConfig();
 const TABLE_NAME = config.TABLE_NAME;
@@ -23,24 +18,24 @@ const BUCKET_NAME = config.BUCKET_NAME;
 const REGION = config.REGION;
 const KMS_KEY_ARN = config.KMS_KEY_ARN;
 
-if (!BUCKET_NAME) throw new Error("❌ Missing S3 bucket name");
+if (!BUCKET_NAME) throw new Error('❌ Missing S3 bucket name');
 const s3 = new S3Client({ region: REGION });
 
 /* =========================== HELPERS =========================== */
 function newId(n = 10): string {
   return crypto
     .randomBytes(n)
-    .toString("base64")
-    .replace(/[+/=]/g, (c) => ({ "+": "-", "/": "_", "=": "" }[c] as string));
+    .toString('base64')
+    .replace(/[+/=]/g, (c) => ({ '+': '-', '/': '_', '=': '' })[c] as string);
 }
 
 function getImageExtension(base64: string): string {
   const m = base64.match(/^data:image\/(\w+);base64,/);
-  return m ? m[1].toLowerCase() : "png";
+  return m ? m[1].toLowerCase() : 'png';
 }
 
 function stripBase64Header(base64: string): string {
-  return base64.replace(/^data:image\/\w+;base64,/, "");
+  return base64.replace(/^data:image\/\w+;base64,/, '');
 }
 
 /**
@@ -48,7 +43,7 @@ function stripBase64Header(base64: string): string {
  * If it's not an S3 URL, returns it unchanged.
  */
 async function getPresignedUrlIfNeeded(imageLink?: string): Promise<string | undefined> {
-  if (!imageLink || !imageLink.startsWith("https://")) return imageLink;
+  if (!imageLink || !imageLink.startsWith('https://')) return imageLink;
 
   const match = imageLink.match(/amazonaws\.com\/(.+)/);
   if (!match) return imageLink;
@@ -60,11 +55,11 @@ async function getPresignedUrlIfNeeded(imageLink?: string): Promise<string | und
     const signedUrl = await getSignedUrl(
       s3,
       new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
-      { expiresIn: 3600 }
+      { expiresIn: 3600 },
     );
     return signedUrl;
   } catch (err: any) {
-    console.warn("[getPresignedUrlIfNeeded] Could not presign:", err.message);
+    console.warn('[getPresignedUrlIfNeeded] Could not presign:', err.message);
     return imageLink;
   }
 }
@@ -89,7 +84,7 @@ export const itemsRouter = router({
         damageReports: z.array(z.string()).optional().nullable(),
         status: z.string().optional().nullable(),
         parent: z.string().optional().nullable(),
-      })
+      }),
     )
     .mutation(async ({ input }) => {
       console.log(`[createItem] Received:`, JSON.stringify(input, null, 2));
@@ -98,17 +93,15 @@ export const itemsRouter = router({
         const existing = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
-            KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
             ExpressionAttributeValues: {
-              ":pk": `TEAM#${input.teamId}`,
-              ":sk": "ITEM#",
+              ':pk': `TEAM#${input.teamId}`,
+              ':sk': 'ITEM#',
             },
-          })
+          }),
         );
         const duplicate = (existing.Items ?? []).find(
-          (it: any) =>
-            it.nsn &&
-            it.nsn.trim().toLowerCase() === input.nsn.trim().toLowerCase()
+          (it: any) => it.nsn && it.nsn.trim().toLowerCase() === input.nsn.trim().toLowerCase(),
         );
         if (duplicate) {
           return {
@@ -125,19 +118,17 @@ export const itemsRouter = router({
         if (!finalImageLink && input.imageBase64 && input.nsn) {
           const ext = getImageExtension(input.imageBase64);
           const key = `items/${input.teamId}/${input.nsn}.${ext}`;
-          const body = Buffer.from(stripBase64Header(input.imageBase64), "base64");
+          const body = Buffer.from(stripBase64Header(input.imageBase64), 'base64');
 
           await s3.send(
             new PutObjectCommand({
               Bucket: BUCKET_NAME,
               Key: key,
               Body: body,
-              ContentEncoding: "base64",
+              ContentEncoding: 'base64',
               ContentType: `image/${ext}`,
-              ...(KMS_KEY_ARN
-                ? { ServerSideEncryption: "aws:kms", SSEKMSKeyId: KMS_KEY_ARN }
-                : {}),
-            })
+              ...(KMS_KEY_ARN ? { ServerSideEncryption: 'aws:kms', SSEKMSKeyId: KMS_KEY_ARN } : {}),
+            }),
           );
 
           // Store the static S3 URL
@@ -147,7 +138,7 @@ export const itemsRouter = router({
         const item = {
           PK: `TEAM#${input.teamId}`,
           SK: `ITEM#${itemId}`,
-          Type: "Item",
+          Type: 'Item',
           teamId: input.teamId,
           itemId,
           name: input.name,
@@ -158,18 +149,18 @@ export const itemsRouter = router({
           description: input.description ?? undefined,
           imageLink: finalImageLink,
           damageReports: input.damageReports ?? [],
-          status: input.status ?? "To Review",
+          status: input.status ?? 'To Review',
           parent: input.parent ?? null,
           createdAt: now,
           updatedAt: now,
           createdBy: input.userId,
-          updateLog: [{ userId: input.userId, action: "create", timestamp: now }],
+          updateLog: [{ userId: input.userId, action: 'create', timestamp: now }],
         };
 
         await doc.send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
         return { success: true, itemId, item };
       } catch (err: any) {
-        console.error("❌ createItem error:", err);
+        console.error('❌ createItem error:', err);
         return { success: false, error: err.message };
       }
     }),
@@ -183,26 +174,23 @@ export const itemsRouter = router({
         const teamRes = await doc.send(
           new GetCommand({
             TableName: TABLE_NAME,
-            Key: { PK: `TEAM#${input.teamId}`, SK: "METADATA" },
-          })
+            Key: { PK: `TEAM#${input.teamId}`, SK: 'METADATA' },
+          }),
         );
 
         const teamName =
-          teamRes.Item?.name ||
-          teamRes.Item?.GSI_NAME ||
-          teamRes.Item?.teamName ||
-          "Unknown Team";
+          teamRes.Item?.name || teamRes.Item?.GSI_NAME || teamRes.Item?.teamName || 'Unknown Team';
 
         // Query all items under this team
         const result = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
-            KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
             ExpressionAttributeValues: {
-              ":pk": `TEAM#${input.teamId}`,
-              ":sk": "ITEM#",
+              ':pk': `TEAM#${input.teamId}`,
+              ':sk': 'ITEM#',
             },
-          })
+          }),
         );
 
         const rawItems = result.Items ?? [];
@@ -218,14 +206,14 @@ export const itemsRouter = router({
           rawItems.map(async (raw: any) => {
             const imageLink = await getPresignedUrlIfNeeded(raw.imageLink);
             const parentId = raw.parent || null;
-            const parentName = parentId ? itemNameMap[parentId] || "Unknown Parent" : null;
+            const parentName = parentId ? itemNameMap[parentId] || 'Unknown Parent' : null;
             return { ...raw, imageLink, teamName, parent: parentId, parentName };
-          })
+          }),
         );
 
         return { success: true, items };
       } catch (err: any) {
-        console.error("❌ getItems error:", err);
+        console.error('❌ getItems error:', err);
         return { success: false, error: err.message };
       }
     }),
@@ -239,16 +227,15 @@ export const itemsRouter = router({
           new GetCommand({
             TableName: TABLE_NAME,
             Key: { PK: `TEAM#${input.teamId}`, SK: `ITEM#${input.itemId}` },
-          })
+          }),
         );
-        if (!result.Item)
-          return { success: false, error: "Item not found" };
+        if (!result.Item) return { success: false, error: 'Item not found' };
 
         const presigned = await getPresignedUrlIfNeeded(result.Item.imageLink);
 
         return { success: true, item: { ...result.Item, imageLink: presigned } };
       } catch (err: any) {
-        console.error("❌ getItem error:", err);
+        console.error('❌ getItem error:', err);
         return { success: false, error: err.message };
       }
     }),
@@ -271,7 +258,7 @@ export const itemsRouter = router({
         damageReports: z.array(z.string()).optional().nullable(),
         parent: z.string().optional().nullable(),
         notes: z.string().optional().nullable(),
-      })
+      }),
     )
     .mutation(async ({ input }) => {
       const log = (m: string, ...args: any[]) =>
@@ -279,21 +266,21 @@ export const itemsRouter = router({
 
       try {
         const now = new Date().toISOString();
-        const updates: string[] = ["updatedAt = :updatedAt"];
-        const values: Record<string, any> = { ":updatedAt": now };
+        const updates: string[] = ['updatedAt = :updatedAt'];
+        const values: Record<string, any> = { ':updatedAt': now };
         const names: Record<string, string> = {};
 
-        //  Fetch user name 
-        let userName = "Unknown User";
+        //  Fetch user name
+        let userName = 'Unknown User';
         try {
           const userRes = await doc.send(
             new QueryCommand({
               TableName: TABLE_NAME,
-              IndexName: "GSI_UsersByUid",
-              KeyConditionExpression: "GSI6PK = :uid",
-              ExpressionAttributeValues: { ":uid": `UID#${input.userId}` },
+              IndexName: 'GSI_UsersByUid',
+              KeyConditionExpression: 'GSI6PK = :uid',
+              ExpressionAttributeValues: { ':uid': `UID#${input.userId}` },
               Limit: 1,
-            })
+            }),
           );
           const user = userRes.Items?.[0];
           if (user) userName = user.name || user.email || user.accountId || userName;
@@ -306,26 +293,26 @@ export const itemsRouter = router({
           const existing = await doc.send(
             new QueryCommand({
               TableName: TABLE_NAME,
-              KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
+              KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
               ExpressionAttributeValues: {
-                ":pk": `TEAM#${input.teamId}`,
-                ":sk": "ITEM#",
+                ':pk': `TEAM#${input.teamId}`,
+                ':sk': 'ITEM#',
               },
-            })
+            }),
           );
           const duplicate = (existing.Items ?? []).find(
             (i: any) =>
               i.nsn &&
               i.itemId !== input.itemId &&
-              i.nsn?.trim?.().toLowerCase() === input.nsn?.trim?.().toLowerCase()
+              i.nsn?.trim?.().toLowerCase() === input.nsn?.trim?.().toLowerCase(),
           );
           if (duplicate)
             return {
               success: false,
               error: `Another item with NSN "${input.nsn}" already exists.`,
             };
-          updates.push("nsn = :nsn");
-          values[":nsn"] = input.nsn;
+          updates.push('nsn = :nsn');
+          values[':nsn'] = input.nsn;
         }
 
         //  Apply updates
@@ -333,124 +320,121 @@ export const itemsRouter = router({
           if (val !== undefined && val !== null) {
             updates.push(`${fieldName || key} = :${key}`);
             values[`:${key}`] = val;
-            if (key === "name" || key === "status") names[`#${key}`] = key;
+            if (key === 'name' || key === 'status') names[`#${key}`] = key;
           }
         };
 
-        push("name", input.name, "#name");
-        push("actualName", input.actualName);
-        push("serialNumber", input.serialNumber);
-        push("quantity", input.quantity);
-        push("description", input.description);
-        push("imageLink", input.imageLink);
-        push("status", input.status, "#status");
-        push("damageReports", input.damageReports);
-        push("parent", input.parent);
-        push("notes", input.notes);
+        push('name', input.name, '#name');
+        push('actualName', input.actualName);
+        push('serialNumber', input.serialNumber);
+        push('quantity', input.quantity);
+        push('description', input.description);
+        push('imageLink', input.imageLink);
+        push('status', input.status, '#status');
+        push('damageReports', input.damageReports);
+        push('parent', input.parent);
+        push('notes', input.notes);
 
         // Append full user activity log
-        updates.push("updateLog = list_append(if_not_exists(updateLog, :empty), :log)");
-        values[":log"] = [
+        updates.push('updateLog = list_append(if_not_exists(updateLog, :empty), :log)');
+        values[':log'] = [
           {
             userId: input.userId,
             userName,
-            action: "update",
+            action: 'update',
             timestamp: now,
           },
         ];
-        values[":empty"] = [];
+        values[':empty'] = [];
 
         // Execute update
-        log("UpdateExpression:", updates.join(", "));
+        log('UpdateExpression:', updates.join(', '));
         const result = await doc.send(
           new UpdateCommand({
             TableName: TABLE_NAME,
             Key: { PK: `TEAM#${input.teamId}`, SK: `ITEM#${input.itemId}` },
-            UpdateExpression: `SET ${updates.join(", ")}`,
+            UpdateExpression: `SET ${updates.join(', ')}`,
             ExpressionAttributeValues: values,
             ExpressionAttributeNames: Object.keys(names).length ? names : undefined,
-            ReturnValues: "ALL_NEW",
-          })
+            ReturnValues: 'ALL_NEW',
+          }),
         );
 
-        log("✅ Update succeeded");
+        log('✅ Update succeeded');
         return { success: true, item: result.Attributes };
       } catch (err: any) {
         console.error(`[updateItem][${input.itemId}] ❌`, err);
         return { success: false, error: err.message };
       }
     }),
-    /** DELETE ITEM **/
-    deleteItem: publicProcedure
-      .input(
-        z.object({
-          teamId: z.string(),
-          itemId: z.string(),
-          userId: z.string(),
-        })
-      )
-      .mutation(async ({ input }) => {
-        console.log(`[deleteItem] Deleting ITEM#${input.itemId} from TEAM#${input.teamId}`);
-
-        try {
-          const key = { PK: `TEAM#${input.teamId}`, SK: `ITEM#${input.itemId}` };
-
-          // Fetch existing item (to remove image if exists)
-          const getRes = await doc.send(
-            new GetCommand({ TableName: TABLE_NAME, Key: key })
-          );
-
-          if (!getRes.Item) {
-            return { success: false, error: "Item not found" };
-          }
-
-          // Delete image from S3 if exists
-          if (getRes.Item.imageLink?.includes(`${BUCKET_NAME}.s3.`)) {
-            const match = getRes.Item.imageLink.match(/amazonaws\.com\/(.+)/);
-            if (match) {
-              const s3Key = match[1];
-              await s3.send(
-                new (await import("@aws-sdk/client-s3")).DeleteObjectCommand({
-                  Bucket: BUCKET_NAME,
-                  Key: s3Key,
-                })
-              );
-            }
-          }
-
-          // Delete item from DynamoDB
-          await doc.send(
-            new (await import("@aws-sdk/lib-dynamodb")).DeleteCommand({
-              TableName: TABLE_NAME,
-              Key: key,
-            })
-          );
-
-          console.log(`[deleteItem] ✅ Successfully deleted ${input.itemId}`);
-          return { success: true, message: "Item deleted successfully" };
-        } catch (err: any) {
-          console.error("❌ deleteItem error:", err);
-          return { success: false, error: err.message };
-        }
+  /** DELETE ITEM **/
+  deleteItem: publicProcedure
+    .input(
+      z.object({
+        teamId: z.string(),
+        itemId: z.string(),
+        userId: z.string(),
       }),
+    )
+    .mutation(async ({ input }) => {
+      console.log(`[deleteItem] Deleting ITEM#${input.itemId} from TEAM#${input.teamId}`);
 
+      try {
+        const key = { PK: `TEAM#${input.teamId}`, SK: `ITEM#${input.itemId}` };
 
-    uploadImage: publicProcedure
+        // Fetch existing item (to remove image if exists)
+        const getRes = await doc.send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
+
+        if (!getRes.Item) {
+          return { success: false, error: 'Item not found' };
+        }
+
+        // Delete image from S3 if exists
+        if (getRes.Item.imageLink?.includes(`${BUCKET_NAME}.s3.`)) {
+          const match = getRes.Item.imageLink.match(/amazonaws\.com\/(.+)/);
+          if (match) {
+            const s3Key = match[1];
+            await s3.send(
+              new (await import('@aws-sdk/client-s3')).DeleteObjectCommand({
+                Bucket: BUCKET_NAME,
+                Key: s3Key,
+              }),
+            );
+          }
+        }
+
+        // Delete item from DynamoDB
+        await doc.send(
+          new (await import('@aws-sdk/lib-dynamodb')).DeleteCommand({
+            TableName: TABLE_NAME,
+            Key: key,
+          }),
+        );
+
+        console.log(`[deleteItem] ✅ Successfully deleted ${input.itemId}`);
+        return { success: true, message: 'Item deleted successfully' };
+      } catch (err: any) {
+        console.error('❌ deleteItem error:', err);
+        return { success: false, error: err.message };
+      }
+    }),
+
+  uploadImage: publicProcedure
     .input(
       z.object({
         teamId: z.string(),
         nsn: z.string(),
         imageBase64: z.string(),
-      })
+      }),
     )
     .mutation(async ({ input }) => {
       try {
-        console.log("[uploadImage] start", input.nsn);
+        console.log('[uploadImage] start', input.nsn);
         const extMatch = input.imageBase64.match(/^data:image\/(\w+);base64,/);
-        const ext = extMatch ? extMatch[1].toLowerCase() : "png";
+        const ext = extMatch ? extMatch[1].toLowerCase() : 'png';
         const body = Buffer.from(
-          input.imageBase64.replace(/^data:image\/\w+;base64,/, ""),
-          "base64"
+          input.imageBase64.replace(/^data:image\/\w+;base64,/, ''),
+          'base64',
         );
         const key = `items/${input.teamId}/${input.nsn}.${ext}`;
 
@@ -459,19 +443,17 @@ export const itemsRouter = router({
             Bucket: BUCKET_NAME,
             Key: key,
             Body: body,
-            ContentEncoding: "base64",
+            ContentEncoding: 'base64',
             ContentType: `image/${ext}`,
-            ...(KMS_KEY_ARN
-              ? { ServerSideEncryption: "aws:kms", SSEKMSKeyId: KMS_KEY_ARN }
-              : {}),
-          })
+            ...(KMS_KEY_ARN ? { ServerSideEncryption: 'aws:kms', SSEKMSKeyId: KMS_KEY_ARN } : {}),
+          }),
         );
 
         const imageLink = `https://${BUCKET_NAME}.s3.${REGION}.amazonaws.com/${key}`;
-        console.log("[uploadImage] uploaded:", imageLink);
+        console.log('[uploadImage] uploaded:', imageLink);
         return { success: true, imageLink };
       } catch (err: any) {
-        console.error("[uploadImage] ❌", err);
+        console.error('[uploadImage] ❌', err);
         return { success: false, error: err.message };
       }
     }),
