@@ -21,10 +21,10 @@ export type Permission =
   | "team.add_member"
   | "team.remove_member"
   | "team.view"
-  // Workspace management
-  | "workspace.create"
-  | "workspace.delete"
-  | "workspace.view"
+  | "team.delete"
+  // user management
+  | "user.invite"
+  | "user.delete"
   // Role management
   | "role.add"
   | "role.modify"
@@ -37,18 +37,13 @@ export type Permission =
   | "item.delete"
   | "item.upload_image"
   | "item.manage_damage"
-  // Damage report handling
-  | "damage.create"
-  | "damage.update"
-  | "damage.view"
-  | "damage.delete"
+  // Report handling (inventory form / 2404 form)
+  | "report.create"
+  | "report.view"
+  | "report.delete"
   // Audit / logs
   | "log.view"
-  | "log.export"
-  // S3-related
-  | "s3.upload"
-  | "s3.delete"
-  | "s3.view";
+  | "log.export";
 
 export interface RoleEntity {
   PK: `ROLE#${string}`;
@@ -128,29 +123,25 @@ export const DEFAULT_ROLES: Array<
       "team.create",
       "team.add_member",
       "team.remove_member",
-      "workspace.create",
-      "workspace.delete",
+      "team.delete",
       "role.add",
       "role.modify",
       "role.remove",
       "role.view",
+      "user.invite",
+      "user.delete",
       // Item admin
-      "item.create",
+      "item.create", // this includes uploading images
       "item.update",
       "item.delete",
       "item.view",
-      "item.upload_image",
       "item.manage_damage",
-      // Damage reports
-      "damage.create",
-      "damage.update",
-      "damage.delete",
-      "damage.view",
-      // S3 and logs
-      "s3.upload",
-      "s3.delete",
-      "s3.view",
-      "log.view",
+      // Reports - Inventory Form + 2404 Form
+      "report.create",
+      "report.view",
+      "report.delete",
+      // logs
+      "log.view", 
       "log.export",
     ],
   },
@@ -158,21 +149,20 @@ export const DEFAULT_ROLES: Array<
     name: "Manager",
     description: "Manage members, items, and reports.",
     permissions: [
+      "team.create",
       "team.add_member",
       "team.remove_member",
-      "workspace.create",
       "item.create",
       "item.view",
       "item.update",
-      "damage.create",
-      "damage.view",
-      "s3.upload",
+      "report.create",
+      "report.view",
     ],
   },
   {
     name: "Member",
     description: "Limited access to view and report items.",
-    permissions: ["item.view", "damage.create", "damage.view"],
+    permissions: ["item.view", "report.create", "report.view"],
   },
 ];
 
