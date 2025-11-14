@@ -102,7 +102,15 @@ export function clearAuthCookies(res?: Response): string[] {
 export function parseCookieHeader(header: string | undefined | null): Record<string, string> {
   if (!header) return {};
   try {
-    return cookie.parse(header);
+    const parsed = cookie.parse(header);
+    // Filter out undefined values
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (value !== undefined) {
+        result[key] = value;
+      }
+    }
+    return result;
   } catch {
     return {};
   }
