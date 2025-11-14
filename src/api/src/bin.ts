@@ -5,10 +5,9 @@
 
 // const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'mng-dev-data';
 
-
 // /**
 //  * Get all the child items that belong to parent item
-//  * 
+//  *
 //  * @param parentItemId - The ID of the parent item
 //  * @returns Array of child items
 //  */
@@ -40,10 +39,9 @@
 
 // // getReportsByUser
 
-
 // /**
 //  * Look up a user by their Cognito ID
-//  * 
+//  *
 //  * @param uid - Cognito user ID from JWT Token
 //  * @returns User object or null if not found
 //  */
@@ -72,11 +70,6 @@
 //         throw new Error('Failed to fetch user')
 //     }
 // };
-
-
-
-
-
 
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////

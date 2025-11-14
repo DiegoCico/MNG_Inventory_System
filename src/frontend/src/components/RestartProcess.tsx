@@ -55,7 +55,7 @@ export default function RestartProcess({ teamId, onRestart }: RestartProcessCard
         sx={{
           p: 3,
           bgcolor: theme.palette.background.paper,
-          textAlign: "center",
+          textAlign: 'center',
           border: `1px solid ${theme.palette.divider}`,
         }}
       >
@@ -102,18 +102,16 @@ export default function RestartProcess({ teamId, onRestart }: RestartProcessCard
             </Typography>
           ) : (
             <Typography>
-              ⚠️ Final confirmation: This action will move all items to "To Review", reset "% Reviewed" to 0%, and clear all completed, shortages, damaged, and notes data. This cannot be undone.
+              ⚠️ Final confirmation: This action will move all items to "To Review", reset "%
+              Reviewed" to 0%, and clear all completed, shortages, damaged, and notes data. This
+              cannot be undone.
             </Typography>
           )}
         </DialogContent>
         <DialogActions sx={{ bgcolor: theme.palette.background.paper }}>
           <Button onClick={closeWizard} disabled={loading}>Cancel</Button>
           {wizardStep === 1 ? (
-            <Button
-              variant="contained"
-              color="warning"
-              onClick={() => setWizardStep(2)}
-            >
+            <Button variant="contained" color="warning" onClick={() => setWizardStep(2)}>
               Continue
             </Button>
           ) : (

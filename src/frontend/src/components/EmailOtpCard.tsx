@@ -1,21 +1,12 @@
-import { useState } from "react";
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Stack,
-  TextField,
-  Typography,
-  Alert,
-} from "@mui/material";
-import KeyIcon from "@mui/icons-material/Key";
-import ReplayIcon from "@mui/icons-material/Replay";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useNavigate } from "react-router-dom";
-import { submitOtp } from "../api/auth";
+import { useState } from 'react';
+import { Box, Button, Card, CardContent, Stack, TextField, Typography, Alert } from '@mui/material';
+import KeyIcon from '@mui/icons-material/Key';
+import ReplayIcon from '@mui/icons-material/Replay';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useNavigate } from 'react-router-dom';
+import { submitOtp } from '../api/auth';
 
-type OtpChallengeName = "EMAIL_OTP" | "SMS_MFA" | "SOFTWARE_TOKEN_MFA";
+type OtpChallengeName = 'EMAIL_OTP' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA';
 
 interface EmailOtpCardProps {
   session: string;
@@ -52,22 +43,22 @@ function getErrorMessage(err: unknown, fallback = "Something went wrong"): strin
 export default function EmailOtpCard({
   session,
   email,
-  challengeName = "EMAIL_OTP",
-  helperText = "We sent a verification code to your email.",
+  challengeName = 'EMAIL_OTP',
+  helperText = 'We sent a verification code to your email.',
   onResend,
   onBack,
 }: EmailOtpCardProps) {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const title =
-    challengeName === "EMAIL_OTP"
-      ? "Enter Email Code"
-      : challengeName === "SMS_MFA"
-      ? "Enter SMS Code"
-      : "Enter Authenticator Code";
+    challengeName === 'EMAIL_OTP'
+      ? 'Enter Email Code'
+      : challengeName === 'SMS_MFA'
+        ? 'Enter SMS Code'
+        : 'Enter Authenticator Code';
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,25 +66,20 @@ export default function EmailOtpCard({
 
     const trimmed = code.trim();
     if (!trimmed) {
-      setError("Please enter the code.");
+      setError('Please enter the code.');
       return;
     }
 
     try {
       setSubmitting(true);
-      const res = (await submitOtp(
-        challengeName,
-        session,
-        trimmed,
-        email
-      )) as SubmitOtpResponse;
+      const res = (await submitOtp(challengeName, session, trimmed, email)) as SubmitOtpResponse;
 
       if (res?.success) {
-        navigate("/teams", { replace: true });
+        navigate('/teams', { replace: true });
         return;
       }
 
-      setError(res?.message ?? "Verification failed. Check the code and try again.");
+      setError(res?.message ?? 'Verification failed. Check the code and try again.');
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Code is invalid"));
     } finally {
@@ -107,7 +93,7 @@ export default function EmailOtpCard({
       setSubmitting(true);
       await onResend();
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Could not resend code. Please try again."));
+      setError(getErrorMessage(err, 'Could not resend code. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -117,24 +103,24 @@ export default function EmailOtpCard({
     <Card
       elevation={3}
       sx={{
-        width: "100%",
+        width: '100%',
         maxWidth: 480,
-        border: "1px solid rgba(0,0,0,0.08)",
+        border: '1px solid rgba(0,0,0,0.08)',
         borderRadius: 3,
-        bgcolor: "#FFFFFF",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+        bgcolor: '#FFFFFF',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
       }}
     >
       <CardContent sx={{ p: 4 }}>
         <Stack spacing={3}>
           <Box textAlign="center">
-            <Typography variant="h5" sx={{ fontWeight: 900, color: "#1F1F1F" }}>
+            <Typography variant="h5" sx={{ fontWeight: 900, color: '#1F1F1F' }}>
               {title}
             </Typography>
-            <Typography variant="body2" sx={{ color: "#3A3A3A", mt: 0.5 }}>
+            <Typography variant="body2" sx={{ color: '#3A3A3A', mt: 0.5 }}>
               {helperText}
             </Typography>
-            <Typography variant="caption" sx={{ color: "#5A5A5A" }}>
+            <Typography variant="caption" sx={{ color: '#5A5A5A' }}>
               {email}
             </Typography>
           </Box>
@@ -144,7 +130,7 @@ export default function EmailOtpCard({
           <Box
             component="form"
             onSubmit={handleVerify}
-            sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}
           >
             <TextField
               label="One-time code"
@@ -154,16 +140,16 @@ export default function EmailOtpCard({
               value={code}
               onChange={(e) => setCode(e.target.value)}
               autoFocus
-              inputProps={{ inputMode: "numeric", maxLength: 8 }}
+              inputProps={{ inputMode: 'numeric', maxLength: 8 }}
               InputProps={{
                 sx: {
-                  backgroundColor: "#FAFAFA",
+                  backgroundColor: '#FAFAFA',
                   borderRadius: 2,
-                  color: "#000",
-                  input: { color: "#000", textAlign: "center", letterSpacing: 2 },
+                  color: '#000',
+                  input: { color: '#000', textAlign: 'center', letterSpacing: 2 },
                 },
               }}
-              InputLabelProps={{ sx: { color: "#555" } }}
+              InputLabelProps={{ sx: { color: '#555' } }}
             />
 
             <Button
@@ -177,13 +163,13 @@ export default function EmailOtpCard({
                 borderRadius: 2,
                 py: 1.3,
                 fontWeight: 800,
-                fontSize: "1rem",
-                bgcolor: submitting ? "grey.400" : "#283996",
-                color: "#FFFFFF",
-                ":hover": { bgcolor: submitting ? "grey.500" : "#1D2D77" },
+                fontSize: '1rem',
+                bgcolor: submitting ? 'grey.400' : '#283996',
+                color: '#FFFFFF',
+                ':hover': { bgcolor: submitting ? 'grey.500' : '#1D2D77' },
               }}
             >
-              {submitting ? "Verifying..." : "Verify code"}
+              {submitting ? 'Verifying...' : 'Verify code'}
             </Button>
 
             <Stack

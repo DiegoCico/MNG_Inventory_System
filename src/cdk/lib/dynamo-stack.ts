@@ -20,9 +20,9 @@ export class DynamoStack extends Stack {
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props);
 
-    const service = (props.serviceName ?? "mng").toLowerCase();
+    const service = (props.serviceName ?? 'mng').toLowerCase();
     const stage = props.stage.toLowerCase();
-    const isProd = stage === "prod";
+    const isProd = stage === 'prod';
 
     const key = new kms.Key(this, "TableKey", {
       alias: `${service}-${stage}-dynamodb-key`,
@@ -34,14 +34,14 @@ export class DynamoStack extends Stack {
     this.table = new dynamodb.Table(this, "Table", {
       tableName: `${service}-${stage}-data`,
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
+      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: key,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       contributorInsightsSpecification: { enabled: true },
       deletionProtection: isProd,
-      timeToLiveAttribute: "ttl",
+      timeToLiveAttribute: 'ttl',
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
     });
 
@@ -50,16 +50,16 @@ export class DynamoStack extends Stack {
     ============================================================ */
 
     this.table.addGlobalSecondaryIndex({
-      indexName: "GSI_WorkspaceByName",
-      partitionKey: { name: "GSI_NAME", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
+      indexName: 'GSI_WorkspaceByName',
+      partitionKey: { name: 'GSI_NAME', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
     this.table.addGlobalSecondaryIndex({
-      indexName: "GSI_UsersByUid",
-      partitionKey: { name: "GSI6PK", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "GSI6SK", type: dynamodb.AttributeType.STRING },
+      indexName: 'GSI_UsersByUid',
+      partitionKey: { name: 'GSI6PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI6SK', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
@@ -72,9 +72,9 @@ export class DynamoStack extends Stack {
     });
 
     this.table.addGlobalSecondaryIndex({
-      indexName: "GSI_RolesByName",
-      partitionKey: { name: "ROLENAME", type: dynamodb.AttributeType.STRING },
-      sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
+      indexName: 'GSI_RolesByName',
+      partitionKey: { name: 'ROLENAME', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
@@ -89,10 +89,10 @@ export class DynamoStack extends Stack {
        DEFAULT ROLE SEEDER
     ============================================================ */
 
-    const seedProvider = new cr.AwsCustomResource(this, "SeedDefaultRoles", {
+    const seedProvider = new cr.AwsCustomResource(this, 'SeedDefaultRoles', {
       onCreate: {
-        service: "DynamoDB",
-        action: "batchWriteItem",
+        service: 'DynamoDB',
+        action: 'batchWriteItem',
         parameters: {
           RequestItems: {
             [`${service}-${stage}-data`]: [
@@ -100,9 +100,9 @@ export class DynamoStack extends Stack {
               {
                 PutRequest: {
                   Item: {
-                    PK: { S: "ROLENAME#owner" },
-                    SK: { S: "ROLE#OWNER" },
-                    name: { S: "Owner" },
+                    PK: { S: 'ROLENAME#owner' },
+                    SK: { S: 'ROLE#OWNER' },
+                    name: { S: 'Owner' },
                     description: {
                       S: "Full administrative control over the system.",
                     },
@@ -143,9 +143,9 @@ export class DynamoStack extends Stack {
               {
                 PutRequest: {
                   Item: {
-                    PK: { S: "ROLENAME#manager" },
-                    SK: { S: "ROLE#MANAGER" },
-                    name: { S: "Manager" },
+                    PK: { S: 'ROLENAME#manager' },
+                    SK: { S: 'ROLE#MANAGER' },
+                    name: { S: 'Manager' },
                     description: {
                       S: "Manage members, items, and reports.",
                     },
@@ -171,9 +171,9 @@ export class DynamoStack extends Stack {
               {
                 PutRequest: {
                   Item: {
-                    PK: { S: "ROLENAME#member" },
-                    SK: { S: "ROLE#MEMBER" },
-                    name: { S: "Member" },
+                    PK: { S: 'ROLENAME#member' },
+                    SK: { S: 'ROLE#MEMBER' },
+                    name: { S: 'Member' },
                     description: {
                       S: "Limited access to view and report items.",
                     },
@@ -187,7 +187,7 @@ export class DynamoStack extends Stack {
             ],
           },
         },
-        physicalResourceId: cr.PhysicalResourceId.of("SeedRolesOnce"),
+        physicalResourceId: cr.PhysicalResourceId.of('SeedRolesOnce'),
       },
       policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [this.table.tableArn],

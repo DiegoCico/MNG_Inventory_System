@@ -33,7 +33,6 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-
 describe('Auth Router - signIn', () => {
   it('NEW_PASSWORD_REQUIRED challenge -> 200 payload with session', async () => {
     cognitoSendSpy.mockImplementation(async (command: any) => {

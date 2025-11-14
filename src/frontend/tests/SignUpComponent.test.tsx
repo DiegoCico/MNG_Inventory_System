@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import SignUpComponent from "../src/components/SignUpComponent";
 
-type OtpChallengeName = "EMAIL_OTP" | "SMS_MFA" | "SOFTWARE_TOKEN_MFA";
+type OtpChallengeName = 'EMAIL_OTP' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA';
 type MeRes = { authenticated: boolean };
 type RefreshRes = { refreshed: boolean };
 type CompleteNewPasswordResponse = {
@@ -28,18 +28,17 @@ vi.mock("../src/components/EmailOtpCard", () => ({
 
 vi.mock("../src/api/auth", () => {
   const me = (): Promise<MeRes> => Promise.resolve({ authenticated: false });
-  const refresh = (): Promise<RefreshRes> =>
-    Promise.resolve({ refreshed: false });
+  const refresh = (): Promise<RefreshRes> => Promise.resolve({ refreshed: false });
   const completeNewPassword = (
     _session: string,
     _pw: string,
-    _email: string
+    _email: string,
   ): Promise<CompleteNewPasswordResponse> => Promise.resolve({});
   const loginUser = (_id: string, _pw: string) => Promise.resolve({});
   return { me, refresh, completeNewPassword, loginUser };
 });
 
-describe("SignUpComponent (UI-only)", () => {
+describe('SignUpComponent (UI-only)', () => {
   const onComplete = vi.fn();
 
   beforeEach(() => {

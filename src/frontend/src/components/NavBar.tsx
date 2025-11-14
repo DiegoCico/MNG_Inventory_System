@@ -49,12 +49,12 @@ export default function NavBar() {
   return (
     <Paper
       sx={{
-        position: "fixed",
+        position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
         zIndex: 1200,
-        borderTop: "1px solid rgba(0,0,0,0.1)",
+        borderTop: '1px solid rgba(0,0,0,0.1)',
       }}
       elevation={3}
     >
@@ -64,7 +64,7 @@ export default function NavBar() {
         onChange={handleChange}
         sx={{
           height: 56,
-          "& .MuiBottomNavigationAction-label": { fontSize: "0.75rem" },
+          '& .MuiBottomNavigationAction-label': { fontSize: '0.75rem' },
         }}
       >
         <BottomNavigationAction label="Home" value="home" icon={<HomeIcon />} />

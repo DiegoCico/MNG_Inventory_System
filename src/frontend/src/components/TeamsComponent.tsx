@@ -77,10 +77,10 @@ export default function TeamIcon({
           onClick={handleOpenTeam}
           sx={{
             borderRadius: 3,
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <CardContent>
@@ -136,7 +136,7 @@ export default function TeamIcon({
           size="small"
           onClick={handleMenu}
           sx={{
-            position: "absolute",
+            position: 'absolute',
             top: 10,
             right: 10,
             color: theme.palette.text.secondary,
@@ -151,8 +151,8 @@ export default function TeamIcon({
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <MenuItem
           onClick={() => {
@@ -176,7 +176,7 @@ export default function TeamIcon({
             handleClose();
             onRemove?.(name);
           }}
-          sx={{ color: "error.main" }}
+          sx={{ color: 'error.main' }}
         >
           Remove Member
         </MenuItem>
@@ -185,7 +185,7 @@ export default function TeamIcon({
             handleClose();
             onDelete?.(name);
           }}
-          sx={{ color: "error.main" }}
+          sx={{ color: 'error.main' }}
         >
           Delete Teamspace
         </MenuItem>

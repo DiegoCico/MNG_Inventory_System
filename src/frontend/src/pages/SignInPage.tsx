@@ -16,14 +16,14 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useNavigate } from "react-router-dom";
 
-import { loginUser, me, refresh } from "../api/auth";
-import SignUpComponent from "../components/SignUpComponent";
-import EmailOtpCard from "../components/EmailOtpCard";
+import { loginUser, me, refresh } from '../api/auth';
+import SignUpComponent from '../components/SignUpComponent';
+import EmailOtpCard from '../components/EmailOtpCard';
 
 export default function SignInPage() {
   const [isSigningUp, setIsSigningUp] = useState(false);
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [checkingSession, setCheckingSession] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -31,7 +31,7 @@ export default function SignInPage() {
 
   const [otpUI, setOtpUI] = useState<{
     visible: boolean;
-    challengeName?: "EMAIL_OTP" | "SMS_MFA" | "SOFTWARE_TOKEN_MFA";
+    challengeName?: 'EMAIL_OTP' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA';
     session?: string;
     email?: string;
   }>({ visible: false });
@@ -41,7 +41,7 @@ export default function SignInPage() {
   const confirmAndEnterApp = async () => {
     const m1 = await me();
     if (m1.authenticated) {
-      navigate("/teams", { replace: true });
+      navigate('/teams', { replace: true });
       return;
     }
     const r = await refresh().catch(() => ({ refreshed: false as const }));
@@ -58,7 +58,7 @@ export default function SignInPage() {
       try {
         const m1 = await me();
         if (m1.authenticated) {
-          navigate("/teams", { replace: true });
+          navigate('/teams', { replace: true });
           return;
         }
         const r = await refresh().catch(() => ({ refreshed: false as const }));
@@ -82,17 +82,17 @@ export default function SignInPage() {
       setSubmitting(true);
       const res = await loginUser(identifier, password);
 
-      if (res?.challengeName === "NEW_PASSWORD_REQUIRED") {
+      if (res?.challengeName === 'NEW_PASSWORD_REQUIRED') {
         setIsSigningUp(true);
-        localStorage.setItem("cognitoSession", res.session);
-        localStorage.setItem("cognitoEmail", identifier);
+        localStorage.setItem('cognitoSession', res.session);
+        localStorage.setItem('cognitoEmail', identifier);
         return;
       }
 
       if (
-        res?.challengeName === "EMAIL_OTP" ||
-        res?.challengeName === "SMS_MFA" ||
-        res?.challengeName === "SOFTWARE_TOKEN_MFA"
+        res?.challengeName === 'EMAIL_OTP' ||
+        res?.challengeName === 'SMS_MFA' ||
+        res?.challengeName === 'SOFTWARE_TOKEN_MFA'
       ) {
         setOtpUI({
           visible: true,
@@ -149,24 +149,24 @@ export default function SignInPage() {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
+        minHeight: '100vh',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         p: 2,
-        backgroundColor: "#F4F4F1",
+        backgroundColor: '#F4F4F1',
       }}
     >
       <Card
         elevation={3}
         sx={{
-          width: "100%",
+          width: '100%',
           maxWidth: 520,
           borderRadius: 3,
-          bgcolor: "#FFFFFF",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-          display: "flex",
-          flexDirection: "column",
+          bgcolor: '#FFFFFF',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         <CardContent sx={{ p: 4, pb: 2, flex: "1 1 auto" }}>
@@ -178,9 +178,9 @@ export default function SignInPage() {
               email={otpUI.email}
               challengeName={otpUI.challengeName}
               helperText={
-                otpUI.challengeName === "EMAIL_OTP"
-                  ? "We sent a code to your email. Enter it below to continue."
-                  : "Enter the code from your device to continue."
+                otpUI.challengeName === 'EMAIL_OTP'
+                  ? 'We sent a code to your email. Enter it below to continue.'
+                  : 'Enter the code from your device to continue.'
               }
               onResend={handleResendCode}
               onBack={() => setOtpUI({ visible: false })}
@@ -192,14 +192,14 @@ export default function SignInPage() {
                   variant="h4"
                   sx={{
                     fontWeight: 900,
-                    color: "#1F1F1F",
+                    color: '#1F1F1F',
                     mb: 0.5,
                     letterSpacing: 0.3,
                   }}
                 >
                   Welcome Back
                 </Typography>
-                <Typography variant="body1" sx={{ color: "#3A3A3A" }}>
+                <Typography variant="body1" sx={{ color: '#3A3A3A' }}>
                   Please log in to your account
                 </Typography>
               </Box>
@@ -207,7 +207,7 @@ export default function SignInPage() {
               <Box
                 component="form"
                 onSubmit={handleLogin}
-                sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}
+                sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}
               >
                 <TextField
                   label="Username or Email"
@@ -275,13 +275,13 @@ export default function SignInPage() {
                   borderRadius: 2,
                   py: 1.2,
                   fontWeight: 800,
-                  fontSize: "1rem",
-                  bgcolor: "#283996",
-                  color: "#FFFFFF",
-                  ":hover": { bgcolor: "#1D2D77" },
+                  fontSize: '1rem',
+                  bgcolor: '#283996',
+                  color: '#FFFFFF',
+                  ':hover': { bgcolor: '#1D2D77' },
                 }}
               >
-                {submitting ? "Logging in..." : "Login"}
+                {submitting ? 'Logging in...' : 'Login'}
               </Button>
             </Box>
           </>

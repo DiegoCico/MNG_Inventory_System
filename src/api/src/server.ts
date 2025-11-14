@@ -1,14 +1,14 @@
 import 'dotenv/config';
-import express, { Request, Response, NextFunction } from "express";
-import cors from "cors";
-import * as trpcExpress from "@trpc/server/adapters/express";
-import { appRouter } from "./routers";
-import { createExpressContext } from "./routers/trpc";
+import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import * as trpcExpress from '@trpc/server/adapters/express';
+import { appRouter } from './routers';
+import { createExpressContext } from './routers/trpc';
 
 const CANONICAL_ALLOWED_ORIGINS = [
-  process.env.LOCAL_WEB_ORIGIN ?? "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "https://d2cktegyq4qcfk.cloudfront.net",
+  process.env.LOCAL_WEB_ORIGIN ?? 'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://d2cktegyq4qcfk.cloudfront.net',
 ];
 
 function isAllowedOrigin(origin: string | undefined): boolean {
@@ -25,8 +25,8 @@ const corsMiddleware = cors({
     return callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
   credentials: true,
-  allowedHeaders: ["content-type", "authorization", "x-requested-with"],
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ['content-type', 'authorization', 'x-requested-with'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   maxAge: 60 * 60 * 12, // 12h like API Gateway
 });
 
@@ -42,15 +42,15 @@ app.use(express.json());
 /**
  * Health check
  */
-app.get("/health", (_req: Request, res: Response) => {
-  res.status(200).send("ok");
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).send('ok');
 });
 
 /**
  * tRPC router
  */
 app.use(
-  "/trpc",
+  '/trpc',
   trpcExpress.createExpressMiddleware({
     router: appRouter,
     createContext: createExpressContext,
@@ -62,7 +62,7 @@ app.use(
         cause: (error.cause as any)?.message ?? error.cause,
       });
     },
-  })
+  }),
 );
 
 /**
@@ -73,14 +73,14 @@ app.use(
     err: any,
     _req: Request,
     res: Response,
-    _next: NextFunction // eslint-disable-line @typescript-eslint/no-unused-vars
+    _next: NextFunction, // eslint-disable-line @typescript-eslint/no-unused-vars
   ) => {
-    console.error("Unhandled error:", err);
+    console.error('Unhandled error:', err);
     res.status(500).json({
-      error: "Internal Server Error",
+      error: 'Internal Server Error',
       detail: String(err?.message ?? err),
     });
-  }
+  },
 );
 
 /**
@@ -88,17 +88,15 @@ app.use(
  */
 const PORT = Number(process.env.PORT) || 3001;
 
-if (process.env.NODE_ENV !== "test") {
+if (process.env.NODE_ENV !== 'test') {
   const server = app.listen(PORT, () => {
     console.log(`API running on http://localhost:${PORT}`);
-    console.log("Allowed CORS origins:", CANONICAL_ALLOWED_ORIGINS);
+    console.log('Allowed CORS origins:', CANONICAL_ALLOWED_ORIGINS);
   });
 
-  server.on("error", (err: any) => {
-    if (err?.code === "EADDRINUSE") {
-      console.error(
-        `⚠️  Port ${PORT} is already in use. Did you start another server?`
-      );
+  server.on('error', (err: any) => {
+    if (err?.code === 'EADDRINUSE') {
+      console.error(`⚠️  Port ${PORT} is already in use. Did you start another server?`);
       process.exit(1);
     } else {
       throw err;

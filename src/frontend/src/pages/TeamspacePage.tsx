@@ -56,7 +56,7 @@ export default function TeamsPage() {
   const theme = useTheme();
 
   const [teams, setTeams] = useState<Team[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,8 +184,8 @@ export default function TeamsPage() {
         severity: "success",
       });
       setOpenCreate(false);
-      setWorkspaceName("");
-      setWorkspaceDesc("");
+      setWorkspaceName('');
+      setWorkspaceDesc('');
       await refreshTeams();
     } catch (err) {
       console.error("❌ handleCreate error:", err);
@@ -348,8 +348,8 @@ export default function TeamsPage() {
       });
 
       setOpenDelete(false);
-      setDeleteWorkspaceId("");
-      setDeleteWorkspaceName("");
+      setDeleteWorkspaceId('');
+      setDeleteWorkspaceName('');
       await refreshTeams();
     } catch (err) {
       console.error("❌ handleDelete error:", err);
@@ -397,7 +397,7 @@ export default function TeamsPage() {
   }
 
   const filteredTeams = teams.filter((t) =>
-    t.GSI_NAME.toLowerCase().includes(search.toLowerCase())
+    t.GSI_NAME.toLowerCase().includes(search.toLowerCase()),
   );
 
   useEffect(() => {
@@ -432,16 +432,13 @@ export default function TeamsPage() {
         sx={{ py: { xs: 6, md: 8 } }}
       >
         <Stack
-          direction={{ xs: "column", sm: "row" }}
+          direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
           gap={2}
           mb={2.5}
         >
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: 900, color: theme.palette.text.primary }}
-          >
+          <Typography variant="h4" sx={{ fontWeight: 900, color: theme.palette.text.primary }}>
             Teamspaces
           </Typography>
           <Stack direction="row" spacing={1}>
@@ -450,7 +447,7 @@ export default function TeamsPage() {
               color="warning"
               onClick={() => setOpenCreate(true)}
               startIcon={<AddIcon />}
-              sx={{ fontWeight: 900, textTransform: "none" }}
+              sx={{ fontWeight: 900, textTransform: 'none' }}
             >
               Create Team
             </Button>
@@ -459,7 +456,7 @@ export default function TeamsPage() {
               color="warning"
               onClick={() => setOpenInvite(true)}
               startIcon={<GroupAddIcon />}
-              sx={{ fontWeight: 900, textTransform: "none" }}
+              sx={{ fontWeight: 900, textTransform: 'none' }}
             >
               Invite Member
             </Button>
@@ -592,7 +589,7 @@ export default function TeamsPage() {
       >
         <DialogTitle>Invite Member</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
-          <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
             <Tabs
               value={inviteMode}
               onChange={(_, v) => setInviteMode(v)}
@@ -603,17 +600,17 @@ export default function TeamsPage() {
               <Tab
                 label="Add to Teamspace"
                 value="teamspace"
-                sx={{ fontWeight: 700, textTransform: "none" }}
+                sx={{ fontWeight: 700, textTransform: 'none' }}
               />
               <Tab
                 label="Invite to Platform"
                 value="platform"
-                sx={{ fontWeight: 700, textTransform: "none" }}
+                sx={{ fontWeight: 700, textTransform: 'none' }}
               />
             </Tabs>
           </Box>
 
-          {inviteMode === "platform" ? (
+          {inviteMode === 'platform' ? (
             <TextField
               fullWidth
               label="User Email"
@@ -669,7 +666,7 @@ export default function TeamsPage() {
             variant="contained"
             color="warning"
           >
-            {inviteMode === "platform" ? "Invite" : "Add"}
+            {inviteMode === 'platform' ? 'Invite' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>

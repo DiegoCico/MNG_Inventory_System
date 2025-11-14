@@ -1,4 +1,4 @@
-const TRPC = "/trpc";
+const TRPC = '/trpc';
 
 /* CREATE TEAMSPACE */
 export async function createTeamspace(
@@ -7,9 +7,9 @@ export async function createTeamspace(
   userId: string
 ) {
   const res = await fetch(`${TRPC}/createTeamspace`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, description, userId }),
   });
 
@@ -17,7 +17,7 @@ export async function createTeamspace(
 
   const json = await res.json();
   const data = json?.result?.data;
-  if (!data) throw new Error("unexpected response from createTeamspace");
+  if (!data) throw new Error('unexpected response from createTeamspace');
   return data;
 }
 
@@ -28,16 +28,16 @@ export async function getTeamspace(userId: string) {
       JSON.stringify({ userId })
     )}`,
     {
-      method: "GET",
-      credentials: "include",
-    }
+      method: 'GET',
+      credentials: 'include',
+    },
   );
 
   if (!res.ok) throw new Error(`getTeamspace failed: ${res.status}`);
 
   const json = await res.json();
   const data = json?.result?.data;
-  if (!data) throw new Error("unexpected response from getTeamspace");
+  if (!data) throw new Error('unexpected response from getTeamspace');
   return data;
 }
 
@@ -62,7 +62,7 @@ export async function addUserTeamspace(
 
   const json = await res.json();
   const data = json?.result?.data;
-  if (!data) throw new Error("unexpected response from addUserTeamspace");
+  if (!data) throw new Error('unexpected response from addUserTeamspace');
   return data;
 }
 
@@ -87,7 +87,7 @@ export async function removeUserTeamspace(
 
   const json = await res.json();
   const data = json?.result?.data;
-  if (!data) throw new Error("unexpected response from removeUserTeamspace");
+  if (!data) throw new Error('unexpected response from removeUserTeamspace');
   return data;
 }
 
@@ -104,6 +104,6 @@ export async function deleteTeamspace(teamspaceId: string, userId: string) {
 
   const json = await res.json();
   const data = json?.result?.data;
-  if (!data) throw new Error("unexpected response from deleteTeamspace");
+  if (!data) throw new Error('unexpected response from deleteTeamspace');
   return data;
 }
