@@ -36,7 +36,7 @@ export default function AdminPage() {
             <Tab label="User Assignments" />
           </Tabs>
 
-          <Box sx={{ p: 3, bgcolor: theme.palette.background.default }}>
+          <Box sx={{ p: 3, bgcolor: theme.palette.background.paper }}>
             {activeTab === 0 && <RoleManagementTab />}
             {activeTab === 1 && <UserRoleAssignmentTab />}
           </Box>

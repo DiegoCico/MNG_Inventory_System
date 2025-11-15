@@ -166,7 +166,7 @@ export default function RoleManagementTab() {
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
         PaperProps={{
-          sx: { bgcolor: theme.palette.background.default },
+          sx: { bgcolor: theme.palette.background.paper },
         }}
       >
         <DialogTitle>Delete Role</DialogTitle>
