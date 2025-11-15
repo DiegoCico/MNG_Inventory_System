@@ -49,7 +49,7 @@ export class ApiStack extends cdk.Stack {
         target: "node20",
         minify: true,
         sourceMap: true,
-        externalModules: ["aws-sdk"], 
+        externalModules: ["aws-sdk", "@aws-sdk/*"],
       },
       environment: {
         NODE_OPTIONS: "--enable-source-maps",
@@ -57,7 +57,7 @@ export class ApiStack extends cdk.Stack {
         STAGE: stage.name,
         SERVICE_NAME: serviceName,
         TABLE_NAME: props.ddbTable.tableName,
-        APP_REGION: cdk.Stack.of(this).region, 
+        APP_REGION: cdk.Stack.of(this).region,
       },
     });
 
@@ -78,7 +78,7 @@ export class ApiStack extends cdk.Stack {
 
     const lambdaIntegration = new apigwIntegrations.HttpLambdaIntegration(
       "LambdaIntegration",
-      this.apiFn
+      this.apiFn,
     );
 
     // /trpc/* proxy → Lambda
