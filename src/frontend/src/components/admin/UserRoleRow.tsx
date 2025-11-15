@@ -79,11 +79,18 @@ export default function UserRoleRow({ user, roles, onRoleChange }: UserRoleRowPr
         ) : (
           <FormControl fullWidth size="small">
             <Select
-              value={user.roleName || 'No Role'}
+              value={roles.some((r) => r.name === user.roleName) ? user.roleName : ''}
               onChange={(e) => handleChange(e.target.value)}
               disabled={loading}
+              displayEmpty
+              renderValue={(selected) =>
+                selected === '' ? (
+                  <Typography color="text.secondary">Unassigned</Typography>
+                ) : (
+                  String(selected)
+                )
+              }
             >
-              <MenuItem value="No Role">No Role</MenuItem>
               {roles.map((role) => (
                 <MenuItem key={role.roleId} value={role.name}>
                   {role.name}
