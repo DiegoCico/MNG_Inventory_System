@@ -6,6 +6,7 @@ import {
   QueryCommand,
   UpdateCommand,
   DeleteCommand,
+  ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import crypto from 'crypto';
 import { doc } from '../aws';
@@ -189,13 +190,12 @@ export const rolesRouter = router({
   /** Get all roles */
   getAllRoles: publicProcedure.query(async () => {
     const res = await doc.send(
-      new QueryCommand({
+      new ScanCommand({
         TableName: TABLE_NAME,
-        IndexName: 'GSI1',
-        KeyConditionExpression: 'GSI1PK = :gsi1pk AND begins_with(GSI1SK, :gsi1sk)',
+        FilterExpression: 'begins_with(PK, :pk) AND SK = :sk',
         ExpressionAttributeValues: {
-          ':gsi1pk': 'ROLE',
-          ':gsi1sk': 'ROLE#',
+          ':pk': 'ROLE#',
+          ':sk': 'METADATA',
         },
       }),
     );
