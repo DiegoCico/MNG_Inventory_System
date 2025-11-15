@@ -63,14 +63,14 @@ export default function RoleManagementTab() {
 
   const handleEditRole = async (data: RoleFormData) => {
     if (!selectedRole) return;
-    await adminApi.updateRole(selectedRole.roleId, data.name, data.description, data.permissions);
+    await adminApi.updateRole(selectedRole.name, data.description, data.permissions);
     await loadRoles();
   };
 
   const handleDeleteRole = async () => {
     if (!roleToDelete) return;
     try {
-      await adminApi.deleteRole(roleToDelete.roleId);
+      await adminApi.deleteRole(roleToDelete.name);
       await loadRoles();
       setDeleteDialogOpen(false);
       setRoleToDelete(null);

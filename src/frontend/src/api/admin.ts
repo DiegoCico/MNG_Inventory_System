@@ -1,7 +1,5 @@
 const TRPC = '/trpc';
 
-// ============= USERS API =============
-
 export async function listUsersWithRoles() {
   const res = await fetch(
     `${TRPC}/listUsersWithRoles?input=${encodeURIComponent(JSON.stringify({}))}`,
@@ -36,8 +34,6 @@ export async function getUserRole(userId: string) {
   return json?.result?.data;
 }
 
-// ============= ROLES API =============
-
 export async function getAllRoles() {
   const res = await fetch(`${TRPC}/getAllRoles?input=${encodeURIComponent(JSON.stringify({}))}`, {
     credentials: 'include',
@@ -69,29 +65,24 @@ export async function createRole(name: string, description: string, permissions:
   return json?.result?.data;
 }
 
-export async function updateRole(
-  roleId: string,
-  name?: string,
-  description?: string,
-  permissions?: string[],
-) {
+export async function updateRole(name: string, description?: string, permissions?: string[]) {
   const res = await fetch(`${TRPC}/updateRole`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ roleId, name, description, permissions }),
+    body: JSON.stringify({ name, description, permissions }),
   });
   if (!res.ok) throw new Error(`updateRole failed: ${res.status}`);
   const json = await res.json();
   return json?.result?.data;
 }
 
-export async function deleteRole(roleId: string) {
+export async function deleteRole(name: string) {
   const res = await fetch(`${TRPC}/deleteRole`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ roleId }),
+    body: JSON.stringify({ name }),
   });
   if (!res.ok) throw new Error(`deleteRole failed: ${res.status}`);
   const json = await res.json();
