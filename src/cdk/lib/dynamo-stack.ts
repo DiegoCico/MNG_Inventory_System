@@ -186,7 +186,99 @@ export class DynamoStack extends Stack {
             ],
           },
         },
-        physicalResourceId: cr.PhysicalResourceId.of('SeedRoles-v3'),
+        physicalResourceId: cr.PhysicalResourceId.of('SeedRoles-v4'),
+      },
+      onUpdate: {
+        service: 'DynamoDB',
+        action: 'batchWriteItem',
+        parameters: {
+          RequestItems: {
+            [`${service}-${stage}-data`]: [
+              {
+                PutRequest: {
+                  Item: {
+                    PK: { S: 'ROLE#OWNER' },
+                    SK: { S: 'METADATA' },
+                    roleId: { S: 'OWNER' },
+                    name: { S: 'Owner' },
+                    description: { S: 'Full administrative control over the system.' },
+                    permissions: {
+                      L: [
+                        { S: 'team.create' },
+                        { S: 'team.add_member' },
+                        { S: 'team.remove_member' },
+                        { S: 'team.view' },
+                        { S: 'team.delete' },
+                        { S: 'user.invite' },
+                        { S: 'user.delete' },
+                        { S: 'role.add' },
+                        { S: 'role.modify' },
+                        { S: 'role.remove' },
+                        { S: 'role.view' },
+                        { S: 'item.create' },
+                        { S: 'item.view' },
+                        { S: 'item.update' },
+                        { S: 'item.delete' },
+                        { S: 'item.upload_image' },
+                        { S: 'item.manage_damage' },
+                        { S: 'report.create' },
+                        { S: 'report.view' },
+                        { S: 'report.delete' },
+                        { S: 'log.view' },
+                        { S: 'log.export' },
+                      ],
+                    },
+                    createdAt: { S: new Date().toISOString() },
+                    updatedAt: { S: new Date().toISOString() },
+                  },
+                },
+              },
+              {
+                PutRequest: {
+                  Item: {
+                    PK: { S: 'ROLE#MANAGER' },
+                    SK: { S: 'METADATA' },
+                    roleId: { S: 'MANAGER' },
+                    name: { S: 'Manager' },
+                    description: { S: 'Manage members, items, and reports.' },
+                    permissions: {
+                      L: [
+                        { S: 'team.create' },
+                        { S: 'team.add_member' },
+                        { S: 'team.remove_member' },
+                        { S: 'team.view' },
+                        { S: 'item.create' },
+                        { S: 'item.view' },
+                        { S: 'item.update' },
+                        { S: 'report.create' },
+                        { S: 'report.view' },
+                      ],
+                    },
+                    createdAt: { S: new Date().toISOString() },
+                    updatedAt: { S: new Date().toISOString() },
+                  },
+                },
+              },
+              {
+                PutRequest: {
+                  Item: {
+                    PK: { S: 'ROLE#MEMBER' },
+                    SK: { S: 'METADATA' },
+                    roleId: { S: 'MEMBER' },
+                    name: { S: 'Member' },
+                    description: { S: 'Limited access to viewing their team and their items.' },
+                    permissions: {
+                      L: [{ S: 'item.view' }, { S: 'team.view' }],
+                    },
+                    createdAt: { S: new Date().toISOString() },
+                    updatedAt: { S: new Date().toISOString() },
+                  },
+                },
+              },
+            ],
+          },
+        },
+        physicalResourceId: cr.PhysicalResourceId.of('SeedRoles-v4'),
       },
       policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [this.table.tableArn],
