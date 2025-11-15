@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Box, Container, Tabs, Tab, Paper } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import TopBar from '../components/TopBar';
-
+import RoleManagementTab from '../components/admin/RoleManagementTab';
+import UserRoleAssignmentTab from '../components/admin/UserRoleAssignmentTab';
 
 export default function AdminPage() {
   const theme = useTheme();
