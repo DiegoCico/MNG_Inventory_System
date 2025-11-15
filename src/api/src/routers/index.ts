@@ -8,6 +8,7 @@ import { rolesRouter } from './roles';
 import { itemsRouter } from './items';
 import { homeRouter } from './home';
 import { profileRouter } from './profile';
+import { formsRouter } from './forms';
 
 const coreRouter = router({
   health: publicProcedure.query(() => ({ ok: true })),
@@ -23,6 +24,7 @@ export const appRouter = mergeRouters(
   itemsRouter,
   homeRouter,
   profileRouter,
+  formsRouter,
 );
 
 export type AppRouter = typeof appRouter;
