@@ -123,7 +123,7 @@ export default function RoleManagementTab() {
 
       <Grid container spacing={3}>
         {roles.map((role) => (
-          <Grid item xs={12} sm={6} md={4} key={role.roleId}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={role.roleId}>
             <RoleCard
               name={role.name}
               description={role.description}
