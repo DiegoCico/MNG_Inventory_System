@@ -1,5 +1,5 @@
-import { SendEmailCommand, SendEmailCommandInput } from "@aws-sdk/client-sesv2";
-import { sesClient } from "../aws";
+import { SendEmailCommand, SendEmailCommandInput } from '@aws-sdk/client-sesv2';
+import { sesClient } from '../aws';
 
 export const sendInviteEmail = async (params: {
   to: string;
@@ -7,12 +7,12 @@ export const sendInviteEmail = async (params: {
   signinUrl: string;
 }) => {
   const { to, tempPassword, signinUrl } = params;
-  const URL_signin = "https://d2cktegyq4qcfk.cloudfront.net/signin";
+  const URL_signin = 'https://d2cktegyq4qcfk.cloudfront.net/signin';
 
-  const FROM = process.env.SES_FROM_ADDRESS || "cicotoste.d@northeastern.edu";
+  const FROM = process.env.SES_FROM_ADDRESS || 'cicotoste.d@northeastern.edu';
   const CONFIG_SET = process.env.SES_CONFIG_SET;
 
-  const subject = "Official Invitation – MNG Inventory Access";
+  const subject = 'Official Invitation – MNG Inventory Access';
 
   const text = `Dear Team Member,
 
@@ -83,5 +83,5 @@ MNG Inventory Support`;
   };
 
   const res = await sesClient.send(new SendEmailCommand(input));
-  console.log("SES SendEmail MessageId:", res.MessageId);
+  console.log('SES SendEmail MessageId:', res.MessageId);
 };

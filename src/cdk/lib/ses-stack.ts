@@ -1,9 +1,9 @@
-import * as cdk from "aws-cdk-lib";
-import { Construct } from "constructs";
-import * as route53 from "aws-cdk-lib/aws-route53";
-import * as ses from "aws-cdk-lib/aws-ses";
-import * as iam from "aws-cdk-lib/aws-iam";
-import * as sns from "aws-cdk-lib/aws-sns";
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as ses from 'aws-cdk-lib/aws-ses';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sns from 'aws-cdk-lib/aws-sns';
 
 export interface SesStackProps extends cdk.StackProps {
   /** Root domain for prod/staging identities (optional for dev) */
@@ -28,7 +28,7 @@ export class SesStack extends cdk.Stack {
 
     const {
       rootDomain,
-      fromLocalPart = "noreply",
+      fromLocalPart = 'noreply',
       createFeedbackTopic = true,
       stage = "dev",
       emailFrom = "cicotoste.d@northeastern.edu",
@@ -73,49 +73,49 @@ export class SesStack extends cdk.Stack {
 
     // Configuration Set for metrics and event tracking
     const cfgName = `cfg-${cdk.Stack.of(this).stackName}`;
-    const cfg = new ses.CfnConfigurationSet(this, "ConfigSet", {
+    const cfg = new ses.CfnConfigurationSet(this, 'ConfigSet', {
       name: cfgName,
       reputationOptions: { reputationMetricsEnabled: true },
       sendingOptions: { sendingEnabled: true },
-      suppressionOptions: { suppressedReasons: ["BOUNCE", "COMPLAINT"] },
-      deliveryOptions: { tlsPolicy: "REQUIRE" },
+      suppressionOptions: { suppressedReasons: ['BOUNCE', 'COMPLAINT'] },
+      deliveryOptions: { tlsPolicy: 'REQUIRE' },
     });
     this.configurationSetName = cfg.name!;
 
     // Optional SNS topic for bounce/complaint notifications
     if (createFeedbackTopic) {
-      const feedbackTopic = new sns.Topic(this, "SesFeedbackTopic", {
+      const feedbackTopic = new sns.Topic(this, 'SesFeedbackTopic', {
         displayName: `SES Feedback (${stage})`,
       });
 
       feedbackTopic.addToResourcePolicy(
         new iam.PolicyStatement({
-          principals: [new iam.ServicePrincipal("ses.amazonaws.com")],
-          actions: ["SNS:Publish"],
+          principals: [new iam.ServicePrincipal('ses.amazonaws.com')],
+          actions: ['SNS:Publish'],
           resources: [feedbackTopic.topicArn],
           conditions: {
-            StringEquals: { "AWS:SourceAccount": this.account },
+            StringEquals: { 'AWS:SourceAccount': this.account },
             ArnLike: {
-              "AWS:SourceArn": `arn:aws:ses:${this.region}:${this.account}:configuration-set/${cfgName}`,
+              'AWS:SourceArn': `arn:aws:ses:${this.region}:${this.account}:configuration-set/${cfgName}`,
             },
           },
-        })
+        }),
       );
 
-      new ses.CfnConfigurationSetEventDestination(this, "CfgSetEvents", {
+      new ses.CfnConfigurationSetEventDestination(this, 'CfgSetEvents', {
         configurationSetName: cfgName,
         eventDestination: {
           name: `sns-destination-${stage.toLocaleLowerCase()}`,
           enabled: true,
           matchingEventTypes: [
-            "SEND",
-            "REJECT",
-            "BOUNCE",
-            "COMPLAINT",
-            "DELIVERY",
-            "OPEN",
-            "CLICK",
-            "RENDERING_FAILURE",
+            'SEND',
+            'REJECT',
+            'BOUNCE',
+            'COMPLAINT',
+            'DELIVERY',
+            'OPEN',
+            'CLICK',
+            'RENDERING_FAILURE',
           ],
           snsDestination: { topicArn: feedbackTopic.topicArn },
         },
@@ -131,12 +131,12 @@ export class SesStack extends cdk.Stack {
         "Allow sending via SES from the configured address & configuration set.",
       statements: [
         new iam.PolicyStatement({
-          actions: ["ses:SendEmail", "ses:SendRawEmail"],
-          resources: ["*"],
+          actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+          resources: ['*'],
           conditions: {
             StringEquals: {
-              "ses:FromAddress": this.fromAddress,
-              "ses:ConfigurationSet": cfgName,
+              'ses:FromAddress': this.fromAddress,
+              'ses:ConfigurationSet': cfgName,
             },
           },
         }),

@@ -96,8 +96,8 @@ export default function HeroPage() {
                 lineHeight: 1.6,
               }}
             >
-              Secure, accountable, ready. Encrypt every record, verify every transaction, and keep assets
-              mission-ready in perfect operational condition.
+              Secure, accountable, ready. Encrypt every record, verify every transaction, and keep
+              assets mission-ready in perfect operational condition.
             </Typography>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 3 }}>
@@ -196,8 +196,9 @@ export default function HeroPage() {
             To obtain access, please coordinate through your chain of command.
           </Typography>
           <Typography gutterBottom>
-            Speak with your <strong>unit sergeant</strong> and request that they submit an approval on your behalf.
-            Once approved, you will receive a <strong>secure invitation link</strong> to complete enrollment.
+            Speak with your <strong>unit sergeant</strong> and request that they submit an approval
+            on your behalf. Once approved, you will receive a{' '}
+            <strong>secure invitation link</strong> to complete enrollment.
           </Typography>
           <Typography>
             For security reasons, self-registration is not available on this system.

@@ -17,7 +17,7 @@ export interface AuthStackProps extends StackProps {
   sesVerifiedDomain?: string;
   sesFromAddress: string;
   sesIdentityArn: string;
-  mfaMode?: "ON" | "OPTIONAL";
+  mfaMode?: 'ON' | 'OPTIONAL';
 }
 
 export class AuthStack extends Stack {
@@ -27,14 +27,14 @@ export class AuthStack extends Stack {
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
 
-    const service = (props.serviceName ?? "mng").toLowerCase();
+    const service = (props.serviceName ?? 'mng').toLowerCase();
     const stage = props.stage.toLowerCase();
-    const mfaMode = props.mfaMode ?? "ON";
+    const mfaMode = props.mfaMode ?? 'ON';
 
     // --- Callback and logout URLs ---
     const callbacks = props.callbackUrls?.length
       ? props.callbackUrls
-      : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/callback`);
+      : props.webOrigins.map((o) => `${o.replace(/\/$/, '')}/auth/callback`);
     const logouts = props.logoutUrls?.length
       ? props.logoutUrls
       : props.webOrigins.map((o) => `${o.replace(/\/$/, "")}/auth/logout`);
@@ -62,11 +62,11 @@ export class AuthStack extends Stack {
         name: new cognito.StringAttribute({ mutable: true }),
       },
       userVerification: {
-        emailSubject: "Verify your email for MNG Inventory System",
-        emailBody: "Hello, your verification code is {####}",
+        emailSubject: 'Verify your email for MNG Inventory System',
+        emailBody: 'Hello, your verification code is {####}',
         emailStyle: cognito.VerificationEmailStyle.CODE,
       },
-      mfa: mfaMode === "ON" ? cognito.Mfa.REQUIRED : cognito.Mfa.OPTIONAL,
+      mfa: mfaMode === 'ON' ? cognito.Mfa.REQUIRED : cognito.Mfa.OPTIONAL,
       mfaSecondFactor: { otp: false, sms: false },
       passwordPolicy: {
         minLength: 10,
@@ -87,7 +87,7 @@ export class AuthStack extends Stack {
     cfnPool.mfaConfiguration = mfaMode;
 
     cfnPool.emailConfiguration = {
-      emailSendingAccount: "DEVELOPER",
+      emailSendingAccount: 'DEVELOPER',
       from: props.sesFromAddress,
       sourceArn: props.sesIdentityArn,
     };
@@ -142,7 +142,7 @@ export class AuthStack extends Stack {
     new CfnOutput(this, "IssuerUrl", {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`,
     });
-    new CfnOutput(this, "JwksUri", {
+    new CfnOutput(this, 'JwksUri', {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}/.well-known/jwks.json`,
     });
   }

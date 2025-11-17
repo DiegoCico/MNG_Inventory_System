@@ -12,3 +12,6 @@ cdk.out
 .env.local
 .env.*.local
 
+.DS_Store
+src/frontend/src/.DS_Store
+DS_Store

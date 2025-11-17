@@ -1,5 +1,5 @@
 import request from 'supertest';
-import app from '../../src/server';
+import app from '../src/server';
 import {
   CognitoIdentityProviderClient,
   AdminInitiateAuthCommand,
@@ -32,7 +32,6 @@ afterAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
 });
-
 
 describe('Auth Router - signIn', () => {
   it('NEW_PASSWORD_REQUIRED challenge -> 200 payload with session', async () => {

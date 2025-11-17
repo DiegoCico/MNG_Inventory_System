@@ -1,5 +1,5 @@
 import request from 'supertest';
-import app from '../../src/server';
+import app from '../src/server';
 
 describe('Auth Router - logout', () => {
   it('clears cookies and returns success', async () => {

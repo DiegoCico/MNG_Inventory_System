@@ -14,8 +14,8 @@ export interface StageConfig {
   };
   cors: {
     allowOrigins: string[];
-    allowMethods: string[];   // "GET","POST","OPTIONS","PUT","PATCH","DELETE"
-    allowHeaders: string[];   //   "content-type","authorization"
+    allowMethods: string[]; // "GET","POST","OPTIONS","PUT","PATCH","DELETE"
+    allowHeaders: string[]; //   "content-type","authorization"
   };
   tags?: Record<string, string>;
 }

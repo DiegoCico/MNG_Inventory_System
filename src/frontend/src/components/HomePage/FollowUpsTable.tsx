@@ -1,5 +1,6 @@
 import { Paper, Typography, Box } from '@mui/material';
 import { useTheme, alpha } from '@mui/material/styles';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface FollowUpsTableProps {
   followUps: Array<{
@@ -15,6 +16,14 @@ interface FollowUpsTableProps {
 export default function FollowUpsTable({ followUps }: FollowUpsTableProps) {
   const theme = useTheme();
   const cardBorder = `1px solid ${theme.palette.divider}`;
+  const navigate = useNavigate();
+  const { teamId } = useParams();
+
+  const handleRowClick = (itemId: string) => {
+    if (teamId) {
+      navigate(`/teams/${teamId}/items/${itemId}`);
+    }
+  };
 
   return (
     <Paper
@@ -56,7 +65,17 @@ export default function FollowUpsTable({ followUps }: FollowUpsTableProps) {
         <tbody>
           {followUps.length > 0 ? (
             followUps.map((item) => (
-              <tr key={item.itemId}>
+              <tr 
+              key={item.itemId} 
+              onClick={() => handleRowClick(item.itemId)}
+              style={{ cursor: 'pointer' }} // pointer cursor
+              // hover effect using inline sx with MUI `alpha` for subtle background
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = alpha(theme.palette.primary.main, 0.08))
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = 'transparent')
+              }>
                 <td>{item.name}</td>
                 <td>{item.parent ?? 'N/A'}</td>
                 <td>{item.status}</td>

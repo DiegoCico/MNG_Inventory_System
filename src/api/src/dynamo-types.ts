@@ -6,7 +6,7 @@
  */
 export interface TeamEntity {
   PK: `TEAM#${string}`;
-  SK: "METADATA";
+  SK: 'METADATA';
   teamId: string;
   name: string;
   normalizedName: string; // lowercase for case-insensitive uniqueness

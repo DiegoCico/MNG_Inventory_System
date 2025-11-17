@@ -330,166 +330,161 @@ export const authRouter = router({
         throw new Error(`Challenge response failed: ${error.message}`);
       }
     }),
-// ------------------------------
-// me()
-// ------------------------------
-me: publicProcedure.query(async ({ ctx }) => {
-  const cookies = parseCookiesFromCtx(ctx);
-  const accessToken = cookies[COOKIE_ACCESS];
-
-  if (!accessToken) {
-    return { authenticated: false, message: "No session" };
-  }
-
-  // 1. VERIFY TOKEN
-  let decoded;
-  try {
-    decoded = await verifier.verify(accessToken);
-  } catch (err: any) {
-    console.error("me() token verification error:", err);
-    return { authenticated: false, message: "Invalid session" };
-  }
-
-  const userId = decoded.sub;
-
-  // 2. LOOK UP USER IN DYNAMODB
-  const { doc } = await import("../aws");
-  const { GetCommand, PutCommand } = await import("@aws-sdk/lib-dynamodb");
-  const TABLE = config.TABLE_NAME;
-
-  let user: any = null;
-
-  try {
-    const res = await doc.send(
-      new GetCommand({
-        TableName: TABLE,
-        Key: { PK: `USER#${userId}`, SK: "METADATA" },
-      })
-    );
-    user = res.Item || null;
-  } catch (err) {
-    console.error("me() DynamoDB Get error:", err);
-  }
-
-  // 3. CREATE USER IF MISSING
-  if (!user) {
-    const now = new Date().toISOString();
-    const username = "user-" + Math.random().toString(36).substring(2, 8);
-    const accountId = crypto.randomUUID();
-
-    user = {
-      PK: `USER#${userId}`,
-      SK: "METADATA",
-      sub: userId,
-      username,
-      name: username,
-      role: "User",
-      accountId,
-      createdAt: now,
-      updatedAt: now,
-      GSI6PK: `UID#${userId}`,
-      GSI6SK: `USER#${userId}`,
-    };
-
-    try {
-      await doc.send(
-        new PutCommand({
-          TableName: TABLE,
-          Item: user,
-        })
-      );
-      console.log("Created new DynamoDB user record:", user);
-    } catch (err) {
-      console.error("FAILED TO CREATE USER RECORD:", err);
-      return {
-        authenticated: false,
-        message: "Could not create user record",
-      };
-    }
-  }
-
-  // 4. RETURN PROFILE (NOW INCLUDES accountId)
-  return {
-    authenticated: true,
-    userId,
-    name: user.name,
-    username: user.username,
-    role: user.role,
-    accountId: user.accountId,
-  };
-}),
-
-
-// ------------------------------
-// refresh()
-// ------------------------------
-refresh: publicProcedure.mutation(async ({ ctx }) => {
-  try {
+  // ------------------------------
+  // me()
+  // ------------------------------
+  me: publicProcedure.query(async ({ ctx }) => {
     const cookies = parseCookiesFromCtx(ctx);
-    const refreshToken = cookies["auth_refresh"];
+    const accessToken = cookies[COOKIE_ACCESS];
 
-    if (!refreshToken) {
-      return { refreshed: false, message: "No refresh token" };
+    if (!accessToken) {
+      return { authenticated: false, message: 'No session' };
     }
 
-    // 1. REQUEST NEW TOKENS FROM COGNITO
-    const cmd = new InitiateAuthCommand({
-      ClientId: USER_POOL_CLIENT_ID,
-      AuthFlow: AuthFlowType.REFRESH_TOKEN_AUTH,
-      AuthParameters: {
-        REFRESH_TOKEN: refreshToken,
-      },
-    });
-
-    const result = await cognitoClient.send(cmd);
-
-    if (!result.AuthenticationResult) {
-      return { refreshed: false, message: "Token refresh failed" };
-    }
-
-    // 2. SET NEW COOKIES
-    const headers = setAuthCookies(ctx.res, {
-      AccessToken: result.AuthenticationResult.AccessToken ?? null,
-      IdToken: result.AuthenticationResult.IdToken ?? null,
-      ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
-    });
-    emitCookiesToLambda(ctx, headers);
-
-    // 3. DECODE NEW TOKENS
-    const newAccess = result.AuthenticationResult.AccessToken;
-    const newId = result.AuthenticationResult.IdToken;
-
-    const decoded =
-      decodeJwtNoVerify(newId) ||
-      decodeJwtNoVerify(newAccess);
-
-    if (!decoded || !decoded.sub) {
-      return {
-        refreshed: false,
-        message: "Token refresh succeeded but missing userId (sub)",
-      };
+    // 1. VERIFY TOKEN
+    let decoded;
+    try {
+      decoded = await verifier.verify(accessToken);
+    } catch (err: any) {
+      console.error('me() token verification error:', err);
+      return { authenticated: false, message: 'Invalid session' };
     }
 
     const userId = decoded.sub;
 
-    // 4. CREATE OR FIX USER RECORD (ensureUserRecord always returns username + accountId)
-    const record = await ensureUserRecord({ sub: userId });
+    // 2. LOOK UP USER IN DYNAMODB
+    const { doc } = await import('../aws');
+    const { GetCommand, PutCommand } = await import('@aws-sdk/lib-dynamodb');
+    const TABLE = config.TABLE_NAME;
 
+    let user: any = null;
+
+    try {
+      const res = await doc.send(
+        new GetCommand({
+          TableName: TABLE,
+          Key: { PK: `USER#${userId}`, SK: 'METADATA' },
+        }),
+      );
+      user = res.Item || null;
+    } catch (err) {
+      console.error('me() DynamoDB Get error:', err);
+    }
+
+    // 3. CREATE USER IF MISSING
+    if (!user) {
+      const now = new Date().toISOString();
+      const username = 'user-' + Math.random().toString(36).substring(2, 8);
+      const accountId = crypto.randomUUID();
+
+      user = {
+        PK: `USER#${userId}`,
+        SK: 'METADATA',
+        sub: userId,
+        username,
+        name: username,
+        role: 'User',
+        accountId,
+        createdAt: now,
+        updatedAt: now,
+        GSI6PK: `UID#${userId}`,
+        GSI6SK: `USER#${userId}`,
+      };
+
+      try {
+        await doc.send(
+          new PutCommand({
+            TableName: TABLE,
+            Item: user,
+          }),
+        );
+        console.log('Created new DynamoDB user record:', user);
+      } catch (err) {
+        console.error('FAILED TO CREATE USER RECORD:', err);
+        return {
+          authenticated: false,
+          message: 'Could not create user record',
+        };
+      }
+    }
+
+    // 4. RETURN PROFILE (NOW INCLUDES accountId)
     return {
-      refreshed: true,
-      userId,
-      username: record.username,
-      accountId: record.accountId,
       authenticated: true,
-      expiresIn: result.AuthenticationResult.ExpiresIn,
+      userId,
+      name: user.name,
+      username: user.username,
+      role: user.role,
+      accountId: user.accountId,
     };
-  } catch (err) {
-    console.error("refresh error:", err);
-    return { refreshed: false, message: "Token refresh failed" };
-  }
-}),
+  }),
 
+  // ------------------------------
+  // refresh()
+  // ------------------------------
+  refresh: publicProcedure.mutation(async ({ ctx }) => {
+    try {
+      const cookies = parseCookiesFromCtx(ctx);
+      const refreshToken = cookies['auth_refresh'];
 
+      if (!refreshToken) {
+        return { refreshed: false, message: 'No refresh token' };
+      }
+
+      // 1. REQUEST NEW TOKENS FROM COGNITO
+      const cmd = new InitiateAuthCommand({
+        ClientId: USER_POOL_CLIENT_ID,
+        AuthFlow: AuthFlowType.REFRESH_TOKEN_AUTH,
+        AuthParameters: {
+          REFRESH_TOKEN: refreshToken,
+        },
+      });
+
+      const result = await cognitoClient.send(cmd);
+
+      if (!result.AuthenticationResult) {
+        return { refreshed: false, message: 'Token refresh failed' };
+      }
+
+      // 2. SET NEW COOKIES
+      const headers = setAuthCookies(ctx.res, {
+        AccessToken: result.AuthenticationResult.AccessToken ?? null,
+        IdToken: result.AuthenticationResult.IdToken ?? null,
+        ExpiresIn: result.AuthenticationResult.ExpiresIn ?? null,
+      });
+      emitCookiesToLambda(ctx, headers);
+
+      // 3. DECODE NEW TOKENS
+      const newAccess = result.AuthenticationResult.AccessToken;
+      const newId = result.AuthenticationResult.IdToken;
+
+      const decoded = decodeJwtNoVerify(newId) || decodeJwtNoVerify(newAccess);
+
+      if (!decoded || !decoded.sub) {
+        return {
+          refreshed: false,
+          message: 'Token refresh succeeded but missing userId (sub)',
+        };
+      }
+
+      const userId = decoded.sub;
+
+      // 4. CREATE OR FIX USER RECORD (ensureUserRecord always returns username + accountId)
+      const record = await ensureUserRecord({ sub: userId });
+
+      return {
+        refreshed: true,
+        userId,
+        username: record.username,
+        accountId: record.accountId,
+        authenticated: true,
+        expiresIn: result.AuthenticationResult.ExpiresIn,
+      };
+    } catch (err) {
+      console.error('refresh error:', err);
+      return { refreshed: false, message: 'Token refresh failed' };
+    }
+  }),
 
   logout: publicProcedure.mutation(async ({ ctx }) => {
     const headers = clearAuthCookies(ctx.res);
