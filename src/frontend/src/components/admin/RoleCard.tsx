@@ -36,8 +36,7 @@ export default function RoleCard({
   return (
     <Card
       sx={{
-        height: '100%',
-        minHeight: 240, 
+        height: '100%', 
         display: 'flex',
         flexDirection: 'column',
         bgcolor: theme.palette.background.paper,
