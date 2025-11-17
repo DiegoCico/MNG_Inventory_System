@@ -23,6 +23,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -426,14 +427,14 @@ export default function TeamsPage() {
           </Typography>
           <Stack direction="row" spacing={1}>
             <Button
-              variant="outlined"
+              variant="contained"
               color="warning"
               component={RouterLink}
               to="/admin"
-              startIcon={<GroupAddIcon />}
+              startIcon={<AdminPanelSettingsIcon />}
               sx={{ fontWeight: 900, textTransform: 'none' }}
             >
-              Admin
+              Admin Portal
             </Button>
             <Button
               variant="contained"
