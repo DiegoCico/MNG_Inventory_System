@@ -64,24 +64,6 @@ export default function RoleCard({
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 1 }}>
           {permissions.length} Permission{permissions.length !== 1 ? 's' : ''}
         </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-          {permissions.slice(0, 5).map((perm) => (
-            <Chip
-              key={perm}
-              label={perm.split('.')[1].replace(/_/g, ' ')}
-              size="small"
-              sx={{ fontSize: '0.7rem' }}
-            />
-          ))}
-          {permissions.length > 5 && (
-            <Chip
-              label={`+${permissions.length - 5} more`}
-              size="small"
-              variant="outlined"
-              sx={{ fontSize: '0.7rem' }}
-            />
-          )}
-        </Box>
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
