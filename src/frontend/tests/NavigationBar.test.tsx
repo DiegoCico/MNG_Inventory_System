@@ -1,14 +1,14 @@
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import NavBar from "../src/components/NavBar";
-import { describe, it, expect } from "vitest";
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import NavBar from '../src/components/NavBar';
+import { describe, it, expect } from 'vitest';
 
-describe("NavBar", () => {
-  it("renders all navigation buttons", () => {
+describe('NavBar', () => {
+  it('renders all navigation buttons', () => {
     render(
       <MemoryRouter>
         <NavBar />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByRole("button", { name: /home/i })).toBeInTheDocument();
