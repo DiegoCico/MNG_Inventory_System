@@ -33,15 +33,10 @@ export type Permission =
   | 'item.view'
   | 'item.update'
   | 'item.delete'
-  | 'item.upload_image'
-  | 'item.manage_damage'
-  // Report handling (inventory form / 2404 form)
-  | 'report.create'
-  | 'report.view'
-  | 'report.delete'
-  // Audit / logs
-  | 'log.view'
-  | 'log.export';
+  // Report handling
+  | 'reports.create'
+  | 'reports.view'
+  | 'reports.delete';
 
 export interface RoleEntity {
   PK: `ROLE#${string}`;
@@ -91,17 +86,13 @@ export const DEFAULT_ROLES: Array<Pick<RoleEntity, 'name' | 'description' | 'per
       'role.view',
       'user.invite',
       'user.delete',
-      // Item admin
-      'item.create', // this includes uploading images
+      'item.create',
       'item.update',
       'item.delete',
       'item.view',
-      'item.manage_damage',
-      'report.create',
-      'report.view',
-      'report.delete',
-      'log.view',
-      'log.export',
+      'reports.create',
+      'reports.view',
+      'reports.delete',
     ],
   },
   {
@@ -114,14 +105,14 @@ export const DEFAULT_ROLES: Array<Pick<RoleEntity, 'name' | 'description' | 'per
       'item.create',
       'item.view',
       'item.update',
-      'report.create',
-      'report.view',
+      'reports.create',
+      'reports.view',
     ],
   },
   {
     name: 'Member',
     description: 'Limited access to view and report items.',
-    permissions: ['item.view', 'report.create', 'report.view'],
+    permissions: ['item.view', 'reports.create', 'reports.view'],
   },
 ];
 

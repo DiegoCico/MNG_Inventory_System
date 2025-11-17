@@ -22,15 +22,10 @@ export type Permission =
   | 'item.view'
   | 'item.update'
   | 'item.delete'
-  | 'item.upload_image'
-  | 'item.manage_damage'
   // Report handling
-  | 'report.create'
-  | 'report.view'
-  | 'report.delete'
-  // Audit / logs
-  | 'log.view'
-  | 'log.export';
+  | 'reports.create'
+  | 'reports.view'
+  | 'reports.delete';
 
 interface PermissionCategory {
   label: string;
@@ -76,25 +71,15 @@ const PERMISSION_CATEGORIES: PermissionCategory[] = [
       { value: 'item.view', label: 'View Items' },
       { value: 'item.update', label: 'Update Items' },
       { value: 'item.delete', label: 'Delete Items' },
-      { value: 'item.upload_image', label: 'Upload Images' },
-      { value: 'item.manage_damage', label: 'Manage Damage Reports' },
     ],
   },
   {
     label: 'Report Management',
     icon: '📋',
     permissions: [
-      { value: 'report.create', label: 'Create Reports' },
-      { value: 'report.view', label: 'View Reports' },
-      { value: 'report.delete', label: 'Delete Reports' },
-    ],
-  },
-  {
-    label: 'Audit & Logs',
-    icon: '📊',
-    permissions: [
-      { value: 'log.view', label: 'View Logs' },
-      { value: 'log.export', label: 'Export Logs' },
+      { value: 'reports.create', label: 'Create Reports' },
+      { value: 'reports.view', label: 'View Reports' },
+      { value: 'reports.delete', label: 'Delete Reports' },
     ],
   },
 ];
