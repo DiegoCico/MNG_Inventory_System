@@ -3,6 +3,7 @@ import { Box, TextField, Typography, CircularProgress, Alert, InputAdornment } f
 import SearchIcon from '@mui/icons-material/Search';
 import UserRoleRow from './UserRoleRow';
 import * as adminApi from '../../api/admin';
+import { useTheme } from '@mui/material/styles';
 
 interface User {
   userId: string;
@@ -17,6 +18,7 @@ interface Role {
 }
 
 export default function UserRoleAssignmentTab() {
+  const theme = useTheme();
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +92,10 @@ export default function UserRoleAssignmentTab() {
                 <SearchIcon />
               </InputAdornment>
             ),
+            sx: {
+              bgcolor: theme.palette.background.paper,
+              borderRadius: 1,
+            },
           }}
         />
       </Box>
