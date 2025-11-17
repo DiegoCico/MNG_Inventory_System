@@ -49,7 +49,7 @@ export class ApiStack extends cdk.Stack {
         target: 'node20',
         minify: true,
         sourceMap: true,
-        externalModules: ['aws-sdk'],
+        externalModules: ['aws-sdk', '@aws-sdk/*'],
       },
       environment: {
         NODE_OPTIONS: '--enable-source-maps',
