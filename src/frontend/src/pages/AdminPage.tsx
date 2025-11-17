@@ -15,11 +15,12 @@ export default function AdminPage() {
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Paper
-          elevation={0}
+          elevation={2}
           sx={{
             borderRadius: 2,
             overflow: 'hidden',
             border: `1px solid ${theme.palette.divider}`,
+            bgcolor: theme.palette.background.paper,
           }}
         >
           <Tabs
@@ -36,7 +37,7 @@ export default function AdminPage() {
             <Tab label="User Assignments" />
           </Tabs>
 
-          <Box sx={{ p: 3, bgcolor: theme.palette.background.paper }}>
+          <Box sx={{ p: 3 }}>
             {activeTab === 0 && <RoleManagementTab />}
             {activeTab === 1 && <UserRoleAssignmentTab />}
           </Box>
