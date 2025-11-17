@@ -63,7 +63,7 @@ export class DynamoStack extends Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
-    // 🔥 UNIQUE USERNAME INDEX
+    // UNIQUE USERNAME INDEX
     this.table.addGlobalSecondaryIndex({
       indexName: "GSI_UsersByUsername",
       partitionKey: { name: "username", type: dynamodb.AttributeType.STRING },

@@ -1,6 +1,8 @@
-The CDK folder defines the infrastructure that supports all runtime components of the Inventory Management System. It contains stack definitions, shared configuration, and cross-stack wiring logic.
+# CDK
 
-Current components
+The CDK folder defines the infrastructure that supports all runtime components of the system. It contains stack definitions, shared configuration, and cross-stack wiring logic.
+
+### Current components
 These are the currently implemented stacks in the CDK folder.
 - App (bin/app.ts): Entry point that initializes all stacks, resolves stage configuration, and links stack outputs.
 - AuthStack: Creates the authentication layer using Cognito resources and exposes identifiers for use by the API.
@@ -11,86 +13,46 @@ These are the currently implemented stacks in the CDK folder.
 - SesStack: Defines the SES identity and configuration set used for system emails such as invitations and onboarding.
 - Stage configuration (stage.ts): Central configuration resolver that sets per-environment values used across all stacks.
 
-Usage of components
+### Usage of components
 Below are the current CDK components and what they provide to the system. These values are consumed by the API, frontend, Lambda handlers, and automated systems through environment variables, stack outputs, and IAM role grants.
 
-AuthStack
+#### AuthStack
 - Provides Cognito resources: user pool, app client, domain, issuer URLs.
 - Supports mandatory email verification and MFA.
 - Sets OAuth redirect URLs using stage configuration.
 - Makes user pool information available to ApiStack for authentication.
 
-DynamoStack
+#### DynamoStack
 - Creates the main DynamoDB table (${service}-${stage}-data).
 - Defines primary keys (PK, SK).
 - Enables KMS encryption, PITR, TTL, Contributor Insights, and stage-dependent deletion rules.
-- Supplies all GSIs used by the API, including:
-  GSI_WorkspaceByName
-  GSI_UsersByUid
-  GSI_UsersByUsername
-  GSI_RolesByName
-  GSI_UserRoleLookup
-  GSI_ItemsByTeam
-  GSI_ItemsByAsset
-  GSI_FormsByAsset
-  Additional GSIs required for item profiles, form records, and workspace lookups (full list provided in dynamo-stack.ts).
+- Supplies all GSIs used by the API.  Current GSIs can be found in `dynamo-stack.ts` or in 
 
-ApiStack
+#### ApiStack
 - Contains the Lambda that executes all API routing logic.
 - Wraps the Lambda with API Gateway HTTP API.
 - Configures CORS using stage-derived allowed origins.
-- Receives and injects:
-  Cognito pool identifiers
-  AllowedOrigins
-  SES configuration
-  Dynamo table details and index names
-  S3 upload bucket name and encryption key
-  Web distribution URL
-- Grants the API Lambda:
-  DynamoDB read/write access
-  S3 object read/write/delete access
-  SES send permissions
-  Cognito admin abilities used by the Auth router.
+- Receives and injects: cognito pool identifiers, AllowedOrigins, SES configuration, Dynamo table details and index names, S3 upload bucket name and encryption key, Web distribution URL
+- Grants the API Lambda: DynamoDB read/write access, S3 object read/write/delete access, SES send permissions, Cognito admin abilities used by the Auth router.
 
-WebStack
+#### WebStack
 - Creates the S3 bucket hosting the built frontend.
 - Creates the CloudFront distribution that serves the frontend.
 - Proxies requests such as /trpc/*, /health, and /hello to the API.
 - Makes the API URL available to the frontend at deploy time.
 
-S3UploadsStack
+#### S3UploadsStack
 - Provides the uploads bucket for all file-based storage.
 - Enables server-side encryption using a managed KMS key.
 - Exposes the bucket and key identifiers for API use.
 - Grants the API write, delete, and head-object access.
 
-SesStack
+#### SesStack
 - Creates the system email identity used for onboarding and notifications.
 - Optionally attaches SNS topics if a stage supports feedback logging.
 - Exports sender addresses and configuration set names.
 
-Stage configuration
+#### Stage configuration
 - Computes the active stage (dev, prod, optional beta).
 - Defines removalPolicy, autoDeleteObjects, tags, Lambda sizing, and CORS policies per environment.
 - Provides stage outputs used by all stacks to ensure resources are named and configured consistently.
-
-Example usage
-The CDK system exports values that are consumed by the rest of the application. Examples include:
-- ApiStack uses AuthStack.userPoolId for authentication.
-- WebStack uses ApiStack.apiEndpoint to proxy requests.
-- ApiStack injects DynamoStack.tableName into the Lambda.
-- S3UploadsStack grants ApiStack the ability to upload images for the S3 router.
-
-Example integration
-When the API executes an image upload, the uploadImage method uses:
-- S3UploadsStack bucket (via environment variable)
-- DynamoStack indexes to determine team or item context
-- ApiStack IAM permissions to write the uploaded file
-- WebStack distribution URL for later display
-
-Todo
-The following details require additional information to complete this file:
-<> Missing GSI list beyond those visible in repo summary
-<> Additional Lambda handlers beyond the main API and PDF stamper
-<> SES domain or Route53 configuration if present
-<> Beta-stage overrides if that environment is in use
