@@ -109,7 +109,7 @@ export default function RoleForm({
           onChange={(e) => setName(e.target.value)}
           disabled={loading}
           required
-          sx={{ mt: 1, mb: 2 }}
+          sx={{ mt: 1, mb: 2, bgcolor: theme.palette.background.paper }}
         />
 
         <TextField
@@ -120,7 +120,7 @@ export default function RoleForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           disabled={loading}
-          sx={{ mb: 3 }}
+          sx={{ mb: 3, bgcolor: theme.palette.background.paper }}
         />
 
         <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
