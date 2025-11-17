@@ -183,20 +183,23 @@ export const rolesRouter = router({
     if (!existing) throw new Error('Role not found');
 
     const now = new Date().toISOString();
-    const names: Record<string, string | Permission[]> = { ':updatedAt': now };
+    const values: Record<string, string | Permission[]> = { ':updatedAt': now };
+    const attrNames: Record<string, string> = {};
     const sets: string[] = ['updatedAt = :updatedAt'];
 
     if (input.name && input.name !== existing.name) {
       sets.push('#name = :name');
-      names[':name'] = input.name.trim();
+      attrNames['#name'] = 'name';
+      values[':name'] = input.name.trim();
     }
     if (typeof input.description !== 'undefined') {
       sets.push('description = :desc');
-      names[':desc'] = input.description ?? '';
+      values[':desc'] = input.description ?? '';
     }
     if (input.permissions) {
-      sets.push('permissions = :perms');
-      names[':perms'] = input.permissions as Permission[];
+      sets.push('#permissions = :perms');
+      attrNames['#permissions'] = 'permissions';
+      values[':perms'] = input.permissions as Permission[];
     }
 
     const updated = await doc.send(
@@ -204,9 +207,8 @@ export const rolesRouter = router({
         TableName: TABLE_NAME,
         Key: { PK: `ROLE#${roleId}`, SK: 'METADATA' },
         UpdateExpression: `SET ${sets.join(', ')}`,
-        ExpressionAttributeNames:
-          input.name && input.name !== existing.name ? { '#name': 'name' } : undefined,
-        ExpressionAttributeValues: names,
+        ExpressionAttributeNames: Object.keys(attrNames).length > 0 ? attrNames : undefined,
+        ExpressionAttributeValues: values,
         ReturnValues: 'ALL_NEW',
       }),
     );
