@@ -76,6 +76,11 @@ Below are the current API methods and use cases. Methods are called using:
 | hardReset   | Delete all items and all S3 images for team  | hardReset({ teamId }) |
 | softReset   | Mark all items as "To Review" for the team   | softReset({ teamId }) |
 
+#### Export
+
+| Router name | Use case                                                                                            | Params                |
+| ----------- | --------------------------------------------------------------------------------------------------- | --------------------- |
+| getExport   | Run both Python export scripts and return **two CSV files** (one for DA2404 and one for Inventory). | getExport({ teamId }) |
 
 #### Process
 
