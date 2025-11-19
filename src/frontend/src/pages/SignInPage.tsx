@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -10,11 +10,11 @@ import {
   Stack,
   IconButton,
   InputAdornment,
-} from "@mui/material";
-import SecurityIcon from "@mui/icons-material/Security";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import { useNavigate } from "react-router-dom";
+} from '@mui/material';
+import SecurityIcon from '@mui/icons-material/Security';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import { useNavigate } from 'react-router-dom';
 
 import { loginUser, me, refresh } from '../api/auth';
 import SignUpComponent from '../components/SignUpComponent';
@@ -26,7 +26,7 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [checkingSession, setCheckingSession] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false); // 👁️ toggle state
 
   const [otpUI, setOtpUI] = useState<{
@@ -48,7 +48,7 @@ export default function SignInPage() {
     if (r?.refreshed) {
       const m2 = await me();
       if (m2.authenticated) {
-        navigate("/teams", { replace: true });
+        navigate('/teams', { replace: true });
       }
     }
   };
@@ -65,7 +65,7 @@ export default function SignInPage() {
         if (r?.refreshed) {
           const m2 = await me();
           if (m2.authenticated) {
-            navigate("/teams", { replace: true });
+            navigate('/teams', { replace: true });
           }
         }
       } catch {
@@ -77,7 +77,7 @@ export default function SignInPage() {
   }, [navigate]);
 
   const doLogin = async () => {
-    setErrorMsg("");
+    setErrorMsg('');
     try {
       setSubmitting(true);
       const res = await loginUser(identifier, password);
@@ -109,9 +109,9 @@ export default function SignInPage() {
         return;
       }
 
-      setErrorMsg("Username/Email is incorrect or Password is incorrect");
+      setErrorMsg('Username/Email is incorrect or Password is incorrect');
     } catch {
-      setErrorMsg("Username/Email is incorrect or Password is incorrect");
+      setErrorMsg('Username/Email is incorrect or Password is incorrect');
     } finally {
       setSubmitting(false);
     }
@@ -134,10 +134,10 @@ export default function SignInPage() {
           email: identifier,
         });
       } else {
-        setErrorMsg("Could not resend code. Try again later.");
+        setErrorMsg('Could not resend code. Try again later.');
       }
     } catch {
-      setErrorMsg("Could not resend code. Try again later.");
+      setErrorMsg('Could not resend code. Try again later.');
     } finally {
       setSubmitting(false);
     }
@@ -169,7 +169,7 @@ export default function SignInPage() {
           flexDirection: 'column',
         }}
       >
-        <CardContent sx={{ p: 4, pb: 2, flex: "1 1 auto" }}>
+        <CardContent sx={{ p: 4, pb: 2, flex: '1 1 auto' }}>
           {isSigningUp ? (
             <SignUpComponent onComplete={confirmAndEnterApp} />
           ) : otpUI.visible && otpUI.session && otpUI.email ? (
@@ -217,44 +217,35 @@ export default function SignInPage() {
                   value={identifier}
                   onChange={(e) => {
                     setIdentifier(e.target.value);
-                    setErrorMsg("");
+                    setErrorMsg('');
                   }}
                   error={!!errorMsg}
-                  helperText={
-                    errorMsg &&
-                    "Username/Email is incorrect or Password is incorrect"
-                  }
+                  helperText={errorMsg && 'Username/Email is incorrect or Password is incorrect'}
                 />
                 <TextField
                   label="Password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   variant="outlined"
                   fullWidth
                   required
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    setErrorMsg("");
+                    setErrorMsg('');
                   }}
                   error={!!errorMsg}
-                  helperText={
-                    errorMsg &&
-                    "Username/Email is incorrect or Password is incorrect"
-                  }
+                  helperText={errorMsg && 'Username/Email is incorrect or Password is incorrect'}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
+                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
                           {showPassword ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
                       </InputAdornment>
                     ),
                   }}
                 />
-                <button type="submit" style={{ display: "none" }} />
+                <button type="submit" style={{ display: 'none' }} />
               </Box>
             </Stack>
           )}
@@ -263,7 +254,7 @@ export default function SignInPage() {
         {onLoginView && (
           <>
             <Divider />
-            <Box sx={{ p: 2.5, bgcolor: "#FFFFFF" }}>
+            <Box sx={{ p: 2.5, bgcolor: '#FFFFFF' }}>
               <Button
                 onClick={doLogin}
                 variant="contained"

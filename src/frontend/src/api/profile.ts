@@ -1,11 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const TRPC = '/trpc';
 
-export async function updateProfile(
-  userId: string,
-  name: string,
-  username: string
-) {
+export async function updateProfile(userId: string, name: string, username: string) {
   const res = await fetch(`${TRPC}/updateProfile`, {
     method: 'POST',
     credentials: 'include',

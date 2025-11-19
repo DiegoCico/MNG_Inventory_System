@@ -27,7 +27,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
   const theme = useTheme();
   const [expandedItems, setExpandedItems] = useState<Set<string | number>>(new Set());
 
-  const rootItems = items.filter(item => !item.parent);
+  const rootItems = items.filter((item) => !item.parent);
 
   if (rootItems.length === 0) {
     return (
@@ -53,7 +53,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
 
   const toggleExpand = (itemId: string | number, event: React.MouseEvent) => {
     event.stopPropagation();
-    setExpandedItems(prev => {
+    setExpandedItems((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(itemId)) newSet.delete(itemId);
       else newSet.add(itemId);
@@ -106,8 +106,18 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
             />
           </Box>
 
-          <Box sx={{ ml: { xs: 1.5, sm: 2 }, flex: 1, display: 'flex', flexDirection: 'column', alignSelf: 'start' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+          <Box
+            sx={{
+              ml: { xs: 1.5, sm: 2 },
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignSelf: 'start',
+            }}
+          >
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
+            >
               <Typography
                 variant="h6"
                 component="h2"
@@ -139,7 +149,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
                 fontWeight: 500,
                 color: theme.palette.primary.main,
                 fontSize: { xs: '0.75rem', sm: '0.825rem' },
-                marginBottom: '0.4rem'
+                marginBottom: '0.4rem',
               }}
             >
               {item.actualName}
@@ -150,7 +160,7 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
               sx={{
                 color: theme.palette.text.primary,
                 fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                mb: 0.5
+                mb: 0.5,
               }}
             >
               {item.subtitle}
@@ -196,18 +206,12 @@ export default function ItemListComponent({ items = [] }: ItemListComponentProps
 
         {hasChildren && (
           <Collapse in={isExpanded} timeout="auto">
-            <Box sx={{ mt: 1 }}>
-              {item.children!.map(child => renderItem(child, level + 1))}
-            </Box>
+            <Box sx={{ mt: 1 }}>{item.children!.map((child) => renderItem(child, level + 1))}</Box>
           </Collapse>
         )}
       </Box>
     );
   };
 
-  return (
-    <Stack spacing={1.5}>
-      {rootItems.map((item) => renderItem(item))}
-    </Stack>
-  );
+  return <Stack spacing={1.5}>{rootItems.map((item) => renderItem(item))}</Stack>;
 }

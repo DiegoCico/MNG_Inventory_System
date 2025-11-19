@@ -140,7 +140,7 @@ export default function TeamspacePage() {
   // Filtered teams
   const filteredTeams = useMemo(
     () => teams.filter((t) => t.GSI_NAME.toLowerCase().includes(search.toLowerCase())),
-    [teams, search]
+    [teams, search],
   );
 
   return (

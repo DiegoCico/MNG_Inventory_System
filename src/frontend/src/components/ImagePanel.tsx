@@ -6,12 +6,12 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ImageNotSupportedIcon from '@mui/icons-material/ImageNotSupported';
 
 export default function ImagePanel({
-                                     imagePreview,
-                                     setImagePreview,
-                                     setSelectedImageFile,
-                                     isEditMode,
-                                     isCreateMode
-                                   }: {
+  imagePreview,
+  setImagePreview,
+  setSelectedImageFile,
+  isEditMode,
+  isCreateMode,
+}: {
   imagePreview: string;
   setImagePreview: (v: string) => void;
   setSelectedImageFile: (f: File | null) => void;
@@ -51,9 +51,10 @@ export default function ImagePanel({
       <Box
         sx={{
           position: 'relative',
-          bgcolor: theme.palette.mode === 'light'
-            ? alpha(theme.palette.background.paper, 0.6)
-            : alpha(theme.palette.background.default, 0.6),
+          bgcolor:
+            theme.palette.mode === 'light'
+              ? alpha(theme.palette.background.paper, 0.6)
+              : alpha(theme.palette.background.default, 0.6),
           borderRadius: 3,
           border: `1px dashed ${alpha(theme.palette.text.primary, 0.2)}`,
           overflow: 'hidden',
@@ -65,7 +66,7 @@ export default function ImagePanel({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: 300 // make the box taller for placeholder
+          minHeight: 300, // make the box taller for placeholder
         }}
       >
         {imagePreview ? (
@@ -76,21 +77,16 @@ export default function ImagePanel({
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              transition: '0.2s'
+              transition: '0.2s',
             }}
           />
         ) : (
-          <Box
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            height="100%"
-          >
+          <Box display="flex" alignItems="center" justifyContent="center" height="100%">
             <Stack alignItems="center" spacing={1}>
               <ImageNotSupportedIcon
                 sx={{
                   fontSize: 96, // bigger placeholder
-                  color: theme.palette.text.disabled
+                  color: theme.palette.text.disabled,
                 }}
               />
               <Typography variant="h6" color="text.secondary">
@@ -124,7 +120,7 @@ export default function ImagePanel({
                 sx={{
                   width: 28,
                   height: 28,
-                  bgcolor: theme.palette.warning.main
+                  bgcolor: theme.palette.warning.main,
                 }}
               >
                 <WarningAmberIcon fontSize="small" />

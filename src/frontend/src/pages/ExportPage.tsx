@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -8,11 +8,11 @@ import {
   LinearProgress,
   Fade,
   useTheme,
-} from "@mui/material";
-import { useParams } from "react-router-dom";
-import TopBar from "../components/TopBar";
-import NavBar from "../components/NavBar";
-import ExportPageContent from "../components/ExportPageContent";
+} from '@mui/material';
+import { useParams } from 'react-router-dom';
+import TopBar from '../components/TopBar';
+import NavBar from '../components/NavBar';
+import ExportPageContent from '../components/ExportPageContent';
 
 export default function ExportPage() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -30,7 +30,7 @@ export default function ExportPage() {
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: theme.palette.background.default }}>
       {/* ✅ TopBar always visible */}
       <TopBar isLoggedIn={true} />
 
@@ -44,8 +44,8 @@ export default function ExportPage() {
               sx={{
                 p: 4,
                 maxWidth: 600,
-                mx: "auto",
-                textAlign: "center",
+                mx: 'auto',
+                textAlign: 'center',
                 mt: { xs: 6, md: 10 },
                 borderRadius: 4,
               }}
@@ -82,7 +82,7 @@ export default function ExportPage() {
                   fontWeight: 700,
                   bgcolor: theme.palette.warning.main,
                   color: theme.palette.getContrastText(theme.palette.warning.main),
-                  "&:hover": { bgcolor: theme.palette.warning.dark },
+                  '&:hover': { bgcolor: theme.palette.warning.dark },
                 }}
               >
                 Create Documents
@@ -96,12 +96,12 @@ export default function ExportPage() {
           <Fade in timeout={400}>
             <Box
               sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: "70vh",
-                textAlign: "center",
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '70vh',
+                textAlign: 'center',
               }}
             >
               <CircularProgress size={60} thickness={5} sx={{ mb: 3 }} />
@@ -121,7 +121,7 @@ export default function ExportPage() {
       </Box>
 
       {/* NavBar always visible */}
-      <Box sx={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+      <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
         <NavBar />
       </Box>
     </Box>

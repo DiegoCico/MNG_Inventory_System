@@ -1,34 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Container,
-  Grid,
-  Snackbar,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useNavigate, useParams } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
-import NavBar from "../components/NavBar";
-import ImagePanel from "../components/ImagePanel";
-import ItemDetailsForm from "../components/ItemDetailsForm";
-import DamageReportsSection from "../components/DamageReportsSection";
-import ActionPanel from "../components/ActionPanel";
-import { flattenTree } from "../components/Producthelpers";
-import { getItem, getItems } from "../api/items";
-import ChildrenTree from "../components/ChildrenTree";
-import TopBar from "../components/TopBar";
-import Profile from "../components/Profile";
+import React, { useEffect, useState } from 'react';
+import { Alert, Box, Button, CircularProgress, Container, Grid, Snackbar } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
+import NavBar from '../components/NavBar';
+import ImagePanel from '../components/ImagePanel';
+import ItemDetailsForm from '../components/ItemDetailsForm';
+import DamageReportsSection from '../components/DamageReportsSection';
+import ActionPanel from '../components/ActionPanel';
+import { flattenTree } from '../components/Producthelpers';
+import { getItem, getItems } from '../api/items';
+import ChildrenTree from '../components/ChildrenTree';
+import TopBar from '../components/TopBar';
+import Profile from '../components/Profile';
 
 export default function ProductReviewPage() {
   const { teamId, itemId } = useParams<{ teamId: string; itemId: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
 
-  const isCreateMode = itemId === "new";
+  const isCreateMode = itemId === 'new';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +28,7 @@ export default function ProductReviewPage() {
   const [product, setProduct] = useState<any>(null);
   const [editedProduct, setEditedProduct] = useState<any>(null);
   const [itemsList, setItemsList] = useState<any[]>([]);
-  const [imagePreview, setImagePreview] = useState("");
+  const [imagePreview, setImagePreview] = useState('');
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [damageReports, setDamageReports] = useState<string[]>([]);
 
@@ -49,7 +41,7 @@ export default function ProductReviewPage() {
   useEffect(() => {
     (async () => {
       try {
-        if (!teamId) throw new Error("Missing team ID");
+        if (!teamId) throw new Error('Missing team ID');
         const all = await getItems(teamId);
         if (all.success && all.items) {
           const flat = flattenTree(all.items);
@@ -58,12 +50,12 @@ export default function ProductReviewPage() {
 
         if (isCreateMode) {
           const blank = {
-            productName: "",
-            actualName: "",
-            description: "",
-            serialNumber: "",
+            productName: '',
+            actualName: '',
+            description: '',
+            serialNumber: '',
             quantity: 1,
-            status: "Incomplete",
+            status: 'Incomplete',
           };
           setProduct(blank);
           setEditedProduct(blank);
@@ -79,7 +71,7 @@ export default function ProductReviewPage() {
         // Map API fields to component fields
         const mappedItem = {
           ...item,
-          productName: item.name,  // Map 'name' to 'productName'
+          productName: item.name, // Map 'name' to 'productName'
           actualName: item.actualName,
         };
 
@@ -94,13 +86,13 @@ export default function ProductReviewPage() {
         setEditedProduct(mappedItem);
         setDamageReports(mappedItem.damageReports || []);
 
-        if (mappedItem.imageLink && mappedItem.imageLink.startsWith("http")) {
+        if (mappedItem.imageLink && mappedItem.imageLink.startsWith('http')) {
           setImagePreview(mappedItem.imageLink);
         } else {
-          setImagePreview("");
+          setImagePreview('');
         }
       } catch (err: any) {
-        console.error("[ProductReviewPage] Error loading item:", err);
+        console.error('[ProductReviewPage] Error loading item:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -129,7 +121,14 @@ export default function ProductReviewPage() {
     );
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default, display: "flex", flexDirection: "column" }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        bgcolor: theme.palette.background.default,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <TopBar
         isLoggedIn={true}
         profileImage={profileImage}
@@ -150,7 +149,10 @@ export default function ProductReviewPage() {
             pb: 8,
             backgroundColor: theme.palette.background.paper,
             borderRadius: 3,
-            boxShadow: theme.palette.mode === "dark" ? "0 4px 20px rgba(0,0,0,0.4)" : "0 4px 16px rgba(0,0,0,0.05)",
+            boxShadow:
+              theme.palette.mode === 'dark'
+                ? '0 4px 20px rgba(0,0,0,0.4)'
+                : '0 4px 16px rgba(0,0,0,0.05)',
             mt: 3,
           }}
         >
@@ -158,11 +160,12 @@ export default function ProductReviewPage() {
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate(-1)}
             sx={{
-              textTransform: "none",
+              textTransform: 'none',
               color: theme.palette.text.secondary,
               mb: 2,
-              "&:hover": {
-                bgcolor: theme.palette.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+              '&:hover': {
+                bgcolor:
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
               },
             }}
           >
@@ -186,10 +189,10 @@ export default function ProductReviewPage() {
                 setEditedProduct={setEditedProduct}
                 itemsList={itemsList}
                 isEditMode={isEditMode}
-                alwaysEditableFields={["status", "description", "notes"]}
+                alwaysEditableFields={['status', 'description', 'notes']}
               />
 
-              {editedProduct?.status === "Damaged" && (
+              {editedProduct?.status === 'Damaged' && (
                 <DamageReportsSection
                   isEditMode={true}
                   editedProduct={editedProduct}
@@ -232,13 +235,16 @@ export default function ProductReviewPage() {
 
       <Box
         sx={{
-          position: "fixed",
+          position: 'fixed',
           bottom: 0,
           left: 0,
           right: 0,
           zIndex: 1000,
           bgcolor: theme.palette.background.paper,
-          boxShadow: theme.palette.mode === "dark" ? "0 -2px 8px rgba(0,0,0,0.6)" : "0 -2px 8px rgba(0,0,0,0.05)",
+          boxShadow:
+            theme.palette.mode === 'dark'
+              ? '0 -2px 8px rgba(0,0,0,0.6)'
+              : '0 -2px 8px rgba(0,0,0,0.05)',
         }}
       >
         <NavBar />

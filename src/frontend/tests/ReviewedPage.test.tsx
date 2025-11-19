@@ -1,23 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import ReviewedPage from "../src/pages/ReviewedPage";
-import * as itemsAPI from "../src/api/items";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import ReviewedPage from '../src/pages/ReviewedPage';
+import * as itemsAPI from '../src/api/items';
 
-vi.mock("../src/api/items");
+vi.mock('../src/api/items');
 
-const renderWithRouter = (teamId = "test-team-123") => {
+const renderWithRouter = (teamId = 'test-team-123') => {
   window.history.pushState({}, '', `/teams/${teamId}/reviewed`);
   return render(
     <BrowserRouter>
       <Routes>
         <Route path="/teams/:teamId/reviewed" element={<ReviewedPage />} />
       </Routes>
-    </BrowserRouter>
+    </BrowserRouter>,
   );
 };
 
-describe("ReviewedPage", () => {
+describe('ReviewedPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -25,45 +25,45 @@ describe("ReviewedPage", () => {
       success: true,
       items: [
         {
-          itemId: "item-1",
-          name: "M4 Carbine",
-          actualName: "Rifle #1",
-          description: "Test rifle",
-          status: "Found",
+          itemId: 'item-1',
+          name: 'M4 Carbine',
+          actualName: 'Rifle #1',
+          description: 'Test rifle',
+          status: 'Found',
           parent: null,
-          createdAt: "2025-01-01T00:00:00.000Z",
-          imageLink: "https://example.com/image.jpg",
+          createdAt: '2025-01-01T00:00:00.000Z',
+          imageLink: 'https://example.com/image.jpg',
         },
         {
-          itemId: "item-2",
-          name: "First Aid Kit",
-          actualName: "Medic Kit",
-          description: "Medical supplies",
-          status: "Missing",
+          itemId: 'item-2',
+          name: 'First Aid Kit',
+          actualName: 'Medic Kit',
+          description: 'Medical supplies',
+          status: 'Missing',
           parent: null,
-          createdAt: "2025-01-02T00:00:00.000Z",
-          imageLink: "",
+          createdAt: '2025-01-02T00:00:00.000Z',
+          imageLink: '',
         },
         {
-          itemId: "item-3",
-          name: "Tactical Vest",
-          actualName: "Vest #1",
-          description: "Torn strap",
-          status: "Damaged",
+          itemId: 'item-3',
+          name: 'Tactical Vest',
+          actualName: 'Vest #1',
+          description: 'Torn strap',
+          status: 'Damaged',
           parent: null,
-          createdAt: "2025-01-03T00:00:00.000Z",
-          imageLink: "",
+          createdAt: '2025-01-03T00:00:00.000Z',
+          imageLink: '',
         },
       ],
     });
   });
 
-  it("renders loading state initially", () => {
+  it('renders loading state initially', () => {
     renderWithRouter();
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it("loads and displays three tabs with correct counts", async () => {
+  it('loads and displays three tabs with correct counts', async () => {
     renderWithRouter();
 
     await waitFor(() => {
@@ -73,44 +73,44 @@ describe("ReviewedPage", () => {
     });
   });
 
-  it("displays completed items in first tab by default", async () => {
+  it('displays completed items in first tab by default', async () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText("M4 Carbine")).toBeInTheDocument();
-      expect(screen.getByText("Rifle #1")).toBeInTheDocument();
+      expect(screen.getByText('M4 Carbine')).toBeInTheDocument();
+      expect(screen.getByText('Rifle #1')).toBeInTheDocument();
     });
   });
 
-  it("switches to Shortages tab and displays shortage items", async () => {
+  it('switches to Shortages tab and displays shortage items', async () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText("M4 Carbine")).toBeInTheDocument();
+      expect(screen.getByText('M4 Carbine')).toBeInTheDocument();
     });
 
-    const shortagesTab = screen.getByRole("tab", { name: /Shortages/i });
+    const shortagesTab = screen.getByRole('tab', { name: /Shortages/i });
     fireEvent.click(shortagesTab);
 
     await waitFor(() => {
-      expect(screen.getByText("First Aid Kit")).toBeInTheDocument();
-      expect(screen.getByText("Medic Kit")).toBeInTheDocument();
+      expect(screen.getByText('First Aid Kit')).toBeInTheDocument();
+      expect(screen.getByText('Medic Kit')).toBeInTheDocument();
     });
   });
 
-  it("switches to Damaged tab and displays damaged items", async () => {
+  it('switches to Damaged tab and displays damaged items', async () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText("M4 Carbine")).toBeInTheDocument();
+      expect(screen.getByText('M4 Carbine')).toBeInTheDocument();
     });
 
-    const damagedTab = screen.getByRole("tab", { name: /Damaged/i });
+    const damagedTab = screen.getByRole('tab', { name: /Damaged/i });
     fireEvent.click(damagedTab);
 
     await waitFor(() => {
-      expect(screen.getByText("Tactical Vest")).toBeInTheDocument();
-      expect(screen.getByText("Vest #1")).toBeInTheDocument();
+      expect(screen.getByText('Tactical Vest')).toBeInTheDocument();
+      expect(screen.getByText('Vest #1')).toBeInTheDocument();
     });
   });
 
@@ -127,10 +127,10 @@ describe("ReviewedPage", () => {
     });
   });
 
-  it("handles API error gracefully", async () => {
+  it('handles API error gracefully', async () => {
     vi.mocked(itemsAPI.getItems).mockResolvedValueOnce({
       success: false,
-      error: "Failed to fetch items",
+      error: 'Failed to fetch items',
     });
 
     renderWithRouter();
@@ -140,25 +140,25 @@ describe("ReviewedPage", () => {
     });
   });
 
-  it("builds parent-child hierarchy correctly", async () => {
+  it('builds parent-child hierarchy correctly', async () => {
     vi.mocked(itemsAPI.getItems).mockResolvedValueOnce({
       success: true,
       items: [
         {
-          itemId: "parent-1",
-          name: "Kit",
-          actualName: "Main Kit",
-          status: "Found",
+          itemId: 'parent-1',
+          name: 'Kit',
+          actualName: 'Main Kit',
+          status: 'Found',
           parent: null,
-          createdAt: "2025-01-01T00:00:00.000Z",
+          createdAt: '2025-01-01T00:00:00.000Z',
         },
         {
-          itemId: "child-1",
-          name: "Bandages",
-          actualName: "Medical Bandages",
-          status: "Found",
-          parent: "parent-1",
-          createdAt: "2025-01-01T00:00:00.000Z",
+          itemId: 'child-1',
+          name: 'Bandages',
+          actualName: 'Medical Bandages',
+          status: 'Found',
+          parent: 'parent-1',
+          createdAt: '2025-01-01T00:00:00.000Z',
         },
       ],
     });
@@ -166,29 +166,29 @@ describe("ReviewedPage", () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText("Kit")).toBeInTheDocument();
+      expect(screen.getByText('Kit')).toBeInTheDocument();
       // The "Contains X items" text appears in ItemListComponent's subtitle
-      expect(screen.getByText("Main Kit")).toBeInTheDocument();
+      expect(screen.getByText('Main Kit')).toBeInTheDocument();
     });
   });
 
-  it("filters items by status across hierarchy", async () => {
+  it('filters items by status across hierarchy', async () => {
     vi.mocked(itemsAPI.getItems).mockResolvedValueOnce({
       success: true,
       items: [
         {
-          itemId: "parent-1",
-          name: "Kit",
-          status: "Found",
+          itemId: 'parent-1',
+          name: 'Kit',
+          status: 'Found',
           parent: null,
-          createdAt: "2025-01-01T00:00:00.000Z",
+          createdAt: '2025-01-01T00:00:00.000Z',
         },
         {
-          itemId: "child-1",
-          name: "Item",
-          status: "Damaged",
-          parent: "parent-1",
-          createdAt: "2025-01-01T00:00:00.000Z",
+          itemId: 'child-1',
+          name: 'Item',
+          status: 'Damaged',
+          parent: 'parent-1',
+          createdAt: '2025-01-01T00:00:00.000Z',
         },
       ],
     });
@@ -197,29 +197,29 @@ describe("ReviewedPage", () => {
 
     await waitFor(() => {
       // Use getAllByText since "Kit" appears twice (h2 title and body subtitle)
-      const kitElements = screen.getAllByText("Kit");
+      const kitElements = screen.getAllByText('Kit');
       expect(kitElements.length).toBeGreaterThan(0);
     });
 
-    const damagedTab = screen.getByRole("tab", { name: /Damaged/i });
+    const damagedTab = screen.getByRole('tab', { name: /Damaged/i });
     fireEvent.click(damagedTab);
 
     await waitFor(() => {
-      const kitElements = screen.getAllByText("Kit");
+      const kitElements = screen.getAllByText('Kit');
       expect(kitElements.length).toBeGreaterThan(0);
     });
   });
 
-  it("normalizes status strings (case-insensitive)", async () => {
+  it('normalizes status strings (case-insensitive)', async () => {
     vi.mocked(itemsAPI.getItems).mockResolvedValueOnce({
       success: true,
       items: [
         {
-          itemId: "item-1",
-          name: "Item",
-          status: "FOUND",
+          itemId: 'item-1',
+          name: 'Item',
+          status: 'FOUND',
           parent: null,
-          createdAt: "2025-01-01T00:00:00.000Z",
+          createdAt: '2025-01-01T00:00:00.000Z',
         },
       ],
     });
@@ -231,27 +231,27 @@ describe("ReviewedPage", () => {
     });
   });
 
-  it("renders TopBar and Profile components", async () => {
+  it('renders TopBar and Profile components', async () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText("M4 Carbine")).toBeInTheDocument();
+      expect(screen.getByText('M4 Carbine')).toBeInTheDocument();
     });
 
     // TopBar should render - check for the account circle icon by testid
-    const accountIcon = screen.getByTestId("AccountCircleIcon");
+    const accountIcon = screen.getByTestId('AccountCircleIcon');
     expect(accountIcon).toBeInTheDocument();
   });
 
-  it("renders NavBar at bottom", async () => {
+  it('renders NavBar at bottom', async () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText("M4 Carbine")).toBeInTheDocument();
+      expect(screen.getByText('M4 Carbine')).toBeInTheDocument();
     });
 
     // NavBar renders navigation buttons - check for one of them
-    const navButtons = screen.getAllByRole("button");
+    const navButtons = screen.getAllByRole('button');
     expect(navButtons.length).toBeGreaterThan(0);
   });
 });

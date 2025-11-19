@@ -1,4 +1,4 @@
-import RestartProcess from "../RestartProcess";
+import RestartProcess from '../RestartProcess';
 
 interface RestartInventoryProcessProps {
   teamId: string;

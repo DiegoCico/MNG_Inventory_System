@@ -167,16 +167,16 @@ export const teamspaceRouter = router({
         const q = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
-            IndexName: "GSI_UsersByUsername",
-            KeyConditionExpression: "username = :u",
-            ExpressionAttributeValues: { ":u": input.memberUsername.trim() },
+            IndexName: 'GSI_UsersByUsername',
+            KeyConditionExpression: 'username = :u',
+            ExpressionAttributeValues: { ':u': input.memberUsername.trim() },
             Limit: 1,
           }),
         );
 
         const user = q.Items?.[0];
         if (!user) {
-          return { success: false, error: "User not found by username." };
+          return { success: false, error: 'User not found by username.' };
         }
 
         // IMPORTANT FIX:
@@ -188,10 +188,10 @@ export const teamspaceRouter = router({
         const member = {
           PK: `TEAM#${input.inviteWorkspaceId}`,
           SK: `MEMBER#${targetId}`,
-          Type: "TeamMember",
+          Type: 'TeamMember',
           teamId: input.inviteWorkspaceId,
           userId: targetId,
-          role: "Member",
+          role: 'Member',
           joinedAt: now,
 
           // Correct GSI so getTeamspace works
@@ -203,10 +203,10 @@ export const teamspaceRouter = router({
 
         return { success: true, added: user.username };
       } catch (err: any) {
-        console.error("❌ addUserTeamspace error:", err);
+        console.error('❌ addUserTeamspace error:', err);
         return {
           success: false,
-          error: err.message || "Failed to add member.",
+          error: err.message || 'Failed to add member.',
         };
       }
     }),

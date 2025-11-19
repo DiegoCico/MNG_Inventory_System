@@ -14,10 +14,10 @@ export async function loadDashboard(teamId: string) {
 /** New function: soft reset all items for a team */
 export async function softReset(teamId: string) {
   const res = await fetch(`${TRPC_URL}/softReset`, {
-    method: "POST",
-    credentials: "include",
+    method: 'POST',
+    credentials: 'include',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({ teamId }),
   });

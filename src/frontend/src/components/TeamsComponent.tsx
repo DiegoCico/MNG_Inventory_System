@@ -10,11 +10,11 @@ import {
   MenuItem,
   Divider,
   Tooltip,
-} from "@mui/material";
-import { alpha, useTheme } from "@mui/material/styles";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import { MouseEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+} from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { MouseEvent, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export interface TeamIconProps {
   id: string;
@@ -53,23 +53,23 @@ export default function TeamIcon({
     <>
       <Card
         sx={{
-          position: "relative",
+          position: 'relative',
           borderRadius: 3,
           bgcolor: theme.palette.background.paper,
           border: `1px solid ${borderColor}`,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-          transition: "all 0.25s ease",
-          cursor: "pointer",
-          "&:hover": {
-            transform: "translateY(-5px)",
+          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+          transition: 'all 0.25s ease',
+          cursor: 'pointer',
+          '&:hover': {
+            transform: 'translateY(-5px)',
             borderColor: theme.palette.primary.main,
             boxShadow: `0 8px 24px ${hoverShadow}`,
           },
           //height: 220,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
           p: 2,
         }}
       >
@@ -105,7 +105,7 @@ export default function TeamIcon({
                   sx={{
                     fontWeight: 800,
                     color: theme.palette.text.primary,
-                    textAlign: "center",
+                    textAlign: 'center',
                     maxWidth: 180,
                   }}
                   noWrap
@@ -114,18 +114,18 @@ export default function TeamIcon({
                 </Typography>
               </Tooltip>
 
-              <Tooltip title={description || "No description"}>
+              <Tooltip title={description || 'No description'}>
                 <Typography
                   variant="body2"
                   sx={{
                     color: theme.palette.text.secondary,
                     fontSize: 13,
-                    textAlign: "center",
+                    textAlign: 'center',
                     maxWidth: 200,
                   }}
                   noWrap
                 >
-                  {description || "No description"}
+                  {description || 'No description'}
                 </Typography>
               </Tooltip>
             </Stack>
@@ -140,7 +140,7 @@ export default function TeamIcon({
             top: 10,
             right: 10,
             color: theme.palette.text.secondary,
-            "&:hover": { color: theme.palette.primary.main },
+            '&:hover': { color: theme.palette.primary.main },
           }}
         >
           <MoreVertIcon fontSize="small" />

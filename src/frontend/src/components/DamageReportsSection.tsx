@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   Box,
   Stack,
@@ -11,10 +11,10 @@ import {
   Fade,
   useTheme,
   alpha,
-} from "@mui/material";
-import AddCircleIcon from "@mui/icons-material/AddCircle";
-import DeleteIcon from "@mui/icons-material/Delete";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+} from '@mui/material';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import DeleteIcon from '@mui/icons-material/Delete';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export default function DamageReportsSection({
   damageReports,
@@ -26,13 +26,13 @@ export default function DamageReportsSection({
   isEditMode?: boolean;
 }) {
   const theme = useTheme();
-  const [current, setCurrent] = useState("");
+  const [current, setCurrent] = useState('');
 
   const handleAdd = () => {
     const trimmed = current.trim();
     if (!trimmed) return;
     setDamageReports([...damageReports, trimmed]);
-    setCurrent("");
+    setCurrent('');
   };
 
   const handleDelete = (index: number) => {
@@ -47,12 +47,12 @@ export default function DamageReportsSection({
           mt: 2,
           p: 2,
           bgcolor:
-            theme.palette.mode === "light"
+            theme.palette.mode === 'light'
               ? alpha(theme.palette.warning.light, 0.5)
               : alpha(theme.palette.warning.dark, 0.3),
           borderRadius: 2,
           border: `1px solid ${
-            theme.palette.mode === "light"
+            theme.palette.mode === 'light'
               ? theme.palette.warning.main
               : alpha(theme.palette.warning.main, 0.5)
           }`,
@@ -68,7 +68,7 @@ export default function DamageReportsSection({
             severity="info"
             sx={{
               bgcolor:
-                theme.palette.mode === "light"
+                theme.palette.mode === 'light'
                   ? alpha(theme.palette.info.light, 0.3)
                   : alpha(theme.palette.info.dark, 0.3),
               color: theme.palette.info.main,
@@ -88,11 +88,11 @@ export default function DamageReportsSection({
                 deleteIcon={<DeleteIcon />}
                 sx={{
                   bgcolor:
-                    theme.palette.mode === "light"
+                    theme.palette.mode === 'light'
                       ? alpha(theme.palette.warning.light, 0.3)
                       : alpha(theme.palette.warning.dark, 0.3),
                   border: `1px solid ${theme.palette.warning.main}`,
-                  "& .MuiChip-deleteIcon": { color: theme.palette.warning.dark },
+                  '& .MuiChip-deleteIcon': { color: theme.palette.warning.dark },
                 }}
               />
             ))}
@@ -108,14 +108,14 @@ export default function DamageReportsSection({
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
               onKeyPress={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                   handleAdd();
                 }
               }}
               sx={{
                 bgcolor:
-                  theme.palette.mode === "light"
+                  theme.palette.mode === 'light'
                     ? theme.palette.background.paper
                     : theme.palette.background.default,
               }}
@@ -127,7 +127,7 @@ export default function DamageReportsSection({
                 sx={{
                   bgcolor: theme.palette.primary.main,
                   color: theme.palette.getContrastText(theme.palette.primary.main),
-                  "&:hover": { bgcolor: theme.palette.primary.dark },
+                  '&:hover': { bgcolor: theme.palette.primary.dark },
                 }}
               >
                 <AddCircleIcon />

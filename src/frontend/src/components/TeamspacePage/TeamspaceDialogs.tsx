@@ -41,7 +41,12 @@ interface CreateTeamDialogProps extends DialogsProps {
   onClose: () => void;
 }
 
-export function CreateTeamDialog({ open, onClose, onRefresh, showSnackbar }: CreateTeamDialogProps) {
+export function CreateTeamDialog({
+  open,
+  onClose,
+  onRefresh,
+  showSnackbar,
+}: CreateTeamDialogProps) {
   const [workspaceName, setWorkspaceName] = useState('');
   const [workspaceDesc, setWorkspaceDesc] = useState('');
   const [loading, setLoading] = useState(false);
@@ -466,7 +471,12 @@ export function MissingNameDialog({ open, onOpenProfile }: MissingNameDialogProp
         </Typography>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-        <Button onClick={onOpenProfile} variant="contained" color="warning" sx={{ fontWeight: 600 }}>
+        <Button
+          onClick={onOpenProfile}
+          variant="contained"
+          color="warning"
+          sx={{ fontWeight: 600 }}
+        >
           Got It
         </Button>
       </DialogActions>

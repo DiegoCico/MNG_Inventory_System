@@ -9,6 +9,7 @@ import { usersRouter } from './users';
 import { itemsRouter } from './items';
 import { homeRouter } from './home';
 import { profileRouter } from './profile';
+import { exportRouter } from './export';
 
 const coreRouter = router({
   health: publicProcedure.query(() => ({ ok: true })),
@@ -25,6 +26,7 @@ export const appRouter = mergeRouters(
   itemsRouter,
   homeRouter,
   profileRouter,
+  exportRouter,
 );
 
 export type AppRouter = typeof appRouter;

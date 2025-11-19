@@ -14,11 +14,11 @@ Overall, the goal of the system is to enable fast, accurate, low-training invent
 
 ##### Authorship
 
-The code in this project was developed in Northeastern University's inaugural CS4535 class, taught by Dr. Mark Fontenot and Dr. Wendy Truran.  Our team includes PM Diego Cicotiste, backend developers Reese Cantu, Steph Sayegh, and Lily Bedichek, and frontend develpoers Tyler Goldener and Ben Tran.  Our military associate / client was Sgt. Paul Martin, State Innovation Officer and member of the 387th Explosive Ordinance Disposal Company. We partially included information from a document developed by a Tuft's ENP 0074 capstone class in Spring of 2025.  
+The code in this project was developed in Northeastern University's inaugural CS4535 class, taught by Dr. Mark Fontenot and Dr. Wendy Truran. Our team includes PM Diego Cicotiste, backend developers Reese Cantu, Steph Sayegh, and Lily Bedichek, and frontend develpoers Tyler Goldener and Ben Tran. Our military associate / client was Sgt. Paul Martin, State Innovation Officer and member of the 387th Explosive Ordinance Disposal Company. We partially included information from a document developed by a Tuft's ENP 0074 capstone class in Spring of 2025.
 
 ##### Scope and Limitations
 
-Our job is to create a web-based application for use by inventory-taking technicians which will produce appropriate supply forms. We are working with a $50/month AWS budget and a limited bandwidth team.  We are not automating the entire inventory process, only the frontend section done by military technicians. So, our project scope is essentially to make a frontend structure where inventory can be logged by technicians, a backend that stores hierarchies for form automation, and a program to automate filling out the forms.
+Our job is to create a web-based application for use by inventory-taking technicians which will produce appropriate supply forms. We are working with a $50/month AWS budget and a limited bandwidth team. We are not automating the entire inventory process, only the frontend section done by military technicians. So, our project scope is essentially to make a frontend structure where inventory can be logged by technicians, a backend that stores hierarchies for form automation, and a program to automate filling out the forms.
 
 ## Architecture
 
@@ -27,12 +27,13 @@ SupplyNet operates entirely on AWS infrastructure, using Amplify for hosting, Co
 ### File layout
 
 The following includes hyperlinks to section-specific docmentation:
+
 - [API documentation](src/api/README.md)
 - [CDK documentation](src/cdk/README.md)
 - [Frontend documentation](src/frontend/README.md)
 - [API testing documentation](src/api/__tests__/README.md)
 
-# SECTION FOR DIEGO TO DO 
+# SECTION FOR DIEGO TO DO
 
 ### How to run/deploy/test the project for the first time
 
@@ -50,7 +51,6 @@ npm run test
 npm run dev
 npm run start
 ```
-
 
 # make sure you are in node 20
 

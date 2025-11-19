@@ -1,15 +1,10 @@
-import {
-  Stack,
-  StackProps,
-  CfnOutput,
-  RemovalPolicy,
-  Duration,
-} from "aws-cdk-lib";
-import { Construct } from "constructs";
-import * as s3 from "aws-cdk-lib/aws-s3";
-import * as kms from "aws-cdk-lib/aws-kms";
-import * as iam from "aws-cdk-lib/aws-iam";
-import * as cdk from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput, RemovalPolicy, Duration } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as kms from 'aws-cdk-lib/aws-kms';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as cdk from 'aws-cdk-lib';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 
 export interface S3UploadsStackProps extends StackProps {
   stage: string;
@@ -24,18 +19,19 @@ export class S3UploadsStack extends Stack {
     super(scope, id, props);
 
     const { stage } = props;
-    const isProd = stage === "prod";
-    const service = (props.serviceName ?? "mng-uploads").toLowerCase();
+    const isProd = stage === 'prod';
+    const service = (props.serviceName ?? 'mng-uploads').toLowerCase();
 
-    this.key = new kms.Key(this, "UploadsKey", {
+    // KMS KEY
+    this.key = new kms.Key(this, 'UploadsKey', {
       alias: `${service}-${stage}-kms-key`,
       enableKeyRotation: true,
       removalPolicy: isProd ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
       description: `KMS key for encrypting uploaded files in ${stage}`,
     });
 
-
-    this.bucket = new s3.Bucket(this, "UploadsBucket", {
+    // S3 BUCKET
+    this.bucket = new s3.Bucket(this, 'UploadsBucket', {
       bucketName: `mng-${stage.toLowerCase()}-uploads-${cdk.Aws.ACCOUNT_ID}`,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.KMS,
@@ -44,22 +40,28 @@ export class S3UploadsStack extends Stack {
       versioned: true,
       cors: [
         {
-          allowedOrigins: ["*"], // TODO: restrict to your CloudFront + API origins
+          allowedOrigins: ['*'],
           allowedMethods: [
             s3.HttpMethods.GET,
             s3.HttpMethods.PUT,
             s3.HttpMethods.POST,
             s3.HttpMethods.DELETE,
           ],
-          allowedHeaders: ["*"],
-          exposedHeaders: ["ETag"],
+          allowedHeaders: ['*'],
+          exposedHeaders: ['ETag'],
           maxAge: Duration.hours(1).toSeconds(),
         },
       ],
       lifecycleRules: [
         {
-          id: "cleanup-temp",
-          prefix: "temp/",
+          id: 'expire-generated-documents',
+          prefix: 'Documents/',
+          expiration: Duration.days(30),
+          enabled: true,
+        },
+        {
+          id: 'cleanup-temp',
+          prefix: 'temp/',
           expiration: Duration.days(90),
           enabled: true,
         },
@@ -68,30 +70,26 @@ export class S3UploadsStack extends Stack {
       autoDeleteObjects: !isProd,
     });
 
+    // DEPLOY PYTHON SCRIPTS
+    new s3deploy.BucketDeployment(this, 'UploadSpecificPythonFiles', {
+      destinationBucket: this.bucket,
+      destinationKeyPrefix: 'scripts/',
+      sources: [
+        s3deploy.Source.asset('./python', {
+          exclude: ['**', '!2404-handler.py', '!inventory-handler.py'],
+        }),
+      ],
+      prune: true,
+    });
 
-    this.bucket.addToResourcePolicy(
-      new iam.PolicyStatement({
-        sid: "DenyUnEncryptedUploads",
-        effect: iam.Effect.DENY,
-        actions: ["s3:PutObject"],
-        resources: [`${this.bucket.bucketArn}/*`],
-        conditions: {
-          StringNotEquals: {
-            "s3:x-amz-server-side-encryption": "aws:kms",
-          },
-        },
-        principals: [new iam.AnyPrincipal()],
-      })
-    );
-
-
-    new CfnOutput(this, "BucketName", { value: this.bucket.bucketName });
-    new CfnOutput(this, "BucketArn", { value: this.bucket.bucketArn });
-    new CfnOutput(this, "KmsKeyArn", { value: this.key.keyArn });
-    new CfnOutput(this, "BucketRegion", { value: this.region });
+    // OUTPUTS
+    new CfnOutput(this, 'BucketName', { value: this.bucket.bucketName });
+    new CfnOutput(this, 'BucketArn', { value: this.bucket.bucketArn });
+    new CfnOutput(this, 'KmsKeyArn', { value: this.key.keyArn });
+    new CfnOutput(this, 'BucketRegion', { value: this.region });
   }
 
-
+  // PERMISSIONS FOR API
   grantApiAccess(role: iam.IRole) {
     this.bucket.grantReadWrite(role);
     this.key.grantEncryptDecrypt(role);

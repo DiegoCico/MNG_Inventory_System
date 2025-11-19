@@ -65,17 +65,16 @@ export default function FollowUpsTable({ followUps }: FollowUpsTableProps) {
         <tbody>
           {followUps.length > 0 ? (
             followUps.map((item) => (
-              <tr 
-              key={item.itemId} 
-              onClick={() => handleRowClick(item.itemId)}
-              style={{ cursor: 'pointer' }} // pointer cursor
-              // hover effect using inline sx with MUI `alpha` for subtle background
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = alpha(theme.palette.primary.main, 0.08))
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = 'transparent')
-              }>
+              <tr
+                key={item.itemId}
+                onClick={() => handleRowClick(item.itemId)}
+                style={{ cursor: 'pointer' }} // pointer cursor
+                // hover effect using inline sx with MUI `alpha` for subtle background
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = alpha(theme.palette.primary.main, 0.08))
+                }
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
                 <td>{item.name}</td>
                 <td>{item.parent ?? 'N/A'}</td>
                 <td>{item.status}</td>

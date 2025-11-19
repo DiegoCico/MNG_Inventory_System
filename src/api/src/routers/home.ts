@@ -12,76 +12,6 @@ const REGION = config.REGION;
 
 const s3 = new S3Client({ region: REGION });
 
-// get inventory
-async function getInventorySummary(teamId: string) {
-  const q = await doc.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': `TEAM#${teamId}`,
-        ':sk': 'ITEM#',
-      },
-    }),
-  );
-
-  const items = q.Items ?? [];
-
-  const totals = {
-    toReview: 0,
-    completed: 0,
-    shortages: 0,
-    damaged: 0,
-  };
-
-  const users: Record<string, { completed: number; shortages: number; damaged: number }> = {};
-
-  for (const item of items) {
-    const status = (item.status ?? 'Incomplete').toLowerCase();
-    const createdBy = item.createdBy ?? 'unknown';
-
-    // Normalize and count
-    switch (status) {
-      case 'incomplete':
-      case 'unreviewed':
-      case 'to review':
-        totals.toReview++;
-        break;
-      case 'completed':
-      case 'complete':
-      case 'found':
-        totals.completed++;
-        break;
-      case 'shortage':
-      case 'shortages':
-      case 'missing':
-        totals.shortages++;
-        break;
-      case 'damaged':
-      case 'in repair':
-        totals.damaged++;
-        break;
-      default:
-        totals.toReview++;
-        break;
-    }
-
-    // Track user contribution
-    if (!users[createdBy]) {
-      users[createdBy] = { completed: 0, shortages: 0, damaged: 0 };
-    }
-    if (status.includes('complete')) users[createdBy].completed++;
-    if (status.startsWith('shortage')) users[createdBy].shortages++;
-    if (status === 'damaged') users[createdBy].damaged++;
-  }
-
-  const totalReviewed = totals.completed + totals.shortages + totals.damaged;
-  const totalCount = totalReviewed + totals.toReview;
-  const percentReviewed = totalCount > 0 ? Math.round((totalReviewed / totalCount) * 100) : 0;
-
-  return { totals, percentReviewed, users, items };
-}
-
 // HARD RESET — Delete all items and images for a team
 async function hardReset(teamId: string) {
   const q = await doc.send(
@@ -160,30 +90,6 @@ async function softReset(teamId: string) {
 }
 
 export const homeRouter = router({
-  /** DASHBOARD OVERVIEW */
-  getDashboard: publicProcedure
-    .input(z.object({ teamId: z.string().min(1) }))
-    .query(async ({ input }) => {
-      try {
-        const { totals, percentReviewed, users } = await getInventorySummary(input.teamId);
-
-        return {
-          success: true,
-          overview: {
-            totals,
-            percentReviewed,
-            teamStats: Object.entries(users).map(([userId, data]) => ({
-              userId,
-              ...data,
-            })),
-          },
-        };
-      } catch (err: any) {
-        console.error('❌ getDashboard error:', err);
-        return { success: false, error: err.message };
-      }
-    }),
-
   /** HARD RESET — deletes all items + images */
   hardReset: publicProcedure
     .input(z.object({ teamId: z.string().min(1) }))

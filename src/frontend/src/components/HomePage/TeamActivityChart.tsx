@@ -1,14 +1,6 @@
-import { Paper, Typography, Box } from "@mui/material";
-import { useTheme, alpha } from "@mui/material/styles";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
+import { Paper, Typography, Box } from '@mui/material';
+import { useTheme, alpha } from '@mui/material/styles';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 interface TeamActivityChartProps {
   teamStats: Array<{
@@ -28,7 +20,7 @@ export default function TeamActivityChart({ teamStats }: TeamActivityChartProps)
       <Typography variant="h6" fontWeight={800} mb={2}>
         Team Activity
       </Typography>
-      <Box sx={{ width: "100%", height: 250 }}>
+      <Box sx={{ width: '100%', height: 250 }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={teamStats.map((t) => ({
@@ -65,7 +57,12 @@ export default function TeamActivityChart({ teamStats }: TeamActivityChartProps)
               }}
               itemStyle={{ color: theme.palette.text.primary }}
             />
-            <Bar dataKey="completed" stackId="a" fill={theme.palette.success.main} radius={[4, 4, 0, 0]} />
+            <Bar
+              dataKey="completed"
+              stackId="a"
+              fill={theme.palette.success.main}
+              radius={[4, 4, 0, 0]}
+            />
             <Bar dataKey="shortages" stackId="a" fill={theme.palette.warning.main} />
             <Bar dataKey="damaged" stackId="a" fill={theme.palette.error.main} />
           </BarChart>
