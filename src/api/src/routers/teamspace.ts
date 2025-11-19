@@ -167,29 +167,35 @@ export const teamspaceRouter = router({
         const q = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
-            IndexName: 'GSI_UsersByUsername',
-            KeyConditionExpression: 'username = :u',
-            ExpressionAttributeValues: { ':u': input.memberUsername.trim() },
+            IndexName: "GSI_UsersByUsername",
+            KeyConditionExpression: "username = :u",
+            ExpressionAttributeValues: { ":u": input.memberUsername.trim() },
             Limit: 1,
           }),
         );
 
         const user = q.Items?.[0];
         if (!user) {
-          return { success: false, error: 'User not found by username.' };
+          return { success: false, error: "User not found by username." };
         }
+
+        // IMPORTANT FIX:
+        // Use Cognito's real user identifier: user.sub
+        const targetId = user.sub;
 
         const now = new Date().toISOString();
 
         const member = {
           PK: `TEAM#${input.inviteWorkspaceId}`,
-          SK: `MEMBER#${user.accountId}`,
-          Type: 'TeamMember',
+          SK: `MEMBER#${targetId}`,
+          Type: "TeamMember",
           teamId: input.inviteWorkspaceId,
-          userId: user.accountId,
-          role: 'Member',
+          userId: targetId,
+          role: "Member",
           joinedAt: now,
-          GSI1PK: `USER#${user.accountId}`,
+
+          // Correct GSI so getTeamspace works
+          GSI1PK: `USER#${targetId}`,
           GSI1SK: `TEAM#${input.inviteWorkspaceId}`,
         };
 
@@ -197,14 +203,13 @@ export const teamspaceRouter = router({
 
         return { success: true, added: user.username };
       } catch (err: any) {
-        console.error('❌ addUserTeamspace error:', err);
+        console.error("❌ addUserTeamspace error:", err);
         return {
           success: false,
-          error: err.message || 'Failed to add member.',
+          error: err.message || "Failed to add member.",
         };
       }
     }),
-
   /** REMOVE USER FROM TEAMSPACE */
   removeUserTeamspace: publicProcedure
     .input(
