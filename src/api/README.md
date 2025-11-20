@@ -44,15 +44,16 @@ Below are the current API methods and use cases. Methods are called using:
 | deleteObject | Delete an S3 object by key                                           | deleteObject({ key })                                          |
 | listImages   | List images under a computed prefix for the team/scope/item          | listImages({ scope: "item", serialNumber: "1234", limit: 50 }) |
 
-#### Teamspace
+# Teamspace
 
-| Router name         | Use case                                              | Params                                                                                  |
-| ------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| createTeamspace     | Create a new teamspace and add caller as Owner        | createTeamspace({ name: "Logistics", description: "Ops team", userId })                 |
-| getTeamspace        | List all teamspaces the user belongs to               | getTeamspace({ userId })                                                                |
-| addUserTeamspace    | Add a member (by email) to a teamspace (permissioned) | addUserTeamspace({ userId, memberEmail: "new@user.com", inviteWorkspaceId: teamId })    |
-| removeUserTeamspace | Remove a member (by email) from a teamspace           | removeUserTeamspace({ userId, memberEmail: "old@user.com", inviteWorkspaceId: teamId }) |
-| deleteTeamspace     | Delete an entire teamspace and all its records        | deleteTeamspace({ userId, inviteWorkspaceId: teamId })                                  |
+| Router name             | Use case                                             | Params                                                               |
+| ----------------------- | ---------------------------------------------------- | -------------------------------------------------------------------- |
+| **createTeamspace**     | Create a new teamspace and add caller as Owner       | `createTeamspace({ name, description, userId })`                     |
+| **getTeamspace**        | List all teamspaces the user belongs to              | `getTeamspace({ userId })`                                           |
+| **addUserTeamspace**    | Add a member to a teamspace using their **username** | `addUserTeamspace({ userId, memberUsername, inviteWorkspaceId })`    |
+| **removeUserTeamspace** | Remove a member from a teamspace (permissioned)      | `removeUserTeamspace({ userId, memberUsername, inviteWorkspaceId })` |
+| **deleteTeamspace**     | Delete an entire teamspace and all related records   | `deleteTeamspace({ userId, inviteWorkspaceId })`                     |
+| **getAllUsers**         | Fetch all users for dynamic username search          | `getAllUsers()`                                                      |
 
 #### Roles
 

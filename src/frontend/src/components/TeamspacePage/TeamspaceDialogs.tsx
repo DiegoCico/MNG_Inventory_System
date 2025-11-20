@@ -28,6 +28,7 @@ import {
   deleteTeamspace,
 } from '../../api/teamspace';
 import { me, inviteUser } from '../../api/auth';
+import { getAllUsers } from '../../api/teamspace';
 
 interface DialogsProps {
   teams: Team[];
@@ -127,6 +128,9 @@ export function InviteDialog({ open, onClose, teams, onRefresh, showSnackbar }: 
   const [usernameError, setUsernameError] = useState(false);
   const [usernameErrorText, setUsernameErrorText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
+
 
   useEffect(() => {
     if (!open) {
@@ -204,87 +208,152 @@ export function InviteDialog({ open, onClose, teams, onRefresh, showSnackbar }: 
     }
   }
 
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Invite Member</DialogTitle>
-      <DialogContent sx={{ pt: 1 }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-          <Tabs
-            value={inviteMode}
-            onChange={(_, v) => setInviteMode(v)}
-            textColor="inherit"
-            indicatorColor="warning"
-            centered
-          >
-            <Tab
-              label="Add to Teamspace"
-              value="teamspace"
-              sx={{ fontWeight: 700, textTransform: 'none' }}
-            />
-            <Tab
-              label="Invite to Platform"
-              value="platform"
-              sx={{ fontWeight: 700, textTransform: 'none' }}
-            />
-          </Tabs>
-        </Box>
+  useEffect(() => {
+    async function load() {
+      if (!open) return;
+      const data = await getAllUsers();
+      setAllUsers(data.users || []);
+      setFilteredUsers(data.users || []);
+    }
+    load();
+  }, [open]);
 
-        {inviteMode === 'platform' ? (
+
+ return (
+  <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+    <DialogTitle>Invite Member</DialogTitle>
+
+    <DialogContent sx={{ pt: 1 }}>
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Tabs
+          value={inviteMode}
+          onChange={(_, v) => setInviteMode(v)}
+          textColor="inherit"
+          indicatorColor="warning"
+          centered
+        >
+          <Tab
+            label="Add to Teamspace"
+            value="teamspace"
+            sx={{ fontWeight: 700, textTransform: 'none' }}
+          />
+          <Tab
+            label="Invite to Platform"
+            value="platform"
+            sx={{ fontWeight: 700, textTransform: 'none' }}
+          />
+        </Tabs>
+      </Box>
+
+      {/* Platform Invite */}
+      {inviteMode === 'platform' ? (
+        <TextField
+          fullWidth
+          label="User Email"
+          value={inviteEmail}
+          onChange={(e) => setInviteEmail(e.target.value)}
+        />
+      ) : (
+        <>
+          {/* Select Teamspace */}
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="teamspace-select-label">Select Teamspace</InputLabel>
+            <Select
+              labelId="teamspace-select-label"
+              label="Select Teamspace"
+              value={inviteWorkspaceId}
+              onChange={(e) => setInviteWorkspaceId(e.target.value.toString())}
+            >
+              {teams.map((team) => (
+                <MenuItem key={team.teamId} value={team.teamId}>
+                  {team.GSI_NAME}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Username Search */}
           <TextField
             fullWidth
-            label="User Email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
+            label="Search Username"
+            value={memberUsername}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const v = raw.toLowerCase();
+
+              setMemberUsername(raw);
+              setUsernameError(false);
+              setUsernameErrorText('');
+
+              const f = allUsers.filter(
+                (u) =>
+                  u.username.toLowerCase().includes(v) ||
+                  (u.name && u.name.toLowerCase().includes(v))
+              );
+              setFilteredUsers(f);
+            }}
+            error={usernameError}
+            helperText={usernameErrorText}
+            sx={{ mb: 1 }}
           />
-        ) : (
-          <>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="teamspace-select-label">Select Teamspace</InputLabel>
-              <Select
-                labelId="teamspace-select-label"
-                label="Select Teamspace"
-                value={inviteWorkspaceId}
-                onChange={(e) => setInviteWorkspaceId(e.target.value.toString())}
-              >
-                {teams.map((team) => (
-                  <MenuItem key={team.teamId} value={team.teamId}>
-                    {team.GSI_NAME}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
 
-            <TextField
-              fullWidth
-              label="Member Username"
-              value={memberUsername}
-              onChange={(e) => {
-                setMemberUsername(e.target.value);
-                setUsernameError(false);
-                setUsernameErrorText('');
+          {/* Dropdown List */}
+          {memberUsername && filteredUsers.length > 0 && (
+            <Box
+              sx={{
+                maxHeight: 200,
+                overflowY: 'auto',
+                border: '1px solid #ddd',
+                borderRadius: 1,
+                mt: 1,
               }}
-              error={usernameError}
-              helperText={usernameErrorText}
-            />
-          </>
-        )}
-      </DialogContent>
+            >
+              {filteredUsers.map((user) => (
+                <Box
+                  key={user.userId}
+                  sx={{
+                    p: 1,
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: '#f5f5f5' },
+                  }}
+                  onClick={() => {
+                    setMemberUsername(user.username);
+                    setFilteredUsers([]);
+                  }}
+                >
+                  <Typography sx={{ fontWeight: 600 }}>
+                    {user.username}
+                  </Typography>
+                  <Typography
+                    sx={{ fontSize: '0.85rem', color: 'text.secondary' }}
+                  >
+                    {user.name}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </>
+      )}
+    </DialogContent>
 
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          onClick={inviteMode === 'platform' ? handlePlatformInvite : handleInviteToTeamspace}
-          variant="contained"
-          color="warning"
-          disabled={loading}
-        >
-          {inviteMode === 'platform' ? 'Invite' : 'Add'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
+    <DialogActions>
+      <Button onClick={onClose} disabled={loading}>
+        Cancel
+      </Button>
+      <Button
+        onClick={inviteMode === 'platform' ? handlePlatformInvite : handleInviteToTeamspace}
+        variant="contained"
+        color="warning"
+        disabled={loading}
+      >
+        {inviteMode === 'platform' ? 'Invite' : 'Add'}
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
+
 }
 
 // REMOVE MEMBER DIALOG

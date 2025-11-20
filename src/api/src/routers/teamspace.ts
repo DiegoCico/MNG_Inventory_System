@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { router, publicProcedure } from './trpc';
-import { GetCommand, PutCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  DeleteCommand,
+  ScanCommand,
+} from '@aws-sdk/lib-dynamodb';
 import crypto from 'crypto';
 import { doc } from '../aws';
 import { loadConfig } from '../process';
@@ -312,4 +318,35 @@ export const teamspaceRouter = router({
         return { success: false, error: err.message || 'Failed to delete teamspace.' };
       }
     }),
+      /** GET ALL USERS */
+  getAllUsers: publicProcedure.query(async () => {
+    try {
+      const res = await doc.send(
+        new ScanCommand({
+          TableName: TABLE_NAME,
+          FilterExpression: 'begins_with(PK, :pk) AND SK = :sk',
+          ExpressionAttributeValues: {
+            ':pk': 'USER#',
+            ':sk': 'METADATA',
+          },
+        }),
+      );
+
+      const users =
+        res.Items?.map((u: any) => ({
+          userId: u.sub ?? u.userId,
+          username: u.username,
+          name: u.name ?? '',
+        })) ?? [];
+
+      return { success: true, users };
+    } catch (err: any) {
+      console.error('❌ getAllUsers error:', err);
+      return {
+        success: false,
+        error: err.message || 'Failed to fetch all users.',
+      };
+    }
+  }),
+
 });
