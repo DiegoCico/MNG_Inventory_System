@@ -32,3 +32,25 @@ Our job is to create a web-based application for use by inventory-taking technic
 ## Architecture
 
 SupplyNet operates entirely on AWS infrastructure, using Amplify for hosting, Cognito for authentication, DynamoDB for storing users, teams, items, and logs, S3 for item images and generated reports, and Lambda for server-side PDF generation. The system is browser-based, responsive, and optimized for desktop, laptop, and tablet usage. While not built for full mobile or offline operation, its lightweight design and cloud architecture allow fast, secure access for a small team of fewer than ten active users at a time, with the potential to scale to additional National Guard units.
+
+--- 
+
+# Remaining Project Tasks
+
+To complete the project and prepare it for a production environment, a couople components need to be updated. At the moment, everything is still configured to use development settings. CloudFront is serving through its default auto-generated distribution URL, and SES is limited to verified email addresses only. These settings are suitable for testing but must be adjusted for a real deployment.
+
+## What Still Needs To Be Done
+
+1. **Assign a Custom Domain for CloudFront**
+   Update the CloudFront configuration so it no longer uses the default CloudFront URL. Inside `src/cdk/lib/web-stack.ts` and `src/cdk/bin/app.ts`, provide the custom domain you want your application to use. This ensures the project is deployed under a clean, user-friendly domain.
+
+2. **Connect a Verified Domain for SES**
+   SES currently only works in sandbox mode, which restricts sending to verified emails. To finalize production readiness, configure SES with a fully verified domain. This will allow the system to send emails to unverified recipients and function as expected in production. Again look inside `src/cdk/lib/ses-stack.ts` and `src/cdk/bin/app.ts`
+
+3. **Update CDK Stacks to Use Production Values**
+   Replace development environment variables with your final domain name, hosted zone details, and SES identity. These updates should be made inside the CDK stacks under `src/cdk/lib/` and the application entry file at `src/cdk/bin/app.ts`.
+
+4. **Update Account Number**
+    Replace the current account number with your own AWS account number and region inside `src/cdk/bin/app.ts` line 24.
+
+Once these changes are done and deployed, the infrastructure will be fully configured for production use, with a proper domain, unrestricted email sending, and CloudFront serving content under your chosen URL.
