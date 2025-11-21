@@ -18,12 +18,12 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('../src/api/items');
-vi.mock('../src/api/auth');
-vi.mock('../src/api/home');
+vi.mock('../../src/api/items');
+vi.mock('../../src/api/auth');
+vi.mock('../../src/api/home');
 
 // Mock child components
-vi.mock('../src/components/TopBar', () => ({
+vi.mock('../../src/components/TopBar', () => ({
   default: ({ onProfileClick }: any) => (
     <div data-testid="topbar">
       <button onClick={onProfileClick}>Profile</button>
@@ -31,11 +31,11 @@ vi.mock('../src/components/TopBar', () => ({
   ),
 }));
 
-vi.mock('../src/components/NavBar', () => ({
+vi.mock('../../src/components/NavBar', () => ({
   default: () => <div data-testid="navbar">NavBar</div>,
 }));
 
-vi.mock('../src/components/Profile', () => ({
+vi.mock('../../src/components/Profile', () => ({
   default: ({ open, onClose }: any) =>
     open ? (
       <div data-testid="profile">
@@ -44,7 +44,7 @@ vi.mock('../src/components/Profile', () => ({
     ) : null,
 }));
 
-vi.mock('../src/components/HomePage/InventoryStatus', () => ({
+vi.mock('../../src/components/HomePage/InventoryStatus', () => ({
   default: ({ teamName, totals }: any) => (
     <div data-testid="inventory-status">
       <span>Team: {teamName}</span>
@@ -56,7 +56,7 @@ vi.mock('../src/components/HomePage/InventoryStatus', () => ({
   ),
 }));
 
-vi.mock('../src/components/HomePage/InventoryReviewed', () => ({
+vi.mock('../../src/components/HomePage/InventoryReviewed', () => ({
   default: ({ percentReviewed, onChangeTimeMode, onChangeValue }: any) => (
     <div data-testid="inventory-reviewed">
       <span>Percent: {percentReviewed}%</span>
@@ -66,21 +66,21 @@ vi.mock('../src/components/HomePage/InventoryReviewed', () => ({
   ),
 }));
 
-vi.mock('../src/components/HomePage/FollowUpsTable', () => ({
+vi.mock('../../src/components/HomePage/FollowUpsTable', () => ({
   default: ({ followUps }: any) => (
     <div data-testid="followups-table">FollowUps: {followUps.length}</div>
   ),
 }));
 
-vi.mock('../src/components/HomePage/AddInventoryCard', () => ({
+vi.mock('../../src/components/HomePage/AddInventoryCard', () => ({
   default: () => <div data-testid="add-inventory">Add Inventory</div>,
 }));
 
-vi.mock('../src/components/HomePage/RestartInventoryCard', () => ({
+vi.mock('../../src/components/HomePage/RestartInventoryCard', () => ({
   default: () => <div data-testid="restart-inventory">Restart</div>,
 }));
 
-vi.mock('../src/components/HomePage/TeamActivityChart', () => ({
+vi.mock('../../src/components/HomePage/TeamActivityChart', () => ({
   default: ({ teamStats }: any) => (
     <div data-testid="team-activity">TeamStats: {teamStats.length}</div>
   ),
@@ -112,13 +112,13 @@ describe('HomePage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authAPI.me).mockResolvedValue(mockUser);
-    vi.mocked(homeAPI.getTeam).mockResolvedValue(mockTeam);
+    (authAPI.me as ReturnType<typeof vi.fn>).mockResolvedValue(mockUser);
+    (homeAPI.getTeam as ReturnType<typeof vi.fn>).mockResolvedValue(mockTeam);
   });
 
   describe('Initial Render and Loading', () => {
     it('renders loading state initially', () => {
-      vi.mocked(itemsAPI.getItems).mockImplementation(
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -131,7 +131,7 @@ describe('HomePage', () => {
         success: true,
         items: [{ itemId: '1', name: 'Item 1', status: 'completed', createdBy: 'user-1' }],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -149,7 +149,7 @@ describe('HomePage', () => {
   describe('Data Fetching', () => {
     it('fetches user, team, and items data on mount', async () => {
       const mockItems = { success: true, items: [] };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter('team-456');
 
@@ -177,7 +177,7 @@ describe('HomePage', () => {
     });
 
     it('handles API errors gracefully', async () => {
-      vi.mocked(itemsAPI.getItems).mockRejectedValue(new Error('Network error'));
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network error'));
 
       renderWithRouter();
 
@@ -187,7 +187,7 @@ describe('HomePage', () => {
     });
 
     it('handles unsuccessful items fetch', async () => {
-      vi.mocked(itemsAPI.getItems).mockResolvedValue({
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: false,
         error: 'Failed to fetch items',
       });
@@ -212,7 +212,7 @@ describe('HomePage', () => {
           { itemId: '5', status: 'to review', createdBy: 'user-1' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -234,7 +234,7 @@ describe('HomePage', () => {
           { itemId: '4', status: 'to review', createdBy: 'user-1' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -252,7 +252,7 @@ describe('HomePage', () => {
           { itemId: '2', status: null, createdBy: 'user-1' }, // Null status
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -270,7 +270,7 @@ describe('HomePage', () => {
           { itemId: '3', name: 'Item 3', status: 'completed', createdBy: 'user-1' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -290,7 +290,7 @@ describe('HomePage', () => {
           { itemId: '4', status: 'completed', createdBy: 'user-2' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -302,7 +302,7 @@ describe('HomePage', () => {
 
     it('handles empty items array', async () => {
       const mockItems = { success: true, items: [] };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -314,8 +314,8 @@ describe('HomePage', () => {
     });
 
     it('handles non-array items response', async () => {
-      const mockItems = { success: true, items: null as any };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      const mockItems = { success: true, items: null as unknown as string };
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -339,7 +339,7 @@ describe('HomePage', () => {
           },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -352,7 +352,7 @@ describe('HomePage', () => {
   describe('User Interactions', () => {
     it('opens and closes profile dialog', async () => {
       const mockItems = { success: true, items: [] };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -380,7 +380,7 @@ describe('HomePage', () => {
 
     it('navigates back when back button is clicked', async () => {
       const mockItems = { success: true, items: [] };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -394,7 +394,7 @@ describe('HomePage', () => {
 
     it('updates time mode when changed', async () => {
       const mockItems = { success: true, items: [] };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -407,7 +407,7 @@ describe('HomePage', () => {
 
     it('updates selected value when changed', async () => {
       const mockItems = { success: true, items: [] };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -422,8 +422,8 @@ describe('HomePage', () => {
   describe('Team Name Display', () => {
     it('displays team name from API', async () => {
       const mockItems = { success: true, items: [] };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
-      vi.mocked(homeAPI.getTeam).mockResolvedValue({
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
+      (homeAPI.getTeam as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
         team: { name: 'Engineering Team' },
       });
@@ -437,8 +437,8 @@ describe('HomePage', () => {
 
     it('falls back to teamId if team name is not available', async () => {
       const mockItems = { success: true, items: [] };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
-      vi.mocked(homeAPI.getTeam).mockResolvedValue({
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
+      (homeAPI.getTeam as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: false,
       });
 
@@ -460,7 +460,7 @@ describe('HomePage', () => {
           { itemId: '3', status: 'completed', createdBy: 'user-2' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -477,7 +477,7 @@ describe('HomePage', () => {
           { itemId: '2', status: 'shortages', createdBy: 'user-1' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -494,7 +494,7 @@ describe('HomePage', () => {
           { itemId: '2', status: 'damaged', createdBy: 'user-2' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -508,7 +508,7 @@ describe('HomePage', () => {
         success: true,
         items: [{ itemId: '1', status: 'completed' }], // No createdBy
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -528,7 +528,7 @@ describe('HomePage', () => {
           { itemId: '3', status: 'shortages', createdBy: 'user-1' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -546,7 +546,7 @@ describe('HomePage', () => {
           { itemId: '3', status: 'to review', createdBy: 'user-1' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -568,7 +568,7 @@ describe('HomePage', () => {
           { itemId: '4', status: 'DAMAGED', createdBy: 'user-1' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 
@@ -588,7 +588,7 @@ describe('HomePage', () => {
           { itemId: '2', status: 'random', createdBy: 'user-1' },
         ],
       };
-      vi.mocked(itemsAPI.getItems).mockResolvedValue(mockItems);
+      (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockResolvedValue(mockItems);
 
       renderWithRouter();
 

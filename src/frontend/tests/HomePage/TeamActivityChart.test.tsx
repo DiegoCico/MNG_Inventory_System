@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import TeamActivityChart from '../../src/components/HomePage/TeamActivityChart';
@@ -46,6 +46,10 @@ describe('TeamActivityChart', () => {
     { userId: 'user-1', completed: 10, shortages: 2, damaged: 1 },
     { userId: 'user-2', completed: 15, shortages: 3, damaged: 0 },
   ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   describe('Rendering', () => {
     it('renders the component title', () => {

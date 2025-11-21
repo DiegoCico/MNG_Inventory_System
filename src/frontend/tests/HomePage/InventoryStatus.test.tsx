@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import InventoryStatus from '../../src/components/HomePage/InventoryStatus';
@@ -27,6 +27,10 @@ describe('InventoryStatus', () => {
     shortages: 5,
     damaged: 3,
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   describe('Rendering', () => {
     it('renders the component title with team name', () => {
@@ -150,13 +154,6 @@ describe('InventoryStatus', () => {
   });
 
   describe('Card Structure', () => {
-    it('renders four cards', () => {
-      const { container } = renderComponent('Test Team', defaultTotals);
-
-      const cards = container.querySelectorAll('.MuiCard-root');
-      expect(cards).toHaveLength(4);
-    });
-
     it('renders four cards', () => {
       const { container } = renderComponent('Test Team', defaultTotals);
 
