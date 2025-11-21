@@ -7,80 +7,55 @@ import {
   Paper,
   useTheme,
   useMediaQuery,
-  TextField,
-  InputAdornment,
+  // Added Table components
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from "@mui/material";
 import { useParams } from "react-router-dom";
 import PrintIcon from "@mui/icons-material/Print";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import SearchIcon from "@mui/icons-material/Search";
-import ClearIcon from "@mui/icons-material/Clear";
 import CircularProgressBar from "./CircularProgressBar";
 import ExportPreview from "./ExportPreview";
-import ItemListComponent, { ItemListItem } from "./ItemListComponent";
+// Removed ItemListComponent import
 import { getInventoryForm } from "../api/api";
+
+// Define a type for the CSV data (assuming array of objects)
+interface CsvItem extends Record<string, any> {}
+
+interface ExportPageContentProps {
+  items: any[];
+  percentReviewed: number;
+  activeCategory: "completed" | "broken";
+  // NEW PROP: CSV Data
+  csvData: CsvItem[]; 
+}
 
 export default function ExportPageContent({
   items,
   percentReviewed,
   activeCategory,
-}: {
-  items: any[];
-  percentReviewed: number;
-  activeCategory: "completed" | "broken";
-}) {
+  csvData, // Destructure new prop
+}: ExportPageContentProps) {
   const { teamId } = useParams<{ teamId: string }>();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-
+  
   const completion = percentReviewed;
   const cardBorder = `1px solid ${theme.palette.divider}`;
   const team = "MNG INVENTORY";
 
-  // Build hierarchy from items
-  const buildHierarchy = (flatItems: any[]): ItemListItem[] => {
-    const map: Record<string, ItemListItem> = {};
-    const roots: ItemListItem[] = [];
+  // --- CSV/Table Logic ---
+  const headers = csvData.length > 0 ? Object.keys(csvData[0]) : [];
+  // -----------------------
 
-    // First pass - create all items
-    flatItems.forEach((item: any) => {
-      map[item.itemId] = {
-        id: item.itemId,
-        productName: item.name,
-        actualName: item.actualName || item.name,
-        subtitle: item.description || 'No description',
-        image: item.imageLink && item.imageLink.startsWith('http')
-          ? item.imageLink
-          : 'https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=400',
-        date: new Date(item.createdAt).toLocaleDateString('en-US', {
-          month: '2-digit',
-          day: '2-digit',
-          year: '2-digit'
-        }),
-        parent: item.parent,
-        status: item.status,
-        children: []
-      };
-    });
-
-    // Second pass - build parent-child relationships
-    flatItems.forEach((item: any) => {
-      const mappedItem = map[item.itemId];
-      if (item.parent && map[item.parent]) {
-        map[item.parent].children!.push(mappedItem);
-      } else {
-        roots.push(mappedItem);
-      }
-    });
-
-    return roots;
-  };
-
-  // Filter items based on activeCategory
+  // Existing logic for filtering items (kept for stats calculation)
   const filteredItems = items.filter((item) => {
     const status = (item.status ?? "to review").toLowerCase();
     
@@ -91,34 +66,9 @@ export default function ExportPageContent({
     }
   });
 
-  // Build hierarchy for filtered items
-  const hierarchyItems = buildHierarchy(filteredItems);
-
-  // Search filtering function - searches through hierarchy
-  const searchInHierarchy = (item: ItemListItem, query: string): boolean => {
-    const lowerQuery = query.toLowerCase();
-    const nameMatch = item.productName.toLowerCase().includes(lowerQuery) ||
-                      item.actualName.toLowerCase().includes(lowerQuery);
-    
-    if (nameMatch) return true;
-    
-    // Search in children
-    if (item.children && item.children.length > 0) {
-      return item.children.some(child => searchInHierarchy(child, query));
-    }
-    
-    return false;
-  };
-
-  // Filter hierarchy by search query
-  const searchedItems = searchQuery.trim() 
-    ? hierarchyItems.filter(item => searchInHierarchy(item, searchQuery))
-    : hierarchyItems;
-
-  // Calculate statistics for current category
   const categoryStats = {
     total: filteredItems.length,
-    displayed: searchedItems.length,
+    displayed: csvData.length, // Displayed is now based on CSV data length
     completed: activeCategory === "completed" ? filteredItems.length : 0,
     broken: activeCategory === "broken" ? filteredItems.length : 0,
   };
@@ -162,9 +112,55 @@ export default function ExportPageContent({
     }
   };
 
-  const handleClearSearch = () => {
-    setSearchQuery("");
-  };
+  // Component to render the table
+  const CsvTable = () => (
+    <TableContainer component={Box}>
+      {csvData.length > 0 ? (
+        <Table stickyHeader size="small">
+          <TableHead>
+            <TableRow>
+              {headers.map((header) => (
+                <TableCell 
+                  key={header} 
+                  sx={{ 
+                    fontWeight: 'bold', 
+                    bgcolor: theme.palette.background.default,
+                    color: theme.palette.text.secondary,
+                    textTransform: 'uppercase',
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  {header}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {csvData.map((row, rowIndex) => (
+              <TableRow key={rowIndex} hover>
+                {headers.map((header) => (
+                  <TableCell key={header}>
+                    {row[header]}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <Typography 
+          sx={{ 
+            textAlign: "center", 
+            color: theme.palette.text.disabled, 
+            py: 4 
+          }}
+        >
+          No CSV data available to display.
+        </Typography>
+      )}
+    </TableContainer>
+  );
+
 
   return (
     <Box
@@ -185,49 +181,10 @@ export default function ExportPageContent({
           pb: { xs: 12, sm: 14 },
         }}
       >
-        {/* Search Bar */}
-        <Box sx={{ mb: 3, maxWidth: 600, mx: "auto" }}>
-          <TextField
-            fullWidth
-            placeholder={`Search ${activeCategory === "completed" ? "completed items" : "broken items"}...`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: theme.palette.text.secondary }} />
-                </InputAdornment>
-              ),
-              endAdornment: searchQuery && (
-                <InputAdornment position="end">
-                  <Button
-                    size="small"
-                    onClick={handleClearSearch}
-                    sx={{ minWidth: "auto", p: 0.5 }}
-                  >
-                    <ClearIcon sx={{ color: theme.palette.text.secondary }} />
-                  </Button>
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 2,
-                bgcolor: theme.palette.background.paper,
-              },
-            }}
-          />
-          {searchQuery && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: "center" }}>
-              Showing {categoryStats.displayed} of {categoryStats.total} items
-            </Typography>
-          )}
-        </Box>
-
         {isDesktop ? (
           // Desktop Layout
-          <Box sx={{ display: "flex", gap: 3, minHeight: "calc(100vh - 240px)" }}>
-            {/* Items List */}
+          <Box sx={{ display: "flex", gap: 3, minHeight: "calc(100vh - 200px)" }}>
+            {/* Items List (Now CSV Table) */}
             <Paper
               elevation={0}
               sx={{
@@ -248,47 +205,27 @@ export default function ExportPageContent({
               >
                 <Typography variant="h6" fontWeight={800}>
                   {activeCategory === "completed" 
-                    ? "Completed Items" 
-                    : "Broken Items"}
+                    ? "Completed Inventory Report" 
+                    : "Broken Items Report"}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Team: {team} {teamId && `• ID: ${teamId}`} • Items: {categoryStats.displayed}
                 </Typography>
               </Box>
 
-              {/* Items Display Area */}
+              {/* Items Display Area - REPLACED WITH CSV TABLE */}
               <Box
                 sx={{
                   flex: 1,
-                  p: 2,
                   overflowY: "auto",
                   bgcolor: theme.palette.background.default,
                 }}
               >
-                {searchedItems.length > 0 ? (
-                  <ItemListComponent items={searchedItems} />
-                ) : (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: "100%",
-                      color: theme.palette.text.secondary,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      {searchQuery 
-                        ? "No items found matching your search"
-                        : `No ${activeCategory === "completed" ? "completed" : "broken"} items`}
-                    </Typography>
-                  </Box>
-                )}
+                <CsvTable />
               </Box>
             </Paper>
 
-            {/* Sidebar */}
+            {/* Sidebar (No major changes) */}
             <Box sx={{ width: 320 }}>
               <Stack spacing={3}>
                 <Paper
@@ -373,7 +310,7 @@ export default function ExportPageContent({
                     Generated: {new Date().toLocaleDateString()}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Format: PDF Document
+                    Format: CSV Data
                   </Typography>
                 </Paper>
               </Stack>
@@ -443,7 +380,7 @@ export default function ExportPageContent({
               </Stack>
             </Paper>
 
-            {/* Mobile Items List */}
+            {/* Mobile Items List - REPLACED WITH CSV TABLE */}
             <Paper
               elevation={0}
               sx={{
@@ -453,17 +390,11 @@ export default function ExportPageContent({
               }}
             >
               <Typography variant="h6" fontWeight={800} mb={2}>
-                Items List
+                CSV Data Preview
               </Typography>
-              {searchedItems.length > 0 ? (
-                <ItemListComponent items={searchedItems} />
-              ) : (
-                <Typography sx={{ textAlign: "center", color: theme.palette.text.disabled, py: 4 }}>
-                  {searchQuery 
-                    ? "No items found matching your search"
-                    : `No ${activeCategory === "completed" ? "completed" : "broken"} items`}
-                </Typography>
-              )}
+              <Box sx={{ overflowX: "auto" }}>
+                <CsvTable />
+              </Box>
             </Paper>
           </Box>
         )}

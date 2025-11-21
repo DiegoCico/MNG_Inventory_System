@@ -17,6 +17,41 @@ import NavBar from "../components/NavBar";
 import ExportPageContent from "../components/ExportPageContent";
 import { getItems } from "../api/items";
 
+// Define the expected shape of a CSV row (flat object)
+interface CsvItem extends Record<string, any> {}
+
+
+/**
+ * Converts the raw nested item array into a flattened, report-ready CSV data format,
+ * filtered by the active category.
+ */
+const itemsToCsvData = (rawItems: any[], category: "completed" | "broken", currentTeamId: string): CsvItem[] => {
+    // Define which statuses map to the active category
+    const validStatuses = category === "completed"
+        ? ["completed", "complete", "found"]
+        : ["damaged", "shortages", "shortage", "missing", "in repair"];
+
+    // 1. Filter the items based on the active category
+    const filteredItems = rawItems.filter((item) => {
+        const status = (item.status ?? "to review").toLowerCase();
+        return validStatuses.includes(status);
+    });
+
+    // 2. Map the filtered items to a flattened, structured format for the CSV table
+    return filteredItems.map(item => ({
+        "Item ID": item.itemId || 'N/A',
+        "Product Name": item.name || 'N/A',
+        "Status": item.status || 'To Review',
+        "Description": item.description || 'No description',
+        "Date Added": new Date(item.createdAt).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric'
+        }),
+        "Team ID": currentTeamId,
+        // You can add more fields here if they exist on the raw item object
+    }));
+};
+
+
 export default function ExportPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const theme = useTheme();
@@ -83,6 +118,10 @@ export default function ExportPage() {
     setIsGenerating(false);
     setDocumentsCreated(true);
   };
+  
+  // --- NEW: Transform items into the CSV data structure ---
+  const csvData = itemsToCsvData(items, activeCategory, teamId || '');
+  // --------------------------------------------------------
 
   // Category bar categories
   const categories = [
@@ -255,6 +294,8 @@ export default function ExportPage() {
                 items={items} 
                 percentReviewed={percentReviewed}
                 activeCategory={activeCategory}
+                // PASSED THE GENERATED CSV DATA
+                csvData={csvData} 
               />
             </Box>
           </Fade>
