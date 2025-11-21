@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { router, publicProcedure } from './trpc';
-import { GetCommand, PutCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  DeleteCommand,
+  ScanCommand,
+} from '@aws-sdk/lib-dynamodb';
 import crypto from 'crypto';
 import { doc } from '../aws';
 import { loadConfig } from '../process';
@@ -312,4 +318,81 @@ export const teamspaceRouter = router({
         return { success: false, error: err.message || 'Failed to delete teamspace.' };
       }
     }),
+/** GET ALL USERS */
+getAllUsers: publicProcedure.query(async () => {
+  try {
+    const res = await doc.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pk) AND SK = :sk',
+        ExpressionAttributeValues: {
+          ':pk': 'USER#',
+          ':sk': 'METADATA',
+        },
+      })
+    );
+
+    const rawUsers = res.Items ?? [];
+    const users = [];
+
+    for (const u of rawUsers) {
+      const userId = u.sub ?? u.userId;
+
+      // 1. Fetch teams the user belongs to
+      const teamsRes = await doc.send(
+        new QueryCommand({
+          TableName: TABLE_NAME,
+          IndexName: 'GSI_UserTeams',
+          KeyConditionExpression: 'GSI1PK = :pk',
+          ExpressionAttributeValues: {
+            ':pk': `USER#${userId}`,
+          },
+        })
+      );
+
+      const teamItems = teamsRes.Items ?? [];
+      const teams: any[] = [];
+
+      // 2. For each membership, fetch TEAM metadata to get teamName
+      for (const t of teamItems) {
+        const teamId = t.teamId ?? t.GSI1SK?.replace('TEAM#', '');
+
+        // Get TEAM#<id> METADATA
+        const metaRes = await doc.send(
+          new GetCommand({
+            TableName: TABLE_NAME,
+            Key: {
+              PK: `TEAM#${teamId}`,
+              SK: 'METADATA',
+            },
+          })
+        );
+
+        const meta = metaRes.Item || {};
+
+        teams.push({
+          teamId,
+          teamName: meta.GSI_NAME ?? meta.name ?? '', 
+          role: t.role,
+        });
+      }
+
+      users.push({
+        userId,
+        username: u.username,
+        name: u.name ?? '',
+        teams,
+      });
+    }
+
+    return { success: true, users };
+  } catch (err: any) {
+    console.error('❌ getAllUsers error:', err);
+    return {
+      success: false,
+      error: err.message || 'Failed to fetch all users.',
+    };
+  }
+}),
+
 });
