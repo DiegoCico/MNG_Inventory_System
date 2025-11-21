@@ -1,9 +1,16 @@
 import { z } from 'zod';
 import { router, publicProcedure } from './trpc';
-import { GetCommand, PutCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  DeleteCommand,
+  ScanCommand,
+} from '@aws-sdk/lib-dynamodb';
 import crypto from 'crypto';
 import { doc } from '../aws';
 import { loadConfig } from '../process';
+import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 
 const config = loadConfig();
 const TABLE_NAME = config.TABLE_NAME;
@@ -152,6 +159,42 @@ export const teamspaceRouter = router({
       }
     }),
 
+/** GET SINGLE TEAM BY ID */
+getTeamById: publicProcedure
+  .input(z.object({ teamId: z.string().min(1), userId: z.string().min(1) }))
+  .query(async ({ input }) => {
+    try {
+      // Check if user is a member of this team (any role/permission grants access to view)
+      const memberCheck = await doc.send(
+        new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: `TEAM#${input.teamId}`, SK: `MEMBER#${input.userId}` },
+        }),
+      );
+
+      if (!memberCheck.Item) {
+        return { success: false, error: 'Not authorized to view this team.' };
+      }
+
+      // Get team metadata
+      const res = await doc.send(
+        new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: `TEAM#${input.teamId}`, SK: 'METADATA' },
+        }),
+      );
+
+      if (!res.Item) {
+        return { success: false, error: 'Team not found.' };
+      }
+
+      return { success: true, team: res.Item };
+    } catch (err: any) {
+      console.error('❌ getTeamById error:', err);
+      return { success: false, error: err.message || 'Failed to fetch team.' };
+    }
+  }),
+
   /** ADD USER TO TEAMSPACE */
   addUserTeamspace: publicProcedure
     .input(
@@ -179,17 +222,23 @@ export const teamspaceRouter = router({
           return { success: false, error: 'User not found by username.' };
         }
 
+        // IMPORTANT FIX:
+        // Use Cognito's real user identifier: user.sub
+        const targetId = user.sub;
+
         const now = new Date().toISOString();
 
         const member = {
           PK: `TEAM#${input.inviteWorkspaceId}`,
-          SK: `MEMBER#${user.accountId}`,
+          SK: `MEMBER#${targetId}`,
           Type: 'TeamMember',
           teamId: input.inviteWorkspaceId,
-          userId: user.accountId,
+          userId: targetId,
           role: 'Member',
           joinedAt: now,
-          GSI1PK: `USER#${user.accountId}`,
+
+          // Correct GSI so getTeamspace works
+          GSI1PK: `USER#${targetId}`,
           GSI1SK: `TEAM#${input.inviteWorkspaceId}`,
         };
 
@@ -204,7 +253,6 @@ export const teamspaceRouter = router({
         };
       }
     }),
-
   /** REMOVE USER FROM TEAMSPACE */
   removeUserTeamspace: publicProcedure
     .input(
@@ -272,6 +320,7 @@ export const teamspaceRouter = router({
     )
     .mutation(async ({ input }) => {
       try {
+        // ---- Permission check ----
         const allowed = await hasPermission(
           input.userId,
           input.inviteWorkspaceId,
@@ -281,11 +330,14 @@ export const teamspaceRouter = router({
           return { success: false, error: 'Not authorized to delete team.' };
         }
 
+        // ---- 1. Delete DynamoDB records ----
         const q = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
             KeyConditionExpression: 'PK = :pk',
-            ExpressionAttributeValues: { ':pk': `TEAM#${input.inviteWorkspaceId}` },
+            ExpressionAttributeValues: {
+              ':pk': `TEAM#${input.inviteWorkspaceId}`,
+            },
           }),
         );
 
@@ -301,10 +353,111 @@ export const teamspaceRouter = router({
           ),
         );
 
+        const s3 = new S3Client({ region: config.REGION });
+
+        const prefix = `items/${input.inviteWorkspaceId}/`;
+
+        const listed = await s3.send(
+          new ListObjectsV2Command({
+            Bucket: config.BUCKET_NAME,
+            Prefix: prefix,
+          }),
+        );
+
+        const contents = listed.Contents ?? [];
+
+        if (contents.length > 0) {
+          await s3.send(
+            new DeleteObjectsCommand({
+              Bucket: config.BUCKET_NAME,
+              Delete: {
+                Objects: contents.map((o) => ({ Key: o.Key! })),
+              },
+            }),
+          );
+        }
+
         return { success: true, deleted: input.inviteWorkspaceId };
       } catch (err: any) {
         console.error('❌ deleteTeamspace error:', err);
         return { success: false, error: err.message || 'Failed to delete teamspace.' };
       }
     }),
+/** GET ALL USERS */
+getAllUsers: publicProcedure.query(async () => {
+  try {
+    const res = await doc.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pk) AND SK = :sk',
+        ExpressionAttributeValues: {
+          ':pk': 'USER#',
+          ':sk': 'METADATA',
+        },
+      })
+    );
+
+    const rawUsers = res.Items ?? [];
+    const users = [];
+
+    for (const u of rawUsers) {
+      const userId = u.sub ?? u.userId;
+
+      // 1. Fetch teams the user belongs to
+      const teamsRes = await doc.send(
+        new QueryCommand({
+          TableName: TABLE_NAME,
+          IndexName: 'GSI_UserTeams',
+          KeyConditionExpression: 'GSI1PK = :pk',
+          ExpressionAttributeValues: {
+            ':pk': `USER#${userId}`,
+          },
+        })
+      );
+
+      const teamItems = teamsRes.Items ?? [];
+      const teams: any[] = [];
+
+      // 2. For each membership, fetch TEAM metadata to get teamName
+      for (const t of teamItems) {
+        const teamId = t.teamId ?? t.GSI1SK?.replace('TEAM#', '');
+
+        // Get TEAM#<id> METADATA
+        const metaRes = await doc.send(
+          new GetCommand({
+            TableName: TABLE_NAME,
+            Key: {
+              PK: `TEAM#${teamId}`,
+              SK: 'METADATA',
+            },
+          })
+        );
+
+        const meta = metaRes.Item || {};
+
+        teams.push({
+          teamId,
+          teamName: meta.GSI_NAME ?? meta.name ?? '', 
+          role: t.role,
+        });
+      }
+
+      users.push({
+        userId,
+        username: u.username,
+        name: u.name ?? '',
+        teams,
+      });
+    }
+
+    return { success: true, users };
+  } catch (err: any) {
+    console.error('❌ getAllUsers error:', err);
+    return {
+      success: false,
+      error: err.message || 'Failed to fetch all users.',
+    };
+  }
+}),
+
 });

@@ -71,17 +71,14 @@ export async function logout() {
 
 export async function me() {
   try {
-    const res = await fetch(
-      `${TRPC}/me?input=${encodeURIComponent(JSON.stringify(null))}`,
-      {
-        method: "GET",
-        credentials: "include",
-      }
-    );
+    const res = await fetch(`${TRPC}/me?input=${encodeURIComponent(JSON.stringify(null))}`, {
+      method: 'GET',
+      credentials: 'include',
+    });
 
     if (!res.ok) {
-      if (window.location.pathname !== "/signin") {
-        window.location.href = "/signin";
+      if (window.location.pathname !== '/signin') {
+        window.location.href = '/signin';
       }
       throw new Error(`me failed: ${res.status}`);
     }
@@ -90,10 +87,10 @@ export async function me() {
     const data = json?.result?.data;
 
     if (!data || data.authenticated === false) {
-      if (window.location.pathname !== "/signin") {
-        window.location.href = "/signin";
+      if (window.location.pathname !== '/signin') {
+        window.location.href = '/signin';
       }
-      throw new Error("unauthenticated");
+      throw new Error('unauthenticated');
     }
 
     return {
@@ -104,15 +101,13 @@ export async function me() {
       authenticated: true,
     };
   } catch (error) {
-    console.error("[me] failed, redirecting to /signin:", error);
-    if (window.location.pathname !== "/signin") {
-      window.location.href = "/signin";
+    console.error('[me] failed, redirecting to /signin:', error);
+    if (window.location.pathname !== '/signin') {
+      window.location.href = '/signin';
     }
     throw error;
   }
 }
-
-
 
 export async function submitOtp(
   challengeName: 'EMAIL_OTP' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA',
@@ -130,4 +125,3 @@ export async function submitOtp(
   const json = await res.json();
   return json?.result?.data;
 }
-

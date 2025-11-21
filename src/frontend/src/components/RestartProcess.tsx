@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useState } from 'react';
 import {
   Button,
   Paper,
@@ -8,9 +8,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-} from "@mui/material";
-import { useTheme } from "@mui/material/styles";
-import { softReset } from "../api/home"; // <-- import the API function
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { softReset } from '../api/home'; 
 
 interface RestartProcessCardProps {
   teamId: string; // pass the current teamId
@@ -27,11 +27,11 @@ export default function RestartProcess({ teamId, onRestart }: RestartProcessCard
     try {
       setLoading(true);
       await softReset(teamId); // <-- call the API
-      console.log("Soft reset completed");
+      console.log('Soft reset completed');
       if (onRestart) onRestart();
     } catch (err: any) {
-      console.error("Failed to restart process:", err.message || err);
-      alert("Failed to restart process. See console for details.");
+      console.error('Failed to restart process:', err.message || err);
+      alert('Failed to restart process. See console for details.');
     } finally {
       setLoading(false);
       setIsDialogOpen(false);
@@ -109,7 +109,9 @@ export default function RestartProcess({ teamId, onRestart }: RestartProcessCard
           )}
         </DialogContent>
         <DialogActions sx={{ bgcolor: theme.palette.background.paper }}>
-          <Button onClick={closeWizard} disabled={loading}>Cancel</Button>
+          <Button onClick={closeWizard} disabled={loading}>
+            Cancel
+          </Button>
           {wizardStep === 1 ? (
             <Button variant="contained" color="warning" onClick={() => setWizardStep(2)}>
               Continue
@@ -121,7 +123,7 @@ export default function RestartProcess({ teamId, onRestart }: RestartProcessCard
               onClick={handleRestartProcess}
               disabled={loading}
             >
-              {loading ? "Restarting..." : "Confirm Restart"}
+              {loading ? 'Restarting...' : 'Confirm Restart'}
             </Button>
           )}
         </DialogActions>

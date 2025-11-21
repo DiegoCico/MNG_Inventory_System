@@ -1,6 +1,6 @@
-import { Paper, Typography, Button } from "@mui/material";
-import { Link } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
+import { Paper, Typography, Button } from '@mui/material';
+import { Link } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
 
 interface AddInventoryCardProps {
   teamId: string;
@@ -17,7 +17,7 @@ export default function AddInventoryCard({ teamId }: AddInventoryCardProps) {
         p: 3,
         bgcolor: theme.palette.background.paper,
         border: cardBorder,
-        textAlign: "center",
+        textAlign: 'center',
       }}
     >
       <Typography variant="h6" fontWeight={800} mb={2}>

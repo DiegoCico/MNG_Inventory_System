@@ -196,12 +196,20 @@ def stamp(template_bytes, values, font="Helvetica", size=9):
     return out.getvalue()
 
 def read_template_bytes():
-    if not TEMPLATE_PATH:
-        raise RuntimeError("TEMPLATE_PATH is not set")
-    root = os.environ.get("LAMBDA_TASK_ROOT", ".")
-    p = TEMPLATE_PATH if os.path.isabs(TEMPLATE_PATH) else os.path.join(root, TEMPLATE_PATH)
-    with open(p, "rb") as f:
-        return f.read()
+    """
+    Reads DA-2404 template PDF from S3.
+    """
+    bucket = "mng-dev-uploads-245120345540"
+    key    = "templates/DA2404_template.pdf"
+
+    if not bucket:
+        raise RuntimeError("TEMPLATE_BUCKET or UPLOADS_BUCKET env var must be set")
+
+    try:
+        obj = s3_client().get_object(Bucket=bucket, Key=key)
+        return obj["Body"].read()
+    except Exception as e:
+        raise RuntimeError(f"Failed to load template from S3 s3://{bucket}/{key}: {e}")
 
 # ====== Dynamo & S3 ======
 def ddb_get(pk: str, sk: str = "LATEST") -> dict:

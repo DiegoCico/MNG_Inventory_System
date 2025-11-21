@@ -1,17 +1,8 @@
-import React from "react";
-import {
-  Box,
-  Typography,
-  Stack,
-  IconButton,
-  Paper,
-  Button,
-  useTheme,
-  Modal,
-} from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import PrintIcon from "@mui/icons-material/Print";
+import React from 'react';
+import { Box, Typography, Stack, IconButton, Paper, Button, useTheme, Modal } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import PrintIcon from '@mui/icons-material/Print';
 
 interface ExportPreviewProps {
   open: boolean;
@@ -39,31 +30,31 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
     <Modal open={open} onClose={onClose}>
       <Box
         sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "95%",
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '95%',
           maxWidth: 1400,
-          height: "90vh",
+          height: '90vh',
           bgcolor: theme.palette.background.default,
           borderRadius: 2,
           boxShadow: 24,
-          display: "flex",
-          overflow: "hidden",
+          display: 'flex',
+          overflow: 'hidden',
         }}
       >
         {/* PDF Viewer - Left Side */}
-        <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
           <Box
             sx={{
               p: 2,
               borderBottom: cardBorder,
               bgcolor: theme.palette.background.paper,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
             }}
           >
             <Box>
@@ -84,8 +75,8 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
             sx={{
               flex: 1,
               p: 3,
-              overflowY: "auto",
-              bgcolor: theme.palette.mode === "dark" ? "#1a1a1a" : "#f5f5f5",
+              overflowY: 'auto',
+              bgcolor: theme.palette.mode === 'dark' ? '#1a1a1a' : '#f5f5f5',
             }}
           >
             {/* Simulated PDF Content */}
@@ -95,9 +86,9 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
                 width="100%"
                 height="100%"
                 style={{
-                  border: "none",
+                  border: 'none',
                   borderRadius: 8,
-                  backgroundColor: theme.palette.mode === "dark" ? "#1a1a1a" : "#f5f5f5",
+                  backgroundColor: theme.palette.mode === 'dark' ? '#1a1a1a' : '#f5f5f5',
                 }}
                 title="Inventory Form PDF"
               />
@@ -106,10 +97,10 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
                 elevation={2}
                 sx={{
                   maxWidth: 800,
-                  mx: "auto",
+                  mx: 'auto',
                   p: 4,
                   bgcolor: theme.palette.background.paper,
-                  minHeight: "100%",
+                  minHeight: '100%',
                 }}
               >
                 <Typography variant="h5" fontWeight={800} gutterBottom align="center">
@@ -133,7 +124,7 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
             borderLeft: cardBorder,
             bgcolor: theme.palette.background.default,
             p: 3,
-            overflowY: "auto",
+            overflowY: 'auto',
           }}
         >
           <Stack spacing={3}>
@@ -144,7 +135,7 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
                 p: 3,
                 border: cardBorder,
                 bgcolor: theme.palette.background.paper,
-                textAlign: "center",
+                textAlign: 'center',
               }}
             >
               <Typography variant="h6" fontWeight={800} mb={2}>
@@ -152,9 +143,9 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
               </Typography>
               <Box
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   my: 2,
                 }}
               >
@@ -163,11 +154,11 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
                     sx={{
                       width: 100,
                       height: 100,
-                      borderRadius: "50%",
+                      borderRadius: '50%',
                       border: `8px solid ${theme.palette.primary.main}`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
                     <Typography variant="h4" fontWeight={800}>
@@ -219,7 +210,7 @@ const ExportPreview: React.FC<ExportPreviewProps> = ({
                     fontWeight: 700,
                     bgcolor: theme.palette.warning.main,
                     color: theme.palette.getContrastText(theme.palette.warning.main),
-                    "&:hover": {
+                    '&:hover': {
                       bgcolor: theme.palette.warning.dark,
                     },
                   }}

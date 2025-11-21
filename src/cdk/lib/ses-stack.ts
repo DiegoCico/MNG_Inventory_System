@@ -30,8 +30,8 @@ export class SesStack extends cdk.Stack {
       rootDomain,
       fromLocalPart = 'noreply',
       createFeedbackTopic = true,
-      stage = "dev",
-      emailFrom = "cicotoste.d@northeastern.edu",
+      stage = 'dev',
+      emailFrom = 'cicotoste.d@northeastern.edu',
     } = props;
 
     let identity: ses.EmailIdentity;
@@ -40,11 +40,11 @@ export class SesStack extends cdk.Stack {
     // Determine whether to use email or domain identity
     const isDevStage =
       !rootDomain ||
-      rootDomain.trim() === "" ||
-      stage.toLowerCase().includes("dev") ||
-      stage.toLowerCase().includes("local") ||
-      stage.toLowerCase().includes("beta") ||
-      stage.toLowerCase().includes("test");
+      rootDomain.trim() === '' ||
+      stage.toLowerCase().includes('dev') ||
+      stage.toLowerCase().includes('local') ||
+      stage.toLowerCase().includes('beta') ||
+      stage.toLowerCase().includes('test');
 
     if (isDevStage) {
       // Use existing verified email identity (avoid duplicates)
@@ -57,11 +57,11 @@ export class SesStack extends cdk.Stack {
       } as unknown as ses.EmailIdentity;
     } else {
       // Domain-based identity for prod/staging environments
-      const zone = route53.HostedZone.fromLookup(this, "HostedZone", {
+      const zone = route53.HostedZone.fromLookup(this, 'HostedZone', {
         domainName: rootDomain!,
       });
 
-      identity = new ses.EmailIdentity(this, "DomainIdentity", {
+      identity = new ses.EmailIdentity(this, 'DomainIdentity', {
         identity: ses.Identity.publicHostedZone(zone),
         mailFromDomain: `mail.${rootDomain}`,
       });
@@ -121,14 +121,12 @@ export class SesStack extends cdk.Stack {
         },
       });
 
-
       this.feedbackTopicArn = feedbackTopic.topicArn;
     }
 
     // Managed policy for Lambda/API SES send permissions
-    const sendPolicy = new iam.ManagedPolicy(this, "SesSendPolicy", {
-      description:
-        "Allow sending via SES from the configured address & configuration set.",
+    const sendPolicy = new iam.ManagedPolicy(this, 'SesSendPolicy', {
+      description: 'Allow sending via SES from the configured address & configuration set.',
       statements: [
         new iam.PolicyStatement({
           actions: ['ses:SendEmail', 'ses:SendRawEmail'],
@@ -144,19 +142,19 @@ export class SesStack extends cdk.Stack {
     });
 
     // CloudFormation Outputs
-    new cdk.CfnOutput(this, "Stage", { value: stage });
-    new cdk.CfnOutput(this, "FromAddress", { value: this.fromAddress });
-    new cdk.CfnOutput(this, "IdentityArn", { value: identity.emailIdentityArn });
-    new cdk.CfnOutput(this, "ConfigSetName", { value: this.configurationSetName });
+    new cdk.CfnOutput(this, 'Stage', { value: stage });
+    new cdk.CfnOutput(this, 'FromAddress', { value: this.fromAddress });
+    new cdk.CfnOutput(this, 'IdentityArn', { value: identity.emailIdentityArn });
+    new cdk.CfnOutput(this, 'ConfigSetName', { value: this.configurationSetName });
 
     if (this.feedbackTopicArn) {
-      new cdk.CfnOutput(this, "FeedbackTopicArn", {
+      new cdk.CfnOutput(this, 'FeedbackTopicArn', {
         value: this.feedbackTopicArn,
       });
     }
 
     // ✅ Make export name unique per stage to avoid collisions
-    new cdk.CfnOutput(this, "SesSendPolicyArn", {
+    new cdk.CfnOutput(this, 'SesSendPolicyArn', {
       value: sendPolicy.managedPolicyArn,
       exportName: `SesSendPolicyArn-${stage}`,
     });

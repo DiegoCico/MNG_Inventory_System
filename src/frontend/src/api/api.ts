@@ -18,7 +18,7 @@ export async function getItem(itemId?: string) {
 }
 
 export async function getInventoryForm(teamId?: string, nsn?: string) {
-  if (!nsn) throw new Error("NSN is required");
+  if (!nsn) throw new Error('NSN is required');
 
   const input = encodeURIComponent(JSON.stringify({ teamId, nsn }));
   const r = await fetch(`${TRPC_URL}/s3.getInventoryForm?input=${input}`);

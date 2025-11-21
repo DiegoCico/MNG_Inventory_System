@@ -1,6 +1,6 @@
-import { me } from "./auth";
+import { me } from './auth';
 
-const TRPC = "/trpc";
+const TRPC = '/trpc';
 
 /** CREATE ITEM */
 export async function createItem(
@@ -9,9 +9,9 @@ export async function createItem(
   actualName: string,
   nsn: string,
   serialNumber: string,
-  imageLink?: string,
+  imageBase64?: string,
   description?: string,
-  parent?: string | null
+  parent?: string | null,
 ) {
   const currentUser = await me();
 
@@ -22,16 +22,16 @@ export async function createItem(
     nsn,
     serialNumber,
     userId: currentUser.userId,
-    status: "To Review",
-    imageLink,
+    status: 'To Review',
+    imageBase64,
     description,
     parent,
   };
 
   const res = await fetch(`${TRPC}/createItem`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 
@@ -40,20 +40,20 @@ export async function createItem(
   return json?.result?.data ?? {};
 }
 
-
 /** GET ALL ITEMS */
 export async function getItems(teamId: string) {
   const currentUser = await me();
 
   const res = await fetch(
     `${TRPC}/getItems?input=${encodeURIComponent(
-      JSON.stringify({ teamId, userId: currentUser.userId })
+      JSON.stringify({ teamId, userId: currentUser.userId }),
     )}`,
-    { method: "GET", credentials: "include" }
+    { method: 'GET', credentials: 'include' },
   );
 
   if (!res.ok) throw new Error(`getItems failed: ${res.status}`);
   const json = await res.json();
+  console.log(json?.result?.data)
   return json?.result?.data ?? {};
 }
 
@@ -63,9 +63,9 @@ export async function getItem(teamId: string, itemId: string) {
 
   const res = await fetch(
     `${TRPC}/getItem?input=${encodeURIComponent(
-      JSON.stringify({ teamId, itemId, userId: currentUser.userId })
+      JSON.stringify({ teamId, itemId, userId: currentUser.userId }),
     )}`,
-    { method: "GET", credentials: "include" }
+    { method: 'GET', credentials: 'include' },
   );
 
   if (!res.ok) throw new Error(`getItem failed: ${res.status}`);
@@ -84,14 +84,15 @@ export async function updateItem(
     serialNumber?: string;
     quantity?: number;
     description?: string;
-    imageLink?: string;
+    imageBase64?: string;
     status?: string;
     damageReports?: string[];
     parent?: string | null;
     notes?: string;
-  }
+  },
 ) {
   const currentUser = await me();
+
   const payload = {
     teamId,
     itemId,
@@ -100,9 +101,9 @@ export async function updateItem(
   };
 
   const res = await fetch(`${TRPC}/updateItem`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 
@@ -116,9 +117,9 @@ export async function deleteItem(teamId: string, itemId: string) {
   const currentUser = await me();
 
   const res = await fetch(`${TRPC}/deleteItem`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       teamId,
       itemId,
@@ -132,16 +133,11 @@ export async function deleteItem(teamId: string, itemId: string) {
 }
 
 /** UPLOAD IMAGE */
-export async function uploadImage(
-  teamId: string,
-  nsn: string,
-  imageBase64: string
-) {
-
+export async function uploadImage(teamId: string, nsn: string, imageBase64: string) {
   const res = await fetch(`${TRPC}/uploadImage`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       teamId,
       nsn,
@@ -151,8 +147,6 @@ export async function uploadImage(
 
   if (!res.ok) throw new Error(`uploadImage failed: ${res.status}`);
   const json = await res.json();
-  return json?.imageLink
-    ? { imageLink: json.imageLink }
-    : json?.result?.data ?? {};
 
+  return json?.imageKey ? { imageKey: json.imageKey } : (json?.result?.data ?? {});
 }

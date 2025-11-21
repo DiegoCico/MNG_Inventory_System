@@ -1,5 +1,4 @@
 # inventory-handler.py — Cardo / white header box / black text
-# Removed WTY column + tighter margins + smaller header + bold prompts
 # Writes inventory_preview.pdf (local) or saves via Lambda
 
 import os, io, json, base64, uuid
@@ -12,9 +11,10 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib import colors
 import boto3
+from boto3.dynamodb.types import TypeDeserializer
 
 # ---------- Env / Clients ----------
-UPLOADS_BUCKET = os.environ.get("UPLOADS_BUCKET", "").strip()  
+UPLOADS_BUCKET = "mng-dev-uploads-245120345540"
 PHOTO_BUCKET   = os.environ.get("PHOTO_BUCKET", "").strip()    
 TABLE_NAME     = os.environ.get("TABLE_NAME", "").strip()      
 
@@ -368,44 +368,48 @@ def draw_signature_block(c):
 
 # ---------- Dynamo / S3 helpers + HTTP helpers ----------
 
-def fetch_inventory_from_dynamo(team_id: str, nsn: str, overrides: dict | None = None) -> dict:
+
+
+def fetch_inventory_from_dynamo(team_id: str, overrides: dict | None = None) -> dict:
     """
     Build the data dict for render_inventory_pdf from DynamoDB rows.
-    We query all items for the team (PK = TEAM#<teamId>) and filter on nsn.
-    Header fields are taken from overrides (payload) or left None so 'na()' prints N/A.
+
+    query all items for the team:
+      PK = TEAM#<teamId>
+      SK begins_with ITEM#
+
+
     """
     overrides = overrides or {}
 
     if not TABLE_NAME:
         raise RuntimeError("TABLE_NAME env var is not set")
 
-    table = dynamodb.Table(TABLE_NAME)
-    pk = f"TEAM#{team_id}"
+    deserializer = TypeDeserializer()
 
-    resp = table.query(
-        KeyConditionExpression=Key("PK").eq(pk)
+    resp = ddb().query(
+        TableName=TABLE_NAME,
+        KeyConditionExpression="PK = :pk AND begins_with(SK, :sk)",
+        ExpressionAttributeValues={
+            ":pk": {"S": f"TEAM#{team_id}"},
+            ":sk": {"S": "ITEM#"},
+        },
     )
-    raw_items = resp.get("Items", [])
 
-    # Filter to items matching the requested NSN
-    filtered = []
-    for itm in raw_items:
-        if (itm.get("Type") or itm.get("type")) not in ("Item", "ITEM", None):
-            # You can tighten this if your schema uses a specific Type
-            pass
-        item_nsn = (itm.get("nsn") or "").strip()
-        if nsn and item_nsn != nsn:
-            continue
-        filtered.append(itm)
+    raw_items = []
+    for item in resp.get("Items", []):
+        raw_items.append({k: deserializer.deserialize(v) for k, v in item.items()})
+
+    # Optional: derive teamName if you want it in header (like getItems does)
+    # Here we'll just leave it to overrides or N/A.
 
     rows = []
-    for itm in filtered:
+    for itm in raw_items:
         rows.append({
-            # For now no S3 photo lookup; we just show 'N/A' in the image column.
-            "imageKey": None,
+            "imageKey": None,  # or itm.get("imageLink") if you want to hook photos later
 
-            # Use nsn as "material" if nothing else is present
-            "material": itm.get("material") or itm.get("nsn") or "",
+            # Use itemId or nsn as "material"
+            "material": itm.get("material") or itm.get("nsn") or itm.get("itemId") or "",
             "lv":       itm.get("lv") or "",
 
             "description": (
@@ -420,21 +424,18 @@ def fetch_inventory_from_dynamo(team_id: str, nsn: str, overrides: dict | None =
             "ui":   itm.get("ui") or "",
             "scmc": itm.get("scmc") or "",
 
-            # Authorized quantity fallback: use whatever you have; quantity as last resort
             "authQty": itm.get("authQty")
                        or itm.get("authorizedQty")
                        or itm.get("auth_quantity")
                        or itm.get("quantity")
                        or 0,
 
-            # On-hand quantity: 'quantity' from the item
             "ohQty": itm.get("ohQty")
                      or itm.get("onHandQty")
                      or itm.get("quantity")
                      or 0,
         })
 
-    # Header metadata: use overrides if present, otherwise None so na() -> 'N/A'
     data = {
         "fe":        overrides.get("fe"),
         "uic":       overrides.get("uic"),
@@ -446,7 +447,7 @@ def fetch_inventory_from_dynamo(team_id: str, nsn: str, overrides: dict | None =
         "date":      overrides.get("date"),
 
         "endItem": {
-            "niin": overrides.get("endItemNiin") or nsn,
+            "niin": overrides.get("endItemNiin"),
             "lin":  overrides.get("endItemLin"),
             "desc": overrides.get("endItemDesc"),
         },
@@ -599,293 +600,14 @@ def _resp(status, body=None, headers=None, is_b64=False):
     return out
 
 def lambda_handler(event, context):
-    method = _get_http_method(event)
-    if method == "OPTIONS":
-        return _resp(200, "")
-    if method == "GET":
-        return _resp(200, {"ok": True, "service": "inventory-pdf", "ddb": bool(TABLE_NAME), "s3": bool(UPLOADS_BUCKET)})
-    if method != "POST":
-        return _resp(405, {"error": "Use POST"})
-
-    payload = _get_body_json(event)
-    if not isinstance(payload, dict):
-        return _resp(400, {"error": "Invalid JSON"})
-
-    pk = payload.get("pk")
-    sk = payload.get("sk", "LATEST")
-    save_to_s3 = bool(payload.get("saveToS3", True))
-
-    try:
-        data = ddb_get(pk, sk) if pk else (payload.get("data") or {})
-    except Exception as e:
-        return _resp(404, {"error": f"DDB not found: {e}"})
-
-    try:
-        pdf_bytes = render_inventory_pdf(data)
-    except Exception as e:
-        return _resp(500, {"error": f"PDF build failed: {e}"})
-
-    nsn = (data.get("nsn") or (data.get("endItem") or {}).get("niin") or str(uuid.uuid4()))
-    filename = f"{nsn}.pdf"
-    s3_key = f"Documents/inventory/{filename}"
-
-    if save_to_s3:
-        if not UPLOADS_BUCKET:
-            return _resp(500, {"error": "UPLOADS_BUCKET not set"})
-        try:
-            s3_put_pdf(UPLOADS_BUCKET, s3_key, pdf_bytes)
-        except Exception as e:
-            return _resp(500, {"error": f"S3 put failed: {e}"})
-        return _resp(200, {"ok": True, "s3Key": s3_key, "contentType": "application/pdf"})
-
-    b64 = base64.b64encode(pdf_bytes).decode("utf-8")
-    return _resp(200, b64, headers={
-        "Content-Type": "application/pdf",
-        "Content-Disposition": f'inline; filename="{filename}"'
-    }, is_b64=True)
-
-# ---------- Local preview ----------
-SAMPLE_DATA = {
-    "fe": "FE-01",
-    "uic": "W123AA",
-    "unitDesc": "Alpha Company, 1-182 IN",
-    "serEquipNo": "AEQ-77",
-    "to": "Alpha Co",
-    "from": "Charlie Co",
-    "sloc": "BAY-4",
-    "date": "2025-11-15",
-
-    "endItem": {
-        "niin": "013456789",
-        "lin": "L-4422",
-        "desc": "Suspension Assembly, Front Axle"
-    },
-
-    "pub": {
-        "num": "TM 9-2320-280-20",
-        "date": "2024-05-01",
-        "bomUpdated": "2025-10-20"
-    },
-
-    "items": [
-        {
-            "imageKey": None,
-            "material": "MAT-101",
-            "lv": "A",
-            "description": "Control arm, left — steel reinforced.",
-            "arc": "A",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "A1",
-            "authQty": 2,
-            "ohQty": 2
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-102",
-            "lv": "A",
-            "description": "Control arm, right — includes hardware kit.",
-            "arc": "A",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "A1",
-            "authQty": 2,
-            "ohQty": 1
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-103",
-            "lv": "B",
-            "description": "Ball joint, upper — front suspension.",
-            "arc": "B",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "B1",
-            "authQty": 4,
-            "ohQty": 4
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-104",
-            "lv": "B",
-            "description": "Ball joint, lower.",
-            "arc": "B",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "B1",
-            "authQty": 4,
-            "ohQty": 3
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-105",
-            "lv": "A",
-            "description": "Tie rod end — front steering linkage.",
-            "arc": "A",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "C2",
-            "authQty": 2,
-            "ohQty": 2
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-106",
-            "lv": "A",
-            "description": "Stabilizer link kit (left + right).",
-            "arc": "A",
-            "ciic": "U",
-            "ui": "KT",
-            "scmc": "C2",
-            "authQty": 1,
-            "ohQty": 1
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-107",
-            "lv": "C",
-            "description": "Shock absorber, front.",
-            "arc": "C",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "D1",
-            "authQty": 2,
-            "ohQty": 2
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-108",
-            "lv": "C",
-            "description": "Shock absorber, rear.",
-            "arc": "C",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "D1",
-            "authQty": 2,
-            "ohQty": 2
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-109",
-            "lv": "A",
-            "description": "Wheel hub assembly — left side.",
-            "arc": "A",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "E3",
-            "authQty": 1,
-            "ohQty": 1
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-110",
-            "lv": "A",
-            "description": "Wheel hub assembly — right side.",
-            "arc": "A",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "E3",
-            "authQty": 1,
-            "ohQty": 1
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-111",
-            "lv": "B",
-            "description": "Brake rotor (left).",
-            "arc": "B",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "E3",
-            "authQty": 2,
-            "ohQty": 2
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-112",
-            "lv": "B",
-            "description": "Brake rotor (right).",
-            "arc": "B",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "E3",
-            "authQty": 2,
-            "ohQty": 1
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-113",
-            "lv": "C",
-            "description": "Brake pad kit — includes shims & clips.",
-            "arc": "C",
-            "ciic": "U",
-            "ui": "KT",
-            "scmc": "F1",
-            "authQty": 2,
-            "ohQty": 2
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-114",
-            "lv": "A",
-            "description": "Wheel bearing kit — sealed type.",
-            "arc": "A",
-            "ciic": "U",
-            "ui": "KT",
-            "scmc": "F1",
-            "authQty": 2,
-            "ohQty": 2
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-115",
-            "lv": "B",
-            "description": "Axle boot — inner, rubberized.",
-            "arc": "B",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "F1",
-            "authQty": 2,
-            "ohQty": 1
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-116",
-            "lv": "B",
-            "description": "Axle boot — outer, reinforced.",
-            "arc": "B",
-            "ciic": "U",
-            "ui": "EA",
-            "scmc": "F1",
-            "authQty": 2,
-            "ohQty": 2
-        },
-        {
-            "imageKey": None,
-            "material": "MAT-117",
-            "lv": "A",
-            "description": "Tie rod clamp kit — 2 clamps + hardware.",
-            "arc": "A",
-            "ciic": "U",
-            "ui": "KT",
-            "scmc": "G1",
-            "authQty": 1,
-            "ohQty": 1
-        }
-    ]
-}
-
-
-
-# ---------- Lambda handler ----------
-
-def lambda_handler(event, context):
     """
     POST body example (JSON):
 
     {
       "teamId": "g5xhg4tCemHQKcwC",
-      "nsn": "1234-56-789-0123",
+      "saveToS3": true,
+
+      // optional header overrides:
       "fe": "FE-01",
       "uic": "W123AA",
       "unitDesc": "Alpha Company",
@@ -894,7 +616,12 @@ def lambda_handler(event, context):
       "from": "Bravo Co",
       "sloc": "BAY-7",
       "date": "2025-11-12",
-      "saveToS3": true
+      "endItemNiin": "013456789",
+      "endItemLin": "L-5544",
+      "endItemDesc": "Suspension Assembly",
+      "pubNum": "TM 9-2320-280-20",
+      "pubDate": "2024-05-01",
+      "bomUpdated": "2025-10-20"
     }
     """
     method = _get_http_method(event)
@@ -917,34 +644,33 @@ def lambda_handler(event, context):
     if not isinstance(payload, dict):
         return _resp(400, {"error": "Invalid JSON body"})
 
-    team_id = (payload.get("teamId") or "").strip()
-    nsn     = (payload.get("nsn") or "").strip()
+    team_id    = (payload.get("teamId") or "").strip()
     save_to_s3 = bool(payload.get("saveToS3", True))
 
     if not team_id:
         return _resp(400, {"error": "teamId is required"})
-    if not nsn:
-        return _resp(400, {"error": "nsn is required"})
 
+    # Fetch data from Dynamo based only on teamId
     try:
-        data = fetch_inventory_from_dynamo(team_id, nsn, overrides=payload)
+        data = fetch_inventory_from_dynamo(team_id, overrides=payload)
     except Exception as e:
         return _resp(500, {"error": f"DDB fetch failed: {e}"})
 
+    # Build PDF
     try:
         pdf_bytes = render_inventory_pdf(data)
     except Exception as e:
         return _resp(500, {"error": f"PDF build failed: {e}"})
 
-    # File name and S3 key: Documents/inventory/:nsn.pdf
-    filename = f"{nsn}.pdf"
-    key = f"Documents/inventory/{filename}"
+    # File name: one inventory PDF per team
+    filename = "inventory.pdf"
+    key = f"Documents/{team_id}/inventory/{filename}"
 
     if save_to_s3:
         if not UPLOADS_BUCKET:
             return _resp(500, {"error": "UPLOADS_BUCKET env var is not set"})
         try:
-            s3.put_object(
+            s3().put_object(
                 Bucket=UPLOADS_BUCKET,
                 Key=key,
                 Body=pdf_bytes,
@@ -958,10 +684,9 @@ def lambda_handler(event, context):
             "ok": True,
             "s3Key": key,
             "bucket": UPLOADS_BUCKET,
-            "contentType": "application/pdf"
+            "contentType": "application/pdf",
         })
 
-    # Otherwise return inline/base64 for direct download/preview
     b64 = base64.b64encode(pdf_bytes).decode("utf-8")
     return _resp(
         200,
@@ -974,23 +699,4 @@ def lambda_handler(event, context):
     )
 
 
-# ---------- Local prev  ----------
-
-def main():
-    data = SAMPLE_DATA
-    if os.path.exists("inventory_sample.json"):
-        try:
-            with open("inventory_sample.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = SAMPLE_DATA
-
-    pdf_bytes = render_inventory_pdf(data)
-    out_path = os.path.abspath("inventory_preview.pdf")
-    with open(out_path, "wb") as f:
-        f.write(pdf_bytes)
-    print(f"Wrote {out_path}")
-
-if __name__ == "__main__":
-    main()
 

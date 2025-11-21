@@ -17,7 +17,8 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { createItem, deleteItem, updateItem, uploadImage } from '../api/items';
+
+import { createItem, deleteItem, updateItem } from '../api/items';
 import { me } from '../api/auth';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
@@ -42,20 +43,18 @@ export default function ActionPanel({
   selectedImageFile,
   imagePreview,
   setShowSuccess,
-  damageReports
+  damageReports,
 }: any) {
   const navigate = useNavigate();
   const theme = useTheme();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // recursive function to update all children's status
   const updateChildrenStatus = async (children: any[], newStatus: string) => {
     for (const child of children) {
       try {
         await updateItem(teamId, child.itemId, { status: newStatus });
-        // recursively update grandchildren
-        if (child.children && child.children.length > 0) {
+        if (child.children?.length > 0) {
           await updateChildrenStatus(child.children, newStatus);
         }
       } catch (err) {
@@ -80,24 +79,21 @@ export default function ActionPanel({
 
   const handleSave = async (isQuickUpdate = false) => {
     try {
-
-      // Make sure an image is present in order to save
       if (isCreateMode && !imagePreview) {
-        alert("Please add an image before creating the item");
+        alert('Please add an image before creating the item');
         return;
       }
 
       const userId = await getUserId();
 
-      let finalImage = imagePreview;
+      // Convert new image → base64 if selected
+      let imageBase64: string | undefined = undefined;
       if (selectedImageFile) {
         const reader = new FileReader();
-        const base64 = await new Promise<string>((res) => {
+        imageBase64 = await new Promise<string>((res) => {
           reader.onloadend = () => res(reader.result as string);
           reader.readAsDataURL(selectedImageFile);
         });
-        const up = await uploadImage(teamId, editedProduct.serialNumber, base64);
-        finalImage = up.imageLink;
       }
 
       const nameValue =
@@ -105,50 +101,43 @@ export default function ActionPanel({
         editedProduct.actualName ||
         `Item-${editedProduct.serialNumber || 'Unknown'}`;
 
-      const payload = {
-        teamId,
-        itemId: itemId || null,
-        userId,
-        name: nameValue,
-        actualName: editedProduct.actualName || nameValue,
-        nsn: editedProduct.nsn || editedProduct.serialNumber || '',
-        serialNumber: editedProduct.serialNumber || '',
-        quantity: Number(editedProduct.quantity) || 1,
-        description: editedProduct.description || '',
-        imageLink: finalImage || '',
-        status: editedProduct.status || 'To Review',
-        notes: editedProduct.notes || '',
-        parent: editedProduct.parent?.itemId || null,
-        damageReports: damageReports || [],
-      };
-
       if (isCreateMode) {
         const res = await createItem(
           teamId,
-          payload.name,
-          payload.actualName,
-          payload.nsn,
-          payload.serialNumber,
-          finalImage,
-          payload.description,
-          payload.parent,
+          nameValue,
+          editedProduct.actualName || nameValue,
+          editedProduct.nsn || editedProduct.serialNumber || '',
+          editedProduct.serialNumber || '',
+          imageBase64, // ← CLEAN FIX
+          editedProduct.description || '',
+          editedProduct.parent?.itemId || null,
         );
+
         if (res.success) {
           setShowSuccess(true);
           navigate(`/teams/to-review/${teamId}`, { replace: true });
         }
       } else {
-        // update the parent item
-        const res = await updateItem(teamId, itemId, payload);
+        // UPDATE MODE
+        const res = await updateItem(teamId, itemId, {
+          name: nameValue,
+          actualName: editedProduct.actualName || nameValue,
+          nsn: editedProduct.nsn || editedProduct.serialNumber || '',
+          serialNumber: editedProduct.serialNumber || '',
+          quantity: Number(editedProduct.quantity) || 1,
+          description: editedProduct.description || '',
+          imageBase64, // ← CLEAN FIX
+          status: editedProduct.status || 'To Review',
+          notes: editedProduct.notes || '',
+          parent: editedProduct.parent?.itemId || null,
+          damageReports: damageReports || [],
+        });
+
         if (res.success) {
-          // if the parent item's status changed, recursively update all children
-          if (
-            product?.status !== editedProduct.status &&
-            editedProduct.children &&
-            editedProduct.children.length > 0
-          ) {
+          if (product?.status !== editedProduct.status && editedProduct.children?.length > 0) {
             await updateChildrenStatus(editedProduct.children, editedProduct.status);
           }
+
           if (!isQuickUpdate) setIsEditMode(false);
           setShowSuccess(true);
           navigate(`/teams/to-review/${teamId}`, { replace: true });
@@ -175,14 +164,9 @@ export default function ActionPanel({
           bgcolor: theme.palette.background.paper,
         }}
       >
-        <CardHeader
-          title="Actions"
-          sx={{
-            color: theme.palette.text.primary,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          }}
-        />
+        <CardHeader title="Actions" />
         <CardContent>
+          {/* Buttons */}
           <Stack spacing={1}>
             {(isEditMode || isCreateMode) && (
               <>
@@ -191,29 +175,16 @@ export default function ActionPanel({
                   variant="contained"
                   startIcon={<SaveIcon />}
                   onClick={() => handleSave()}
-                  sx={{
-                    bgcolor: theme.palette.success.main,
-                    '&:hover': { bgcolor: theme.palette.success.dark },
-                    fontWeight: 600,
-                  }}
                 >
                   {isCreateMode ? 'Create Item' : 'Save Changes'}
                 </Button>
+
                 {!isCreateMode && (
                   <Button
                     fullWidth
                     variant="outlined"
                     startIcon={<CancelIcon />}
                     onClick={() => setIsEditMode(false)}
-                    sx={{
-                      color: theme.palette.warning.main,
-                      borderColor: theme.palette.warning.main,
-                      '&:hover': {
-                        bgcolor:
-                          theme.palette.mode === 'dark' ? 'rgba(255, 152, 0, 0.1)' : '#fff3e0',
-                      },
-                      fontWeight: 600,
-                    }}
                   >
                     Cancel
                   </Button>
@@ -229,11 +200,6 @@ export default function ActionPanel({
                   color="success"
                   startIcon={<SaveIcon />}
                   onClick={() => handleSave(true)}
-                  sx={{
-                    fontWeight: 600,
-                    bgcolor: theme.palette.success.main,
-                    '&:hover': { bgcolor: theme.palette.success.dark },
-                  }}
                 >
                   Save
                 </Button>
@@ -244,11 +210,6 @@ export default function ActionPanel({
                   color="primary"
                   startIcon={<EditIcon />}
                   onClick={() => setIsEditMode(true)}
-                  sx={{
-                    bgcolor: theme.palette.primary.main,
-                    '&:hover': { bgcolor: theme.palette.primary.dark },
-                    fontWeight: 600,
-                  }}
                 >
                   Edit
                 </Button>
@@ -259,12 +220,6 @@ export default function ActionPanel({
                   color="error"
                   startIcon={<DeleteIcon />}
                   onClick={() => setDeleteOpen(true)}
-                  sx={{
-                    bgcolor: theme.palette.error.main,
-                    '&:hover': { bgcolor: theme.palette.error.dark },
-                    color: theme.palette.getContrastText(theme.palette.error.main),
-                    fontWeight: 600,
-                  }}
                 >
                   Delete
                 </Button>
@@ -274,54 +229,18 @@ export default function ActionPanel({
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            p: 1,
-            bgcolor: theme.palette.background.paper,
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            fontWeight: 800,
-            color: theme.palette.error.main,
-          }}
-        >
-          <WarningAmberIcon color="error" />
+      {/* Delete Dialog */}
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+        <DialogTitle>
+          <WarningAmberIcon color="error" sx={{ mr: 1 }} />
           Confirm Deletion
         </DialogTitle>
-
         <DialogContent dividers>
-          <Typography sx={{ color: theme.palette.text.primary }}>
-            Are you sure you want to permanently delete this item? This action cannot be undone.
-          </Typography>
+          <Typography>Are you sure you want to permanently delete this item?</Typography>
         </DialogContent>
-
         <DialogActions>
-          <Button
-            onClick={() => setDeleteOpen(false)}
-            sx={{
-              color: theme.palette.text.secondary,
-              fontWeight: 600,
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            variant="contained"
-            color="error"
-            disabled={deleting}
-            sx={{ fontWeight: 700 }}
-          >
+          <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
             {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>

@@ -59,28 +59,25 @@ export default function FollowUpsTable({ followUps }: FollowUpsTableProps) {
             <th>Kit</th>
             <th>Status</th>
             <th>Reviewed On</th>
-            <th>Notes</th>
           </tr>
         </thead>
         <tbody>
           {followUps.length > 0 ? (
             followUps.map((item) => (
-              <tr 
-              key={item.itemId} 
-              onClick={() => handleRowClick(item.itemId)}
-              style={{ cursor: 'pointer' }} // pointer cursor
-              // hover effect using inline sx with MUI `alpha` for subtle background
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = alpha(theme.palette.primary.main, 0.08))
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = 'transparent')
-              }>
+              <tr
+                key={item.itemId}
+                onClick={() => handleRowClick(item.itemId)}
+                style={{ cursor: 'pointer' }} // pointer cursor
+                // hover effect using inline sx with MUI `alpha` for subtle background
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = alpha(theme.palette.primary.main, 0.08))
+                }
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
                 <td>{item.name}</td>
                 <td>{item.parent ?? 'N/A'}</td>
                 <td>{item.status}</td>
                 <td>{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : 'N/A'}</td>
-                <td>{item.notes}</td>
               </tr>
             ))
           ) : (

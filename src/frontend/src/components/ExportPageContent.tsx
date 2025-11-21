@@ -1,27 +1,11 @@
-import React, { useState } from "react";
-import {
-  Box,
-  Stack,
-  Typography,
-  Button,
-  Paper,
-  useTheme,
-  useMediaQuery,
-  // Added Table components
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-} from "@mui/material";
-import { useParams } from "react-router-dom";
-import PrintIcon from "@mui/icons-material/Print";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import CircularProgressBar from "./CircularProgressBar";
-import ExportPreview from "./ExportPreview";
-// Removed ItemListComponent import
-import { getInventoryForm } from "../api/api";
+import React, { useState } from 'react';
+import { Box, Stack, Typography, Button, Paper, useTheme, useMediaQuery } from '@mui/material';
+import { useParams } from 'react-router-dom';
+import PrintIcon from '@mui/icons-material/Print';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import CircularProgressBar from './CircularProgressBar';
+import ExportPreview from './ExportPreview';
+import { getInventoryForm } from '../api/api';
 
 // Define a type for the CSV data (assuming array of objects)
 interface CsvItem extends Record<string, any> {}
@@ -42,72 +26,51 @@ export default function ExportPageContent({
 }: ExportPageContentProps) {
   const { teamId } = useParams<{ teamId: string }>();
   const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   
   const completion = percentReviewed;
   const cardBorder = `1px solid ${theme.palette.divider}`;
-  const team = "MNG INVENTORY";
-
-  // --- CSV/Table Logic ---
-  const headers = csvData.length > 0 ? Object.keys(csvData[0]) : [];
-  // -----------------------
-
-  // Existing logic for filtering items (kept for stats calculation)
-  const filteredItems = items.filter((item) => {
-    const status = (item.status ?? "to review").toLowerCase();
-    
-    if (activeCategory === "completed") {
-      return status === "completed" || status === "complete" || status === "found";
-    } else {
-      return status === "damaged" || status === "shortages" || status === "shortage" || status === "missing" || status === "in repair";
-    }
-  });
-
-  const categoryStats = {
-    total: filteredItems.length,
-    displayed: csvData.length, // Displayed is now based on CSV data length
-    completed: activeCategory === "completed" ? filteredItems.length : 0,
-    broken: activeCategory === "broken" ? filteredItems.length : 0,
-  };
+  const team = 'MNG INVENTORY';
 
   const handlePrint = () => window.print();
 
   const handleDownloadPDF = async () => {
     try {
-      const data = await getInventoryForm(teamId, "2404");
+      const data = await getInventoryForm(teamId, '2404'); // or dynamic nsn
       if (data?.url) {
-        window.open(data.url, "_blank");
+        window.open(data.url, '_blank'); // opens PDF in new tab
       } else {
-        alert("PDF not found or could not be retrieved.");
+        alert('PDF not found or could not be retrieved.');
       }
     } catch (err: unknown) {
-      console.error("Error fetching inventory form:", err);
+      console.error('Error fetching inventory form:', err);
       if (err instanceof Error) {
         alert(err.message);
       } else {
-        alert("Failed to fetch PDF.");
+        alert('Failed to fetch PDF.');
       }
     }
   };
 
   const handlePreviewOpen = async () => {
     try {
-      const data = await getInventoryForm(teamId, "2404");
+      const data = await getInventoryForm(teamId, '2404');
       if (data?.url) {
         setPdfUrl(data.url);
         setPreviewOpen(true);
       } else {
-        alert("PDF not found.");
+        alert('PDF not found.');
       }
     } catch (err: unknown) {
-      console.error("Error fetching preview:", err);
+      console.error('Error fetching preview:', err);
       if (err instanceof Error) {
         alert(err.message);
       } else {
-        alert("Failed to open preview.");
+        alert('Failed to open preview.');
       }
     }
   };
@@ -165,10 +128,10 @@ export default function ExportPageContent({
   return (
     <Box
       sx={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        overflowX: "hidden",
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflowX: 'hidden',
       }}
     >
       {/* Main Content */}
@@ -183,17 +146,17 @@ export default function ExportPageContent({
       >
         {isDesktop ? (
           // Desktop Layout
-          <Box sx={{ display: "flex", gap: 3, minHeight: "calc(100vh - 200px)" }}>
-            {/* Items List (Now CSV Table) */}
+          <Box sx={{ display: 'flex', gap: 3, height: 'calc(100vh - 140px)' }}>
+            {/* PDF Viewer */}
             <Paper
               elevation={0}
               sx={{
                 flex: 1,
                 border: cardBorder,
                 bgcolor: theme.palette.background.paper,
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
               }}
             >
               <Box
@@ -217,11 +180,34 @@ export default function ExportPageContent({
               <Box
                 sx={{
                   flex: 1,
-                  overflowY: "auto",
-                  bgcolor: theme.palette.background.default,
+                  p: 0,
+                  bgcolor: theme.palette.mode === 'dark' ? '#1a1a1a' : '#f5f5f5',
                 }}
               >
-                <CsvTable />
+                {pdfUrl ? (
+                  <iframe
+                    src={pdfUrl}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 'none' }}
+                    title="Inventory Form PDF"
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      color: theme.palette.text.secondary,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      PDF not loaded — click “Download PDF” or “View Completed Form”.
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </Paper>
 
@@ -234,7 +220,7 @@ export default function ExportPageContent({
                     p: 3,
                     border: cardBorder,
                     bgcolor: theme.palette.background.paper,
-                    textAlign: "center",
+                    textAlign: 'center',
                   }}
                 >
                   <Typography variant="h6" fontWeight={800} mb={2}>
@@ -282,7 +268,7 @@ export default function ExportPageContent({
                         fontWeight: 700,
                         bgcolor: theme.palette.warning.main,
                         color: theme.palette.getContrastText(theme.palette.warning.main),
-                        "&:hover": {
+                        '&:hover': {
                           bgcolor: theme.palette.warning.dark,
                         },
                       }}
@@ -320,8 +306,10 @@ export default function ExportPageContent({
           // Mobile Layout
           <Box
             sx={{
-              display: "flex",
-              flexDirection: "column",
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <Paper
@@ -330,7 +318,8 @@ export default function ExportPageContent({
                 p: 3,
                 border: cardBorder,
                 bgcolor: theme.palette.background.paper,
-                mb: 3,
+                maxWidth: 600,
+                width: '100%',
               }}
             >
               <Typography variant="h5" fontWeight={800} mb={1}>
@@ -343,9 +332,9 @@ export default function ExportPageContent({
 
               <Box
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   my: 3,
                 }}
               >
@@ -404,7 +393,7 @@ export default function ExportPageContent({
       <ExportPreview
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
-        pdfUrl={pdfUrl || ""}
+        pdfUrl={pdfUrl || ''}
         completion={completion}
         team={team}
         onPrint={handlePrint}
@@ -412,8 +401,7 @@ export default function ExportPageContent({
       />
 
       {/* Bottom Nav */}
-      <Box sx={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
-      </Box>
+      <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}></Box>
     </Box>
   );
 }

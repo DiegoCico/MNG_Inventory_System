@@ -11,9 +11,9 @@ describe('NavBar', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("button", { name: /home/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /to review/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /reviewed/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /export/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /home/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /to review/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reviewed/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /export/i })).toBeInTheDocument();
   });
 });

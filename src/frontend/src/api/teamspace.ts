@@ -1,11 +1,7 @@
 const TRPC = '/trpc';
 
 /* CREATE TEAMSPACE */
-export async function createTeamspace(
-  name: string,
-  description: string,
-  userId: string
-) {
+export async function createTeamspace(name: string, description: string, userId: string) {
   const res = await fetch(`${TRPC}/createTeamspace`, {
     method: 'POST',
     credentials: 'include',
@@ -24,9 +20,7 @@ export async function createTeamspace(
 /* GET TEAMSPACE */
 export async function getTeamspace(userId: string) {
   const res = await fetch(
-    `${TRPC}/getTeamspace?input=${encodeURIComponent(
-      JSON.stringify({ userId })
-    )}`,
+    `${TRPC}/getTeamspace?input=${encodeURIComponent(JSON.stringify({ userId }))}`,
     {
       method: 'GET',
       credentials: 'include',
@@ -45,12 +39,12 @@ export async function getTeamspace(userId: string) {
 export async function addUserTeamspace(
   userId: string,
   memberUsername: string,
-  teamspaceId: string
+  teamspaceId: string,
 ) {
   const res = await fetch(`${TRPC}/addUserTeamspace`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       userId,
       memberUsername,
@@ -70,12 +64,12 @@ export async function addUserTeamspace(
 export async function removeUserTeamspace(
   userId: string,
   memberUsername: string,
-  teamspaceId: string
+  teamspaceId: string,
 ) {
   const res = await fetch(`${TRPC}/removeUserTeamspace`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       userId,
       memberUsername,
@@ -94,9 +88,9 @@ export async function removeUserTeamspace(
 /* DELETE TEAMSPACE */
 export async function deleteTeamspace(teamspaceId: string, userId: string) {
   const res = await fetch(`${TRPC}/deleteTeamspace`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ inviteWorkspaceId: teamspaceId, userId }),
   });
 
@@ -105,5 +99,21 @@ export async function deleteTeamspace(teamspaceId: string, userId: string) {
   const json = await res.json();
   const data = json?.result?.data;
   if (!data) throw new Error('unexpected response from deleteTeamspace');
+  return data;
+}
+
+/* GET ALL USERS */
+export async function getAllUsers() {
+  const res = await fetch(`${TRPC}/getAllUsers`, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  if (!res.ok) throw new Error(`getAllUsers failed: ${res.status}`);
+
+  const json = await res.json();
+  const data = json?.result?.data;
+  if (!data) throw new Error('unexpected response from getAllUsers');
+  console.log(data)
   return data;
 }

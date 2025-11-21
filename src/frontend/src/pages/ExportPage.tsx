@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -8,49 +8,11 @@ import {
   LinearProgress,
   Fade,
   useTheme,
-} from "@mui/material";
-import { useParams } from "react-router-dom";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import BuildIcon from "@mui/icons-material/Build";
-import TopBar from "../components/TopBar";
-import NavBar from "../components/NavBar";
-import ExportPageContent from "../components/ExportPageContent";
-import { getItems } from "../api/items";
-
-// Define the expected shape of a CSV row (flat object)
-interface CsvItem extends Record<string, any> {}
-
-
-/**
- * Converts the raw nested item array into a flattened, report-ready CSV data format,
- * filtered by the active category.
- */
-const itemsToCsvData = (rawItems: any[], category: "completed" | "broken", currentTeamId: string): CsvItem[] => {
-    // Define which statuses map to the active category
-    const validStatuses = category === "completed"
-        ? ["completed", "complete", "found"]
-        : ["damaged", "shortages", "shortage", "missing", "in repair"];
-
-    // 1. Filter the items based on the active category
-    const filteredItems = rawItems.filter((item) => {
-        const status = (item.status ?? "to review").toLowerCase();
-        return validStatuses.includes(status);
-    });
-
-    // 2. Map the filtered items to a flattened, structured format for the CSV table
-    return filteredItems.map(item => ({
-        "Item ID": item.itemId || 'N/A',
-        "Product Name": item.name || 'N/A',
-        "Status": item.status || 'To Review',
-        "Description": item.description || 'No description',
-        "Date Added": new Date(item.createdAt).toLocaleDateString('en-US', {
-            year: 'numeric', month: 'short', day: 'numeric'
-        }),
-        "Team ID": currentTeamId,
-        // You can add more fields here if they exist on the raw item object
-    }));
-};
-
+} from '@mui/material';
+import { useParams } from 'react-router-dom';
+import TopBar from '../components/TopBar';
+import NavBar from '../components/NavBar';
+import ExportPageContent from '../components/ExportPageContent';
 
 export default function ExportPage() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -138,7 +100,8 @@ export default function ExportPage() {
   ];
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: theme.palette.background.default }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: theme.palette.background.default }}>
+      {/* ✅ TopBar always visible */}
       <TopBar isLoggedIn={true} />
 
       <Box sx={{ px: { xs: 2, md: 4 }, pt: { xs: 3, md: 5 }, pb: 10 }}>
@@ -217,8 +180,8 @@ export default function ExportPage() {
               sx={{
                 p: 4,
                 maxWidth: 600,
-                mx: "auto",
-                textAlign: "center",
+                mx: 'auto',
+                textAlign: 'center',
                 mt: { xs: 6, md: 10 },
                 borderRadius: 4,
               }}
@@ -256,10 +219,8 @@ export default function ExportPage() {
                   py: 1.5,
                   fontWeight: 700,
                   bgcolor: theme.palette.warning.main,
-                  color: theme.palette.getContrastText(
-                    theme.palette.warning.main
-                  ),
-                  "&:hover": { bgcolor: theme.palette.warning.dark },
+                  color: theme.palette.getContrastText(theme.palette.warning.main),
+                  '&:hover': { bgcolor: theme.palette.warning.dark },
                 }}
               >
                 Create Documents
@@ -273,11 +234,12 @@ export default function ExportPage() {
           <Fade in timeout={400}>
             <Box
               sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                minHeight: "70vh",
-                justifyContent: "center",
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '70vh',
+                textAlign: 'center',
               }}
             >
               <CircularProgress size={60} thickness={5} sx={{ mb: 3 }} />
@@ -302,15 +264,8 @@ export default function ExportPage() {
         )}
       </Box>
 
-      <Box
-        sx={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-        }}
-      >
+      {/* NavBar always visible */}
+      <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
         <NavBar />
       </Box>
     </Box>

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React from "react";
+import React from 'react';
 import {
   TextField,
   Autocomplete,
@@ -10,12 +10,12 @@ import {
   Button,
   ButtonGroup,
   Box,
-} from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ReportProblemIcon from "@mui/icons-material/ReportProblem";
-import WarningIcon from "@mui/icons-material/Warning";
-import PendingIcon from "@mui/icons-material/Pending";
+} from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ReportProblemIcon from '@mui/icons-material/ReportProblem';
+import WarningIcon from '@mui/icons-material/Warning';
+import PendingIcon from '@mui/icons-material/Pending';
 
 interface ItemDetailsFormProps {
   editedProduct: any;
@@ -26,12 +26,12 @@ interface ItemDetailsFormProps {
 }
 
 export default function ItemDetailsForm({
-                                          editedProduct,
-                                          setEditedProduct,
-                                          itemsList,
-                                          isEditMode,
-                                          alwaysEditableFields = [],
-                                        }: ItemDetailsFormProps) {
+  editedProduct,
+  setEditedProduct,
+  itemsList,
+  isEditMode,
+  alwaysEditableFields = [],
+}: ItemDetailsFormProps) {
   const handleChange = (field: string, value: any) => {
     setEditedProduct({ ...editedProduct, [field]: value });
   };
@@ -45,10 +45,10 @@ export default function ItemDetailsForm({
   const alwaysEditable = (field: string) => alwaysEditableFields.includes(field);
 
   const statuses = [
-    { value: 'Incomplete', label: 'Incomplete', icon: <PendingIcon />, color: '#9e9e9e' },
-    { value: 'Found', label: 'Complete', icon: <CheckCircleIcon />, color: '#4caf50' },
+    { value: 'To Review', label: 'To Review', icon: <PendingIcon />, color: '#9e9e9e' },
+    { value: 'Completed', label: 'Complete', icon: <CheckCircleIcon />, color: '#4caf50' },
     { value: 'Damaged', label: 'Damaged', icon: <ReportProblemIcon />, color: '#f44336' },
-    { value: 'Missing', label: 'Shortage', icon: <WarningIcon />, color: '#ff9800' },
+    { value: 'Shortages', label: 'Shortage', icon: <WarningIcon />, color: '#ff9800' },
   ];
 
   return (
@@ -60,16 +60,16 @@ export default function ItemDetailsForm({
             label="Display Name"
             size="small"
             fullWidth
-            value={editedProduct.productName || ""}
-            onChange={(e) => handleChange("productName", e.target.value)}
+            value={editedProduct.productName || ''}
+            onChange={(e) => handleChange('productName', e.target.value)}
             required
           />
           <TextField
             label="Army Nomenclature"
             size="small"
             fullWidth
-            value={editedProduct.actualName || ""}
-            onChange={(e) => handleChange("actualName", e.target.value)}
+            value={editedProduct.actualName || ''}
+            onChange={(e) => handleChange('actualName', e.target.value)}
             required
           />
         </>
@@ -80,7 +80,7 @@ export default function ItemDetailsForm({
               Display Name
             </Typography>
             <Typography variant="body1" fontWeight={600}>
-              {editedProduct.productName || "-"}
+              {editedProduct.productName || '-'}
             </Typography>
           </Box>
           <Box>
@@ -88,7 +88,7 @@ export default function ItemDetailsForm({
               Army Nomenclature
             </Typography>
             <Typography variant="body1" fontWeight={600}>
-              {editedProduct.actualName || "-"}
+              {editedProduct.actualName || '-'}
             </Typography>
           </Box>
         </>
@@ -101,8 +101,8 @@ export default function ItemDetailsForm({
             label="Serial Number (NSN)"
             size="small"
             fullWidth
-            value={editedProduct.serialNumber || ""}
-            onChange={(e) => handleChange("serialNumber", e.target.value)}
+            value={editedProduct.serialNumber || ''}
+            onChange={(e) => handleChange('serialNumber', e.target.value)}
             required
           />
         ) : (
@@ -110,15 +110,12 @@ export default function ItemDetailsForm({
             <Typography variant="subtitle2" color="text.secondary">
               Serial Number
             </Typography>
-            <Typography>{editedProduct.serialNumber || "-"}</Typography>
+            <Typography>{editedProduct.serialNumber || '-'}</Typography>
           </Box>
         )}
         {editedProduct.serialNumber && (
           <Tooltip title="Copy">
-            <IconButton
-              size="small"
-              onClick={() => copyToClipboard(editedProduct.serialNumber)}
-            >
+            <IconButton size="small" onClick={() => copyToClipboard(editedProduct.serialNumber)}>
               <ContentCopyIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -133,7 +130,7 @@ export default function ItemDetailsForm({
           size="small"
           fullWidth
           value={editedProduct.quantity || 1}
-          onChange={(e) => handleChange("quantity", parseInt(e.target.value) || 1)}
+          onChange={(e) => handleChange('quantity', parseInt(e.target.value) || 1)}
         />
       ) : (
         <Box>
@@ -145,15 +142,15 @@ export default function ItemDetailsForm({
       )}
 
       {/* ========== Description ========== */}
-      {(isEditMode || alwaysEditable("description")) ? (
+      {isEditMode || alwaysEditable('description') ? (
         <TextField
           label="Description"
           size="small"
           fullWidth
           multiline
           rows={3}
-          value={editedProduct.description || ""}
-          onChange={(e) => handleChange("description", e.target.value)}
+          value={editedProduct.description || ''}
+          onChange={(e) => handleChange('description', e.target.value)}
           required={isEditMode}
         />
       ) : (
@@ -161,7 +158,7 @@ export default function ItemDetailsForm({
           <Typography variant="subtitle2" color="text.secondary">
             Description
           </Typography>
-          <Typography>{editedProduct.description || "No description"}</Typography>
+          <Typography>{editedProduct.description || 'No description'}</Typography>
         </Box>
       )}
 
@@ -170,10 +167,10 @@ export default function ItemDetailsForm({
         <Autocomplete
           options={itemsList}
           getOptionLabel={(option: any) =>
-            `${option.name || ""} (${option.actualName || "No name"})`
+            `${option.name || ''} (${option.actualName || 'No name'})`
           }
           value={editedProduct.parent || null}
-          onChange={(_e, val) => handleChange("parent", val)}
+          onChange={(_e, val) => handleChange('parent', val)}
           isOptionEqualToValue={(o, v) => o.itemId === v?.itemId}
           renderInput={(params) => (
             <TextField {...params} label="Kit From" placeholder="Select parent item" />
@@ -185,13 +182,13 @@ export default function ItemDetailsForm({
             <Typography variant="subtitle2" color="text.secondary">
               Part of Kit
             </Typography>
-            <Typography>{editedProduct.parent.name || "Unknown Kit"}</Typography>
+            <Typography>{editedProduct.parent.name || 'Unknown Kit'}</Typography>
           </Box>
         )
       )}
 
       {/* ========== Status Buttons (always visible for existing items) ========== */}
-      {(isEditMode || alwaysEditable("status")) && (
+      {(isEditMode || alwaysEditable('status')) && (
         <Box>
           <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
             Status
@@ -200,7 +197,7 @@ export default function ItemDetailsForm({
             {statuses.map((s) => (
               <Button
                 key={s.value}
-                onClick={() => handleChange("status", s.value)}
+                onClick={() => handleChange('status', s.value)}
                 variant={editedProduct.status === s.value ? 'contained' : 'outlined'}
                 startIcon={s.icon}
                 sx={{
@@ -225,19 +222,18 @@ export default function ItemDetailsForm({
       )}
 
       {/* ========== Notes  ========== */}
-      {(isEditMode || alwaysEditable("notes")) && (
+      {(isEditMode || alwaysEditable('notes')) && (
         <TextField
           label="Notes"
           size="small"
           fullWidth
           multiline
           rows={3}
-          value={editedProduct.notes || ""}
-          onChange={(e) => handleChange("notes", e.target.value)}
+          value={editedProduct.notes || ''}
+          onChange={(e) => handleChange('notes', e.target.value)}
           placeholder="Add notes..."
         />
       )}
     </Stack>
   );
 }
-

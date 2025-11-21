@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -16,21 +16,17 @@ import {
   Tooltip,
   CircularProgress,
   TextField,
-} from "@mui/material";
+} from '@mui/material';
 
-import CloseIcon from "@mui/icons-material/Close";
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import EditIcon from "@mui/icons-material/Edit";
-import LogoutIcon from "@mui/icons-material/Logout";
+import CloseIcon from '@mui/icons-material/Close';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import EditIcon from '@mui/icons-material/Edit';
+import LogoutIcon from '@mui/icons-material/Logout';
 
-import { motion } from "framer-motion";
+import { motion } from 'framer-motion';
 
-import { me, logout } from "../api/auth";
-import {
-  getProfileImage,
-  uploadProfileImage,
-  updateProfile,
-} from "../api/profile";
+import { me, logout } from '../api/auth';
+import { getProfileImage, uploadProfileImage, updateProfile } from '../api/profile';
 
 type MeResponse = {
   userId: string;
@@ -40,10 +36,7 @@ type MeResponse = {
   authenticated: boolean;
 };
 
-const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
-  open,
-  onClose,
-}) => {
+const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const theme = useTheme();
 
   const [loading, setLoading] = useState(true);
@@ -54,8 +47,8 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const [editedName, setEditedName] = useState("");
-  const [editedUsername, setEditedUsername] = useState("");
+  const [editedName, setEditedName] = useState('');
+  const [editedUsername, setEditedUsername] = useState('');
 
   // LOAD PROFILE
   useEffect(() => {
@@ -70,7 +63,7 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
           userId: user.userId,
           name: user.name,
           username: user.username,
-          role: user.role ?? "User",
+          role: user.role ?? 'User',
           authenticated: user.authenticated,
         };
 
@@ -84,10 +77,10 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
         }
       } catch {
         setAuthUser({
-          userId: "",
-          name: "",
-          username: "",
-          role: "User",
+          userId: '',
+          name: '',
+          username: '',
+          role: 'User',
           authenticated: false,
         });
       } finally {
@@ -133,7 +126,7 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
         userId: refreshed.userId,
         name: refreshed.name,
         username: refreshed.username,
-        role: refreshed.role ?? "User",
+        role: refreshed.role ?? 'User',
         authenticated: refreshed.authenticated,
       };
 
@@ -150,7 +143,7 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
   // LOGOUT
   const handleLogout = async () => {
     await logout();
-    window.location.href = "/";
+    window.location.href = '/';
   };
 
   return (
@@ -163,7 +156,7 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
       PaperProps={{
         sx: {
           borderRadius: 4,
-          bgcolor: theme.palette.mode === "dark" ? "#1E1E1E" : "#fafafa",
+          bgcolor: theme.palette.mode === 'dark' ? '#1E1E1E' : '#fafafa',
           color: theme.palette.text.primary,
           border: `1px solid ${theme.palette.divider}`,
           boxShadow: 5,
@@ -173,11 +166,11 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
       {/* HEADER */}
       <DialogTitle
         sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           borderBottom: `1px solid ${theme.palette.divider}`,
-          bgcolor: theme.palette.mode === "dark" ? "#2B2B2B" : "#f2f2f2",
+          bgcolor: theme.palette.mode === 'dark' ? '#2B2B2B' : '#f2f2f2',
         }}
       >
         <Typography variant="h6" fontWeight={800}>
@@ -195,7 +188,7 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
         </Box>
       ) : !authUser?.authenticated ? (
         <Box p={4} textAlign="center">
-          <AccountCircleIcon sx={{ fontSize: 100, color: "text.secondary" }} />
+          <AccountCircleIcon sx={{ fontSize: 100, color: 'text.secondary' }} />
           <Typography sx={{ mt: 2 }}>Please sign in</Typography>
         </Box>
       ) : (
@@ -209,16 +202,11 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
                 type="file"
                 accept="image/*"
                 hidden
-                onChange={(e) =>
-                  e.target.files?.[0] && handleFileSelect(e.target.files[0])
-                }
+                onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
               />
 
               <label htmlFor="profile-upload">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  style={{ display: "inline-block" }}
-                >
+                <motion.div whileHover={{ scale: 1.05 }} style={{ display: 'inline-block' }}>
                   {uploading ? (
                     <CircularProgress size={96} />
                   ) : (
@@ -237,17 +225,17 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
                       <Tooltip title="Change picture">
                         <Box
                           sx={{
-                            position: "absolute",
+                            position: 'absolute',
                             bottom: 6,
-                            right: "calc(50% - 70px)",
+                            right: 'calc(50% - 70px)',
                             bgcolor: theme.palette.primary.main,
-                            color: "white",
-                            borderRadius: "50%",
+                            color: 'white',
+                            borderRadius: '50%',
                             width: 32,
                             height: 32,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
                         >
                           <EditIcon fontSize="small" />
@@ -277,23 +265,14 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
                 fullWidth
               />
 
-              <TextField
-                label="Role"
-                value={authUser.role}
-                disabled
-                fullWidth
-              />
+              <TextField label="Role" value={authUser.role} disabled fullWidth />
             </Stack>
           </DialogContent>
 
           {/* FOOTER */}
           <DialogActions sx={{ px: 4, py: 2 }}>
             {!editing ? (
-              <Button
-                variant="contained"
-                startIcon={<EditIcon />}
-                onClick={() => setEditing(true)}
-              >
+              <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditing(true)}>
                 Edit Profile
               </Button>
             ) : (
@@ -310,13 +289,13 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({
                     fontWeight: 700,
                     px: 3,
                     borderWidth: 2,
-                    color: "#000",
-                    borderColor: "#FBC02D",
-                    bgcolor: "#FFEB3B",
+                    color: '#000',
+                    borderColor: '#FBC02D',
+                    bgcolor: '#FFEB3B',
 
-                    "&:hover": {
-                      borderColor: "#F9A825",
-                      bgcolor: "#FDD835",
+                    '&:hover': {
+                      borderColor: '#F9A825',
+                      bgcolor: '#FDD835',
                     },
                   }}
                 >

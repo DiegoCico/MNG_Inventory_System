@@ -1,17 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from "react";
-import {
-  Card,
-  CardHeader,
-  CardContent,
-  Select,
-  MenuItem,
-  Typography,
-  Stack,
-} from "@mui/material";
-import { StatusChip } from "./Producthelpers";
+import React from 'react';
+import { Card, CardHeader, CardContent, Select, MenuItem, Typography, Stack } from '@mui/material';
+import { StatusChip } from './Producthelpers';
 
-const STATUSES = ["To Review", "Completed", "Shortages", "Damaged"];
+const STATUSES = ['To Review', 'Completed', 'Shortages', 'Damaged'];
 
 export default function StatusSection({
   editedProduct,
@@ -34,7 +26,7 @@ export default function StatusSection({
           <Select
             fullWidth
             size="small"
-            value={editedProduct.status || "To Review"}
+            value={editedProduct.status || 'To Review'}
             onChange={(e) => handleChange(e.target.value)}
           >
             {STATUSES.map((s) => (
