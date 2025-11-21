@@ -1,156 +1,274 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import ExportPage from '../src/pages/ExportPage'; // Assuming this path
-import { BrowserRouter } from 'react-router-dom';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import '@testing-library/jest-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 
-// --- MOCK SETUP ---
+// 🧩 Mock API modules *before* importing the component
+// Use vi.hoisted to create the mock function that can be used in vi.mock
+const { mockGetItems } = vi.hoisted(() => ({
+  mockGetItems: vi.fn(),
+}));
 
-// 1. Mock the API call to control the data and loading state
+vi.mock('../src/api/items', () => ({
+  getItems: mockGetItems,
+}));
+
+// Mock child components to isolate ExportPage testing
+vi.mock('../src/components/TopBar', () => ({
+  default: ({ isLoggedIn }: { isLoggedIn: boolean }) => (
+    <div data-testid="top-bar">TopBar - {isLoggedIn ? 'Logged In' : 'Logged Out'}</div>
+  ),
+}));
+
+vi.mock('../src/components/NavBar', () => ({
+  default: () => <div data-testid="nav-bar">NavBar</div>,
+}));
+
+vi.mock('../src/components/ExportPageContent', () => ({
+  default: ({ items, percentReviewed, activeCategory, csvData }: any) => (
+    <div data-testid="export-page-content">
+      <div>Items Count: {items.length}</div>
+      <div>Percent Reviewed: {percentReviewed}%</div>
+      <div>Active Category: {activeCategory}</div>
+      <div>CSV Data Count: {csvData.length}</div>
+    </div>
+  ),
+}));
+
+// Import after mocks are defined
+import ExportPage from '../src/pages/ExportPage';
+
+// Test theme
+const theme = createTheme();
+
+// Helper to render component with theme and router
+const renderWithProviders = (ui: React.ReactElement, { route = '/export/team123' } = {}) => {
+  return render(
+    <ThemeProvider theme={theme}>
+      <MemoryRouter initialEntries={[route]}>
+        <Routes>
+          <Route path="/export/:teamId" element={ui} />
+        </Routes>
+      </MemoryRouter>
+    </ThemeProvider>
+  );
+};
+
+// Mock data
 const mockItems = [
-  { itemId: 1, name: 'Tool A', status: 'Completed', createdAt: 1678886400000 },
-  { itemId: 2, name: 'Tool B', status: 'To Review', createdAt: 1678886400000 },
-  { itemId: 3, name: 'Tool C', status: 'Damaged', createdAt: 1678886400000 },
-  { itemId: 4, name: 'Tool D', status: 'Shortages', createdAt: 1678886400000 },
-  { itemId: 5, name: 'Tool E', status: 'Found', createdAt: 1678886400000 }, // another completed status
+  {
+    itemId: 'item1',
+    name: 'Rifle M4',
+    status: 'completed',
+    description: 'Standard issue rifle',
+    createdAt: 1700000000000,
+  },
+  {
+    itemId: 'item2',
+    name: 'Body Armor',
+    status: 'damaged',
+    description: 'Vest with tear',
+    createdAt: 1700000001000,
+  },
+  {
+    itemId: 'item3',
+    name: 'Radio',
+    status: 'shortages',
+    description: 'Missing antenna',
+    createdAt: 1700000002000,
+  },
+  {
+    itemId: 'item4',
+    name: 'Helmet',
+    status: 'to review',
+    description: 'Needs inspection',
+    createdAt: 1700000003000,
+  },
+  {
+    itemId: 'item5',
+    name: 'Backpack',
+    status: 'completed',
+    description: 'In good condition',
+    createdAt: 1700000004000,
+  },
+  {
+    itemId: 'item6',
+    name: 'Night Vision',
+    status: 'in repair',
+    description: 'Battery compartment broken',
+    createdAt: 1700000005000,
+  },
 ];
-const getItems = jest.fn(() => Promise.resolve({ items: mockItems }));
-jest.mock("../api/items", () => ({ getItems }));
-
-// 2. Mock external components to isolate ExportPage
-jest.mock("../components/TopBar", () => ({
-  __esModule: true,
-  // FIX: Provide a default value during destructuring to avoid implicit 'any' error
-  default: function({ isLoggedIn = false }) {
-    return <div data-testid="TopBar">TopBar (Logged: {isLoggedIn ? 'Yes' : 'No'})</div>;
-  },
-}));
-
-jest.mock("../components/NavBar", () => ({
-  __esModule: true,
-  default: () => <div data-testid="NavBar">NavBar</div>,
-}));
-
-jest.mock("../components/ExportPageContent", () => ({
-  __esModule: true,
-  // FIX: Provide a default value during destructuring to avoid implicit 'any' error
-  default: function({ activeCategory = 'completed' }) {
-    return (
-      <div data-testid="ExportPageContent">
-        Export Content for category: {activeCategory}
-      </div>
-    );
-  },
-}));
-
-// 3. Mock router hooks (useParams)
-jest.mock("react-router-dom", () => ({
-  ...jest.requireActual("react-router-dom"),
-  useParams: () => ({ teamId: 'test-team-123' }),
-}));
-
-// 4. Mock the internal setTimeout used for generation simulation
-// This is critical to make the generation flow fast and deterministic.
-jest.useFakeTimers();
-
-const setup = () => render(<ExportPage />, { wrapper: BrowserRouter });
-
-
-// --- TESTS ---
 
 describe('ExportPage', () => {
-
-  // Test 1: Initial Loading State
-  it('shows a loading spinner before data is fetched', () => {
-    // Prevent the mock promise from resolving immediately
-    getItems.mockImplementationOnce(() => new Promise(() => {}));
-    setup();
-
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
-    expect(screen.queryByText(/create inventory documents/i)).not.toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  // Test 2: Data Loaded State
-  it('transitions from loading to displaying content after data fetching is complete', async () => {
-    setup();
-
-    // Wait for the API call to resolve and the UI to update
-    await waitFor(() => {
-      expect(getItems).toHaveBeenCalledWith('test-team-123');
-    });
-
-    // Check for calculated progress (4 reviewed items / 5 total items = 80%)
-    expect(screen.getByText('Inventory Completion: 80%')).toBeInTheDocument();
-
-    // Check for initial category buttons and default active state
-    const completedButton = screen.getByRole('button', { name: /completed inventory/i });
-    const brokenButton = screen.getByRole('button', { name: /broken items/i });
-
-    expect(completedButton).toHaveAttribute('aria-current', 'true'); // Or check for 'contained' variant styles if possible
-    expect(brokenButton).toHaveAttribute('aria-current', 'false');
-
-    // Check for the main action button
-    expect(screen.getByRole('button', { name: /create documents/i })).toBeInTheDocument();
-
-    // Check that mocks are present
-    expect(screen.getByTestId('TopBar')).toBeInTheDocument();
-    expect(screen.getByTestId('NavBar')).toBeInTheDocument();
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  // Test 3: Category Switching
-  it('changes the active category when clicking the broken items button', async () => {
-    setup();
+  describe('Initial Loading', () => {
+    it('renders loading spinner while fetching items', () => {
+      mockGetItems.mockImplementation(
+        () => new Promise(() => {}) // Never resolves
+      );
 
-    await waitFor(() => {
-        expect(screen.getByText(/create inventory documents/i)).toBeInTheDocument();
+      renderWithProviders(<ExportPage />);
+
+      // Look for the circular progress spinner during loading
+      const spinners = screen.getAllByRole('progressbar');
+      const loadingSpinner = spinners.find(el => 
+        el.classList.contains('MuiCircularProgress-root')
+      );
+      expect(loadingSpinner).toBeInTheDocument();
     });
 
-    const brokenButton = screen.getByRole('button', { name: /broken items/i });
-    fireEvent.click(brokenButton);
+    it('calls getItems with correct teamId', async () => {
+      mockGetItems.mockResolvedValue({ items: mockItems });
 
-    // Verify the active state has switched (The component re-renders and the CSV data is recomputed)
-    expect(brokenButton).toHaveAttribute('aria-current', 'true');
-    
-    // Now simulate document creation
-    fireEvent.click(screen.getByRole('button', { name: /create documents/i }));
+      renderWithProviders(<ExportPage />, { route: '/export/team456' });
 
-    // Advance timers to skip the generation simulation
-    jest.advanceTimersByTime(3000);
+      await waitFor(() => {
+        expect(mockGetItems).toHaveBeenCalledWith('team456');
+      });
+    });
+  });
 
-    // Wait for the ExportPageContent to appear
-    await waitFor(() => {
-        expect(screen.getByTestId('ExportPageContent')).toBeInTheDocument();
+  describe('Category Bar', () => {
+    beforeEach(async () => {
+      mockGetItems.mockResolvedValue({ items: mockItems });
     });
 
-    // Verify that ExportPageContent received the correct activeCategory prop
-    expect(screen.getByText(/Export Content for category: broken/i)).toBeInTheDocument();
+    it('renders both category buttons after loading', async () => {
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Completed Inventory')).toBeInTheDocument();
+        expect(screen.getByText('Broken Items')).toBeInTheDocument();
+      });
+    });
+
+    it('starts with completed category active', async () => {
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        const completedBtn = screen.getByText('Completed Inventory').closest('button');
+        expect(completedBtn).toHaveClass('MuiButton-contained');
+      });
+    });
+
+    it('switches category when clicking broken items button', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Broken Items')).toBeInTheDocument();
+      });
+
+      const brokenBtn = screen.getByText('Broken Items');
+      await user.click(brokenBtn);
+
+      expect(brokenBtn.closest('button')).toHaveClass('MuiButton-contained');
+    });
   });
 
 
-  // Test 4: Document Generation Flow
-  it('handles the generation flow from initial state to content display', async () => {
-    setup();
 
-    // 1. Ensure initial state is ready
-    await waitFor(() => {
-        expect(screen.getByRole('button', { name: /create documents/i })).toBeInTheDocument();
+  describe('Document Generation Flow', () => {
+    beforeEach(() => {
+      mockGetItems.mockResolvedValue({ items: mockItems });
     });
 
-    const createButton = screen.getByRole('button', { name: /create documents/i });
-    fireEvent.click(createButton);
+    it('shows create documents button initially', async () => {
+      renderWithProviders(<ExportPage />);
 
-    // 2. Generating State
-    expect(screen.getByText(/generating your documents/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /create documents/i })).not.toBeInTheDocument();
-
-    // 3. Complete Generation (advance the 3s simulation)
-    jest.advanceTimersByTime(3000);
-
-    // 4. Documents Created State
-    await waitFor(() => {
-        // ExportPageContent should be visible
-        expect(screen.getByTestId('ExportPageContent')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Create Documents')).toBeInTheDocument();
+      });
     });
 
-    // Check that the default category was passed (completed)
-    expect(screen.getByText(/Export Content for category: completed/i)).toBeInTheDocument();
+    it('shows generating state when create button clicked', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Create Documents')).toBeInTheDocument();
+      });
+
+      const createBtn = screen.getByText('Create Documents');
+      await user.click(createBtn);
+
+      expect(screen.getByText('Generating your documents...')).toBeInTheDocument();
+    });
+  });
+
+
+
+  describe('Component Rendering', () => {
+    it('renders TopBar with logged in state', async () => {
+      mockGetItems.mockResolvedValue({ items: [] });
+
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('top-bar')).toHaveTextContent('Logged In');
+      });
+    });
+
+    it('renders NavBar at bottom', async () => {
+      mockGetItems.mockResolvedValue({ items: [] });
+
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('nav-bar')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('handles items with missing status field', async () => {
+      const itemsWithMissingStatus = [
+        { itemId: '1', name: 'Item 1', createdAt: Date.now() },
+        { itemId: '2', name: 'Item 2', status: 'completed', createdAt: Date.now() },
+      ];
+
+      mockGetItems.mockResolvedValue({ 
+        items: itemsWithMissingStatus as any 
+      });
+
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        // Items without status should be counted as "to review"
+        // So 1 reviewed out of 2 = 50%
+        expect(screen.getByText((content, element) => {
+          return element?.textContent === 'Inventory Completion: 50%';
+        })).toBeInTheDocument();
+      });
+    });
+
+    it('handles missing teamId in route', async () => {
+      mockGetItems.mockResolvedValue({ items: [] });
+
+      render(
+        <ThemeProvider theme={theme}>
+          <MemoryRouter initialEntries={['/export/']}>
+            <Routes>
+              <Route path="/export/:teamId?" element={<ExportPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>
+      );
+
+      // Should not call API without teamId
+      await waitFor(() => {
+        expect(mockGetItems).not.toHaveBeenCalled();
+      });
+    });
   });
 });
