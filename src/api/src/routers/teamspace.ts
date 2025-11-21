@@ -10,6 +10,7 @@ import {
 import crypto from 'crypto';
 import { doc } from '../aws';
 import { loadConfig } from '../process';
+import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 
 const config = loadConfig();
 const TABLE_NAME = config.TABLE_NAME;
@@ -319,6 +320,7 @@ getTeamById: publicProcedure
     )
     .mutation(async ({ input }) => {
       try {
+        // ---- Permission check ----
         const allowed = await hasPermission(
           input.userId,
           input.inviteWorkspaceId,
@@ -328,11 +330,14 @@ getTeamById: publicProcedure
           return { success: false, error: 'Not authorized to delete team.' };
         }
 
+        // ---- 1. Delete DynamoDB records ----
         const q = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
             KeyConditionExpression: 'PK = :pk',
-            ExpressionAttributeValues: { ':pk': `TEAM#${input.inviteWorkspaceId}` },
+            ExpressionAttributeValues: {
+              ':pk': `TEAM#${input.inviteWorkspaceId}`,
+            },
           }),
         );
 
@@ -347,6 +352,30 @@ getTeamById: publicProcedure
             ),
           ),
         );
+
+        const s3 = new S3Client({ region: config.REGION });
+
+        const prefix = `items/${input.inviteWorkspaceId}/`;
+
+        const listed = await s3.send(
+          new ListObjectsV2Command({
+            Bucket: config.BUCKET_NAME,
+            Prefix: prefix,
+          }),
+        );
+
+        const contents = listed.Contents ?? [];
+
+        if (contents.length > 0) {
+          await s3.send(
+            new DeleteObjectsCommand({
+              Bucket: config.BUCKET_NAME,
+              Delete: {
+                Objects: contents.map((o) => ({ Key: o.Key! })),
+              },
+            }),
+          );
+        }
 
         return { success: true, deleted: input.inviteWorkspaceId };
       } catch (err: any) {
