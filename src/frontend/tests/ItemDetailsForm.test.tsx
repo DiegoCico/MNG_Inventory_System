@@ -19,7 +19,7 @@ describe('ItemDetailsForm', () => {
     quantity: 5,
     description: 'Standard issue rifle',
     notes: 'Test notes',
-    status: 'Found',
+    status: 'Completed',
     parent: null,
   };
 
@@ -216,7 +216,7 @@ describe('ItemDetailsForm', () => {
       const statusButtons = buttons.filter((b) =>
         b.textContent?.match(/Incomplete|Complete|Damaged|Shortage/),
       );
-      expect(statusButtons.length).toBe(4);
+      expect(statusButtons.length).toBe(3);
     });
 
     it('shows selected status as contained button', () => {
@@ -244,7 +244,7 @@ describe('ItemDetailsForm', () => {
         />,
       );
 
-      const incompleteButton = screen.getByRole('button', { name: /Incomplete/i });
+      const incompleteButton = screen.getByRole('button', { name: /To Review/i });
       expect(incompleteButton).toHaveClass('MuiButton-outlined');
     });
 
@@ -280,7 +280,7 @@ describe('ItemDetailsForm', () => {
       const buttons = screen
         .getAllByRole('button')
         .filter((b) => b.textContent?.match(/Incomplete|Complete|Damaged|Shortage/));
-      expect(buttons.length).toBe(4);
+      expect(buttons.length).toBe(3);
     });
   });
 

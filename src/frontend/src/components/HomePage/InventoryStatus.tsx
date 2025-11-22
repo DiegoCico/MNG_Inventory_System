@@ -2,7 +2,7 @@ import { Paper, Typography, Grid, Card } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
 interface InventoryStatusProps {
-  teamId: string;
+  teamName: string;
   totals: {
     toReview: number;
     completed: number;
@@ -11,7 +11,7 @@ interface InventoryStatusProps {
   };
 }
 
-export default function InventoryStatus({ teamId, totals }: InventoryStatusProps) {
+export default function InventoryStatus({ teamName, totals }: InventoryStatusProps) {
   const theme = useTheme();
   const cardBorder = `1px solid ${theme.palette.divider}`;
 
@@ -25,7 +25,7 @@ export default function InventoryStatus({ teamId, totals }: InventoryStatusProps
   return (
     <Paper elevation={0} sx={{ p: 3, bgcolor: theme.palette.background.paper, border: cardBorder }}>
       <Typography variant="h6" fontWeight={800} mb={2}>
-        {teamId}'s Inventory Status
+        {teamName}'s Inventory Status
       </Typography>
       <Grid container spacing={2}>
         {items.map((item, i) => (

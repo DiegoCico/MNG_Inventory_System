@@ -53,6 +53,7 @@ export async function getItems(teamId: string) {
 
   if (!res.ok) throw new Error(`getItems failed: ${res.status}`);
   const json = await res.json();
+  console.log(json?.result?.data)
   return json?.result?.data ?? {};
 }
 

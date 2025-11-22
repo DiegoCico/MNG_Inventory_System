@@ -38,6 +38,17 @@ function stripBase64Header(base64: string): string {
   return base64.replace(/^data:image\/\w+;base64,/, '');
 }
 
+async function getUserName(userId: string): Promise<string | undefined> {
+  const res = await doc.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: 'METADATA' },
+    }),
+  );
+
+  return res.Item?.name;
+}
+
 async function getPresignedUrl(imageKey?: string): Promise<string | undefined> {
   if (!imageKey) return undefined;
 
@@ -120,6 +131,8 @@ export const itemsRouter = router({
           );
         }
 
+        const userName = await getUserName(input.userId);
+
         const item = {
           PK: `TEAM#${input.teamId}`,
           SK: `ITEM#${itemId}`,
@@ -139,7 +152,14 @@ export const itemsRouter = router({
           createdAt: now,
           updatedAt: now,
           createdBy: input.userId,
-          updateLog: [{ userId: input.userId, action: 'create', timestamp: now }],
+          updateLog: [
+            {
+              userId: input.userId,
+              userName: userName ?? 'Unknown',
+              action: 'create',
+              timestamp: now,
+            },
+          ],
         };
 
         await doc.send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
@@ -167,11 +187,25 @@ export const itemsRouter = router({
         const rawItems = result.Items ?? [];
 
         const items = await Promise.all(
-          rawItems.map(async (raw: any) => {
-            const signed = await getPresignedUrl(raw.imageKey);
-            return { ...raw, imageLink: signed };
-          }),
-        );
+        rawItems.map(async (raw: any) => {
+          const signed = await getPresignedUrl(raw.imageKey);
+
+          let parentName: string | null = null;
+
+          if (raw.parent) {
+            const parentRes = await doc.send(
+              new GetCommand({
+                TableName: TABLE_NAME,
+                Key: { PK: `TEAM#${input.teamId}`, SK: `ITEM#${raw.parent}` },
+              }),
+            );
+            parentName = parentRes.Item?.name ?? null;
+          }
+
+          return { ...raw, imageLink: signed, parentName };
+        }),
+      );
+
 
         return { success: true, items };
       } catch (err: any) {
@@ -280,7 +314,15 @@ export const itemsRouter = router({
         push('notes', input.notes);
 
         updates.push('updateLog = list_append(if_not_exists(updateLog, :empty), :log)');
-        values[':log'] = [{ userId: input.userId, action: 'update', timestamp: now }];
+        const userName = await getUserName(input.userId);
+        values[':log'] = [
+          {
+            userId: input.userId,
+            userName: userName ?? 'Unknown',
+            action: 'update',
+            timestamp: now,
+          },
+        ];
         values[':empty'] = [];
 
         const result = await doc.send(
@@ -294,7 +336,33 @@ export const itemsRouter = router({
           }),
         );
 
-        return { success: true, item: result.Attributes };
+        const attrs = result.Attributes;
+        let parentName: string | null = null;
+        const signed = await getPresignedUrl(attrs?.imageKey);
+
+        if (attrs?.parent) {
+          const parentRes = await doc.send(
+            new GetCommand({
+              TableName: TABLE_NAME,
+              Key: {
+                PK: `TEAM#${input.teamId}`,
+                SK: `ITEM#${attrs.parent}`,
+              },
+            }),
+          );
+
+          parentName = parentRes.Item?.name ?? null;
+        }
+
+        return {
+          success: true,
+          item: {
+            ...result.Attributes,
+            imageLink: signed,
+            parentName,
+          },
+        };
+
       } catch (err: any) {
         return { success: false, error: err.message };
       }

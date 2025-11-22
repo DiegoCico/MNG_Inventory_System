@@ -18,11 +18,12 @@ export function flattenTree(items: any[]): any[] {
 export const StatusChip: React.FC<{ value?: string }> = ({ value }) => {
   if (!value) return null;
   const color =
-    value === 'Found'
+    value === 'Found' || 
+    value === 'Completed'
       ? 'success'
       : value === 'Damaged'
         ? 'error'
-        : value === 'Missing'
+        : value === 'Shortages'
           ? 'warning'
           : value === 'In Repair'
             ? 'info'
