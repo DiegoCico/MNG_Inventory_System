@@ -57,12 +57,12 @@ Below are the current API methods and use cases. Methods are called using:
 
 #### Roles
 
-| Router name | Use case                                           | Params                                                                                                              |
-| ----------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| createRole  | Create a new role with explicit permissions        | createRole({ name: "Manager", description: "Manages team", permissions: ["team.add_member", "workspace.create"] })` |
-| getRole     | Fetch a single role by `roleId` or by `name`       | getRole({ roleId: "abc123" })`or`getRole({ name: "Owner" })`                                                        |
-| updateRole  | Update role name, description, and/or permissions  | updateRole({ roleId: "abc123", name: "Lead", permissions: ["team.add_member"] })`                                   |
-| deleteRole  | Delete a role by id (no-op if role does not exist) | deleteRole({ roleId: "abc123" })`                                                                                   |
+| Router name | Use case                                           | Params                                                                                                         |
+| ----------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| createRole  | Create a new role with explicit permissions        | createRole({ name: "Manager", description: "Manages team", permissions: ["team.add_member", "team.create"] })` |
+| getRole     | Fetch a single role by `roleId` or by `name`       | getRole({ roleId: "abc123" })`or`getRole({ name: "Owner" })`                                                   |
+| updateRole  | Update role name, description, and/or permissions  | updateRole({ roleId: "abc123", name: "Lead", permissions: ["team.add_member"] })`                              |
+| deleteRole  | Delete a role by id (no-op if role does not exist) | deleteRole({ roleId: "abc123" })`                                                                              |
 
 #### Items
 
