@@ -152,7 +152,7 @@ def render_inventory_csv(data):
         if not end_desc:
             end_desc = overrides.get("endItemDesc") or ""
 
-        writer.writerow(["FE", "UIC", " Desc", "End Item NIIN", "LIN", " Desc"])
+        writer.writerow(["FE", "UIC", "Desc", "End Item NIIN", "LIN", "Desc"])
         writer.writerow([
             overrides.get("fe") or "",
             overrides.get("uic") or "",

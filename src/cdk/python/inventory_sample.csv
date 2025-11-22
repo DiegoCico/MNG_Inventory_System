@@ -1,0 +1,15 @@
+FE,UIC, Desc,End Item NIIN,LIN, Desc
+A01,W123AA,"1ST PLATOON, ALPHA CO.",123456789,AB123,RIFLE KIT
+
+Name,LV,Description,Auth Qty,OH Qty
+M4A1 Rifle,A,Standard issue carbine,4,4
+"Magazine, 30RD",B,5.56mm magazine,12,12
+Magazine Pouch,C,Holds 3 magazines,4,4
+Sling,B,Weapon sling,4,4
+
+FE,UIC, Desc,End Item NIIN,LIN, Desc
+A01,W123AA,"1ST PLATOON, ALPHA CO.",987654321,CD456,RADIO KIT
+
+Name,LV,Description,Auth Qty,OH Qty
+Harris Radio,A,Squad radio,2,2
+Battery,B,Rechargeable radio battery,6,6
