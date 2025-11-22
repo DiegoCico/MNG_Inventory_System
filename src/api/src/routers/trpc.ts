@@ -6,6 +6,7 @@ import { COOKIE_ACCESS, parseCookiesFromCtx } from '../helpers/cookies';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { getUserPermissions } from '../helpers/teamspaceHelpers';
 import { TRPCError } from '@trpc/server';
+import type { Permission } from './roles';
 
 export type Context = {
   req?: Request;
@@ -105,7 +106,8 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
           teamId: decoded.sub,
           userId: decoded.sub,
           email: emailValue,
-          username: decoded['cognito:username'] !== null ? String(decoded['cognito:username']) : undefined,
+          username:
+            decoded['cognito:username'] !== null ? String(decoded['cognito:username']) : undefined,
           roleName,
           permissions,
           decode: decoded,
@@ -120,7 +122,7 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
 export const protectedProcedure = t.procedure.use(isAuthed);
 
 // --------- Permission middleware factory ----------
-export function requirePermission(requiredPermission: string) {
+export function requirePermission(requiredPermission: Permission) {
   return async ({ ctx, next }: { ctx: Context; next: any }) => {
     const user = ctx.user;
     if (!user) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing user in context' });
@@ -137,5 +139,5 @@ export function requirePermission(requiredPermission: string) {
   };
 }
 
-export const permissionedProcedure = (perm: string) =>
+export const permissionedProcedure = (perm: Permission) =>
   protectedProcedure.use(requirePermission(perm));
