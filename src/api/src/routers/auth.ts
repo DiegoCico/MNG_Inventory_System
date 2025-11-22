@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure } from './trpc';
+import { router, publicProcedure, protectedProcedure, permissionedProcedure } from './trpc';
 import {
   AdminCreateUserCommand,
   AdminInitiateAuthCommand,
@@ -99,7 +99,7 @@ const signIn = async (params: { email: string; password: string }) => {
 };
 
 export const authRouter = router({
-  inviteUser: publicProcedure
+  inviteUser: permissionedProcedure('user.invite')
     .input(
       z.object({
         email: z.string(),
@@ -486,7 +486,7 @@ export const authRouter = router({
     }
   }),
 
-  logout: publicProcedure.mutation(async ({ ctx }) => {
+  logout: protectedProcedure.mutation(async ({ ctx }) => {
     const headers = clearAuthCookies(ctx.res);
     emitCookiesToLambda(ctx, headers);
     return { success: true, message: 'Signed out' };
