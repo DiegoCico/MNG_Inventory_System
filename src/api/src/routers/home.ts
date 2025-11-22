@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, publicProcedure } from './trpc';
+import { router, permissionedProcedure } from './trpc';
 import { QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { doc } from '../aws';
@@ -91,7 +91,7 @@ async function softReset(teamId: string) {
 
 export const homeRouter = router({
   /** HARD RESET — deletes all items + images */
-  hardReset: publicProcedure
+  hardReset: permissionedProcedure('item.delete')
     .input(z.object({ teamId: z.string().min(1) }))
     .mutation(async ({ input }) => {
       try {
@@ -103,7 +103,7 @@ export const homeRouter = router({
     }),
 
   /** SOFT RESET — marks all as 'Incomplete' */
-  softReset: publicProcedure
+  softReset: permissionedProcedure('item.reset')
     .input(z.object({ teamId: z.string().min(1) }))
     .mutation(async ({ input }) => {
       try {
