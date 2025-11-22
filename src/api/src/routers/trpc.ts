@@ -4,6 +4,8 @@ import type { Request, Response } from 'express';
 import type { APIGatewayProxyEventV2, Context as LambdaCtx } from 'aws-lambda';
 import { COOKIE_ACCESS, parseCookiesFromCtx } from '../helpers/cookies';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
+import { getUserPermissions } from '../helpers/teamspaceHelpers';
+import { TRPCError } from '@trpc/server';
 
 export type Context = {
   req?: Request;
@@ -15,8 +17,10 @@ export type Context = {
   user?: {
     teamId: string;
     userId: string;
-    email?: string;
+    email?: string | undefined;
     username?: string;
+    roleName?: string;
+    permissions?: string[];
     decode?: Record<string, any>;
   };
 };
@@ -87,15 +91,23 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
   try {
     const decoded = await verifier.verify(accessToken);
 
+    // Normalize email to a string at runtime to keep things predictable
+    const emailValue =
+      decoded.email !== undefined && decoded.email !== null ? String(decoded.email) : undefined;
+
     // Attach user info
+    const { roleName, permissions } = await getUserPermissions(decoded.sub);
+
     return next({
       ctx: {
         ...ctx,
         user: {
           teamId: decoded.sub,
           userId: decoded.sub,
-          email: decoded.email ?? undefined,
-          username: decoded['cognito:username'],
+          email: emailValue,
+          username: decoded['cognito:username'] !== null ? String(decoded['cognito:username']) : undefined,
+          roleName,
+          permissions,
           decode: decoded,
         },
       },
@@ -106,3 +118,24 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
 });
 
 export const protectedProcedure = t.procedure.use(isAuthed);
+
+// --------- Permission middleware factory ----------
+export function requirePermission(requiredPermission: string) {
+  return async ({ ctx, next }: { ctx: Context; next: any }) => {
+    const user = ctx.user;
+    if (!user) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing user in context' });
+
+    if (!user.permissions || !Array.isArray(user.permissions)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'User has no permissions assigned' });
+    }
+
+    if (!user.permissions.includes(requiredPermission)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Insufficient permissions' });
+    }
+
+    return next();
+  };
+}
+
+export const permissionedProcedure = (perm: string) =>
+  protectedProcedure.use(requirePermission(perm));

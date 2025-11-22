@@ -93,3 +93,27 @@ export const checkPermission = async (
 
   return { allowed: true };
 };
+
+/**
+ * Get a user's global role and resolve permissions for that role in a single DB call.
+ * Returns `{ roleName?, permissions }` where `permissions` is an array (possibly empty).
+ */
+export const getUserPermissions = async (
+  userId: string,
+): Promise<{ roleName?: string; permissions: string[] }> => {
+  const res = await doc.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: `USER#${userId}`, SK: 'METADATA' },
+    }),
+  );
+
+  const user = res.Item as any;
+  const roleName: string | undefined = user?.role;
+  if (!roleName) return { permissions: [], roleName: undefined };
+
+  // roleId stored in roles table is uppercase of name
+  const roleId = roleName.toUpperCase();
+  const permissions = await getRolePermissions(roleId);
+  return { roleName, permissions: permissions ?? [] };
+};
