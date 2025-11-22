@@ -33,6 +33,7 @@ export type Permission =
   | 'item.view'
   | 'item.update'
   | 'item.delete'
+  | 'item.reset'
   // Report handling
   | 'reports.create'
   | 'reports.view'
@@ -90,6 +91,7 @@ export const DEFAULT_ROLES: Array<Pick<RoleEntity, 'name' | 'description' | 'per
       'item.update',
       'item.delete',
       'item.view',
+      'item.reset',
       'reports.create',
       'reports.view',
       'reports.delete',
