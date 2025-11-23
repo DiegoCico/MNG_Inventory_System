@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Team } from '../components/TeamspacePage/TeamsGrid';
+import { Team } from './TeamsGrid';
 import {
   createTeamspace,
   addUserTeamspace,
@@ -42,6 +42,7 @@ interface CreateTeamDialogProps extends DialogsProps {
   onClose: () => void;
 }
 
+// CREATE TEAM DIALOG
 export function CreateTeamDialog({
   open,
   onClose,
@@ -50,13 +51,18 @@ export function CreateTeamDialog({
 }: CreateTeamDialogProps) {
   const [workspaceName, setWorkspaceName] = useState('');
   const [workspaceDesc, setWorkspaceDesc] = useState('');
+
+  // NEW — FE / UIC FIELDS
+  const [uic, setUic] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+
   const [loading, setLoading] = useState(false);
 
   async function getUserId(): Promise<string> {
     const user = await me();
-    if (!user?.userId) {
-      throw new Error('User not authenticated or ID missing');
-    }
+    if (!user?.userId) throw new Error('User not authenticated or ID missing');
     return user.userId;
   }
 
@@ -64,7 +70,14 @@ export function CreateTeamDialog({
     try {
       setLoading(true);
       const userId = await getUserId();
-      const result = await createTeamspace(workspaceName, workspaceDesc, userId);
+
+      const result = await createTeamspace({
+        name: workspaceName,
+        description: contactEmail, 
+        uic,
+        fe: contactName,       
+        userId,                 
+      });
 
       if (!result?.success) {
         showSnackbar(result.error || 'Failed to create team.', 'error');
@@ -72,8 +85,12 @@ export function CreateTeamDialog({
       }
 
       showSnackbar('Teamspace created successfully!', 'success');
+
       setWorkspaceName('');
-      setWorkspaceDesc('');
+      setUic('');
+      setContactName('');
+      setContactEmail('');
+
       onClose();
       await onRefresh();
     } catch (err) {
@@ -84,9 +101,11 @@ export function CreateTeamDialog({
     }
   }
 
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>Create New Teamspace</DialogTitle>
+
       <DialogContent sx={{ pt: 2 }}>
         <TextField
           fullWidth
@@ -95,18 +114,42 @@ export function CreateTeamDialog({
           onChange={(e) => setWorkspaceName(e.target.value)}
           sx={{ mb: 2 }}
         />
+
         <TextField
           fullWidth
-          label="Description"
-          value={workspaceDesc}
-          onChange={(e) => setWorkspaceDesc(e.target.value)}
+          label="UIC"
+          value={uic}
+          onChange={(e) => setUic(e.target.value)}
+          sx={{ mb: 2 }}
+        />
+
+        <TextField
+          fullWidth
+          label="FE"
+          value={contactName}
+          onChange={(e) => setContactName(e.target.value)}
+          sx={{ mb: 2 }}
+        />
+
+        <TextField
+          fullWidth
+          label="Location"
+          value={contactEmail}
+          onChange={(e) => setContactEmail(e.target.value)}
+          sx={{ mb: 2 }}
         />
       </DialogContent>
+
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <Button onClick={handleCreate} variant="contained" color="primary" disabled={loading}>
+        <Button
+          onClick={handleCreate}
+          variant="contained"
+          color="primary"
+          disabled={loading}
+        >
           Create
         </Button>
       </DialogActions>

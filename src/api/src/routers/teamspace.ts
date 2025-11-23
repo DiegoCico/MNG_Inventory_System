@@ -28,7 +28,9 @@ export const teamspaceRouter = router({
     .input(
       z.object({
         name: z.string().min(2).max(60),
-        description: z.string().max(280).optional(),
+        description: z.string().min(1),   // LOCATION
+        uic: z.string().min(1),
+        fe: z.string().min(1),
         userId: z.string().min(1),
       }),
     )
@@ -37,6 +39,7 @@ export const teamspaceRouter = router({
         const cleanName = input.name.trim().toLowerCase();
         const now = new Date().toISOString();
 
+        // Check duplicate name
         const dup = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
@@ -52,19 +55,28 @@ export const teamspaceRouter = router({
 
         const teamId = newId(12);
 
+        /** TEAM METADATA RECORD */
         const teamItem = {
           PK: `TEAM#${teamId}`,
           SK: 'METADATA',
           Type: 'Team',
           teamId,
           name: input.name,
-          description: input.description ?? '',
+
+          // LOCATION
+          description: input.description,
+
+          // NEW FIELDS
+          uic: input.uic,
+          fe: input.fe,
+
           ownerId: input.userId,
           createdAt: now,
           updatedAt: now,
           GSI_NAME: cleanName,
         };
 
+        /** MEMBERSHIP RECORD FOR OWNER */
         const memberItem = {
           PK: `TEAM#${teamId}`,
           SK: `MEMBER#${input.userId}`,
@@ -88,6 +100,7 @@ export const teamspaceRouter = router({
         return { success: false, error: err.message || 'Failed to create teamspace.' };
       }
     }),
+
 
   /** GET TEAMSPACES */
   getTeamspace: permissionedProcedure('team.view')

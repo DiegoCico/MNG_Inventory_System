@@ -1,20 +1,30 @@
 const TRPC = '/trpc';
 
 /* CREATE TEAMSPACE */
-export async function createTeamspace(name: string, description: string, userId: string) {
-  const res = await fetch(`${TRPC}/createTeamspace`, {
+export async function createTeamspace(
+  name: string,
+  description: string, // LOCATION
+  userId: string,
+  uic: string,
+  fe: string
+) {
+  const res = await fetch('/trpc/createTeamspace', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, description, userId }),
+    body: JSON.stringify({
+      name,
+      description,
+      userId,
+      uic,
+      fe,
+    }),
   });
 
   if (!res.ok) throw new Error(`createTeamspace failed: ${res.status}`);
 
   const json = await res.json();
-  const data = json?.result?.data;
-  if (!data) throw new Error('unexpected response from createTeamspace');
-  return data;
+  return json?.result?.data;
 }
 
 /* GET TEAMSPACE */
