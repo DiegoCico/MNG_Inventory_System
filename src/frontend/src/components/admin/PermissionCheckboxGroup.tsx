@@ -74,16 +74,16 @@ const PERMISSION_CATEGORIES: PermissionCategory[] = [
       { value: 'item.view', label: 'View Items' },
       { value: 'item.update', label: 'Update Items' },
       { value: 'item.delete', label: 'Delete Items' },
-      { value: 'item.reset', label: 'Reset Items' },
+      { value: 'item.reset', label: 'Reset Inventory' },
     ],
   },
   {
     label: 'Report Management',
     icon: '📋',
     permissions: [
-      { value: 'reports.create', label: 'Create Reports' },
-      { value: 'reports.view', label: 'View Reports' },
-      { value: 'reports.delete', label: 'Delete Reports' },
+      { value: 'reports.create', label: 'Create PDFs' },
+      { value: 'reports.view', label: 'View PDFs' },
+      { value: 'reports.delete', label: 'Delete PDFs' },
     ],
   },
 ];
