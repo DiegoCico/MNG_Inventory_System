@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, publicProcedure, protectedProcedure, permissionedProcedure } from './trpc';
 import {
   AdminCreateUserCommand,
@@ -122,13 +123,22 @@ export const authRouter = router({
         console.error('Error inviting user:', error);
 
         if (error.name === 'UsernameExistsException') {
-          throw new Error('User already exists');
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'User already exists',
+          });
         }
         if (error.name === 'InvalidParameterException') {
-          throw new Error('Invalid email format');
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Invalid email format',
+          });
         }
 
-        throw new Error(`Failed to invite user: ${error.message}`);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to invite user: ${error.message}`,
+        });
       }
     }),
 
@@ -202,24 +212,42 @@ export const authRouter = router({
           };
         }
 
-        throw new Error('Unexpected authentication result');
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Unexpected authentication result',
+        });
       } catch (error: any) {
         console.error('Error signing in user:', error);
 
         if (error.name === 'NotAuthorizedException') {
-          throw new Error('Invalid email or password');
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Invalid email or password',
+          });
         }
         if (error.name === 'UserNotConfirmedException') {
-          throw new Error('User account not confirmed');
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'User account not confirmed',
+          });
         }
         if (error.name === 'PasswordResetRequiredException') {
-          throw new Error('Password reset required');
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Password reset required',
+          });
         }
         if (error.name === 'UserNotFoundException') {
-          throw new Error('User not found');
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'User not found',
+          });
         }
 
-        throw new Error(`Sign in failed: ${error.message}`);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Sign in failed: ${error.message}`,
+        });
       }
     }),
 
@@ -316,18 +344,30 @@ export const authRouter = router({
           };
         }
 
-        throw new Error('Failed to respond to challenge');
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to respond to challenge',
+        });
       } catch (error: any) {
         console.error('Error responding to challenge:', error);
 
         if (error.name === 'CodeMismatchException') {
-          throw new Error('Invalid code');
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Invalid code',
+          });
         }
         if (error.name === 'ExpiredCodeException') {
-          throw new Error('Code expired');
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Code expired',
+          });
         }
 
-        throw new Error(`Challenge response failed: ${error.message}`);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Challenge response failed: ${error.message}`,
+        });
       }
     }),
   // ------------------------------
@@ -401,10 +441,10 @@ export const authRouter = router({
         console.log('Created new DynamoDB user record:', user);
       } catch (err) {
         console.error('FAILED TO CREATE USER RECORD:', err);
-        return {
-          authenticated: false,
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
           message: 'Could not create user record',
-        };
+        });
       }
     }
 
