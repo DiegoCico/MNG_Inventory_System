@@ -16,7 +16,7 @@ export default function AdminPage() {
     <Box sx={{ minHeight: '100vh', bgcolor: theme.palette.background.default }}>
       <TopBar isLoggedIn={true} />
 
-      <Box sx={{ m: 4  }}>
+      <Box sx={{ m: 4 }}>
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate('/teams')}

@@ -71,21 +71,22 @@ export const usersRouter = router({
       return { success: true, roleName: input.roleName };
     }),
 
-  getUserRole: permissionedProcedure("user.assign_roles")
-  .input(z.object({ userId: z.string() })).query(async ({ input }) => {
-    const userRes = await doc.send(
-      new GetCommand({
-        TableName: TABLE_NAME,
-        Key: { PK: `USER#${input.userId}`, SK: 'METADATA' },
-      }),
-    );
+  getUserRole: permissionedProcedure('user.assign_roles')
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ input }) => {
+      const userRes = await doc.send(
+        new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: `USER#${input.userId}`, SK: 'METADATA' },
+        }),
+      );
 
-    const user = userRes.Item;
-    if (!user) throw new Error('User not found');
+      const user = userRes.Item;
+      if (!user) throw new Error('User not found');
 
-    return {
-      userId: input.userId,
-      roleName: user.role ?? 'No Role',
-    };
-  }),
+      return {
+        userId: input.userId,
+        roleName: user.role ?? 'No Role',
+      };
+    }),
 });

@@ -16,9 +16,7 @@ vi.mock('recharts', () => ({
   Bar: ({ dataKey, stackId, fill }: { dataKey: string; stackId?: string; fill: string }) => (
     <div data-testid={`bar-${dataKey}`} data-stack-id={stackId} data-fill={fill} />
   ),
-  XAxis: ({ dataKey }: { dataKey: string }) => (
-    <div data-testid="x-axis" data-key={dataKey} />
-  ),
+  XAxis: ({ dataKey }: { dataKey: string }) => <div data-testid="x-axis" data-key={dataKey} />,
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
@@ -37,7 +35,7 @@ const renderComponent = (teamStats: TeamStat[]) => {
   return render(
     <ThemeProvider theme={theme}>
       <TeamActivityChart teamStats={teamStats} />
-    </ThemeProvider>
+    </ThemeProvider>,
   );
 };
 
@@ -111,9 +109,7 @@ describe('TeamActivityChart', () => {
     });
 
     it('handles single user stats', () => {
-      const singleUser: TeamStat[] = [
-        { userId: 'user-1', completed: 5, shortages: 1, damaged: 0 },
-      ];
+      const singleUser: TeamStat[] = [{ userId: 'user-1', completed: 5, shortages: 1, damaged: 0 }];
 
       const { container } = renderComponent(singleUser);
 
@@ -203,9 +199,7 @@ describe('TeamActivityChart', () => {
 
   describe('User Stats Values', () => {
     it('handles zero values', () => {
-      const zeroStats: TeamStat[] = [
-        { userId: 'user-1', completed: 0, shortages: 0, damaged: 0 },
-      ];
+      const zeroStats: TeamStat[] = [{ userId: 'user-1', completed: 0, shortages: 0, damaged: 0 }];
 
       const { container } = renderComponent(zeroStats);
 
@@ -301,9 +295,7 @@ describe('TeamActivityChart', () => {
     });
 
     it('handles empty userId', () => {
-      const emptyStats: TeamStat[] = [
-        { userId: '', completed: 5, shortages: 1, damaged: 0 },
-      ];
+      const emptyStats: TeamStat[] = [{ userId: '', completed: 5, shortages: 1, damaged: 0 }];
 
       const { container } = renderComponent(emptyStats);
 
@@ -333,7 +325,9 @@ describe('TeamActivityChart', () => {
       const { container } = renderComponent(defaultTeamStats);
 
       // The Box component should have height styling
-      const chartBox = container.querySelector('[data-testid="responsive-container"]')?.parentElement;
+      const chartBox = container.querySelector(
+        '[data-testid="responsive-container"]',
+      )?.parentElement;
       expect(chartBox).toBeInTheDocument();
     });
   });

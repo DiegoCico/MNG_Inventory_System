@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 import {
   Box,
   Typography,
@@ -8,38 +8,38 @@ import {
   ListItem,
   ListItemText,
   Divider,
-} from "@mui/material";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import { useTheme } from "@mui/material/styles";
+} from '@mui/material';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import { useTheme } from '@mui/material/styles';
 
 // Define the core types used by the page component (normally imported from a shared file)
 
 interface InventoryItem {
-    itemId?: string;
-    name?: string;
-    status?: string;
-    description?: string;
-    createdAt: number;
-    [key: string]: unknown; 
+  itemId?: string;
+  name?: string;
+  status?: string;
+  description?: string;
+  createdAt: number;
+  [key: string]: unknown;
 }
 
 // FIX 1 & 2: Define CsvItem explicitly to avoid empty interface and 'any' errors
 interface CsvItem {
-    "Item ID": string;
-    "Product Name": string;
-    "Status": string;
-    "Description": string;
-    "Date Added": string;
-    "Team ID": string;
-    [key: string]: unknown; 
+  'Item ID': string;
+  'Product Name': string;
+  Status: string;
+  Description: string;
+  'Date Added': string;
+  'Team ID': string;
+  [key: string]: unknown;
 }
 
 // FIX 3: Define component props using the explicit types
 interface ExportPageContentProps {
-    items: InventoryItem[]; // Replaced any[]
-    percentReviewed: number;
-    activeCategory: 'completed' | 'broken';
-    csvData: CsvItem[]; // Replaced any[]
+  items: InventoryItem[]; // Replaced any[]
+  percentReviewed: number;
+  activeCategory: 'completed' | 'broken';
+  csvData: CsvItem[]; // Replaced any[]
 }
 
 const ExportPageContent: React.FC<ExportPageContentProps> = ({
@@ -56,28 +56,30 @@ const ExportPageContent: React.FC<ExportPageContentProps> = ({
 
   const downloadCsv = () => {
     if (csvData.length === 0) {
-      console.warn("No data to export.");
+      console.warn('No data to export.');
       return;
     }
 
     // Convert data to CSV string
     const headers = Object.keys(csvData[0]);
     const csvContent = [
-      headers.join(","),
-      ...csvData.map(row => 
-        headers.map(header => {
-          const value = row[header];
-          // Handle null/undefined and escape inner quotes
-          return `"${(value === null || value === undefined ? '' : String(value)).replace(/"/g, '""')}"`;
-        }).join(",")
-      )
-    ].join("\n");
+      headers.join(','),
+      ...csvData.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header];
+            // Handle null/undefined and escape inner quotes
+            return `"${(value === null || value === undefined ? '' : String(value)).replace(/"/g, '""')}"`;
+          })
+          .join(','),
+      ),
+    ].join('\n');
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", fileName);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -89,26 +91,25 @@ const ExportPageContent: React.FC<ExportPageContentProps> = ({
       sx={{
         p: { xs: 3, md: 6 },
         maxWidth: 800,
-        mx: "auto",
+        mx: 'auto',
         mt: 4,
         borderRadius: 4,
-        textAlign: "center",
+        textAlign: 'center',
       }}
     >
-      <FileDownloadIcon
-        sx={{ fontSize: 70, color: theme.palette.success.main, mb: 2 }}
-      />
+      <FileDownloadIcon sx={{ fontSize: 70, color: theme.palette.success.main, mb: 2 }} />
       <Typography variant="h4" fontWeight={800} gutterBottom>
         Documents Ready
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Your report for the **{activeCategory.toUpperCase()}** inventory is generated and ready for download.
+        Your report for the **{activeCategory.toUpperCase()}** inventory is generated and ready for
+        download.
       </Typography>
 
       <List
         sx={{
           maxWidth: 400,
-          mx: "auto",
+          mx: 'auto',
           bgcolor: theme.palette.background.default,
           borderRadius: 2,
           mb: 4,
@@ -117,11 +118,19 @@ const ExportPageContent: React.FC<ExportPageContentProps> = ({
         }}
       >
         <ListItem>
-          <ListItemText primary="Report Type" secondary={activeCategory === 'completed' ? 'Completed/Found Items' : 'Damaged/Missing Items'} />
+          <ListItemText
+            primary="Report Type"
+            secondary={
+              activeCategory === 'completed' ? 'Completed/Found Items' : 'Damaged/Missing Items'
+            }
+          />
         </ListItem>
         <Divider />
         <ListItem>
-          <ListItemText primary="Total Items Reviewed" secondary={`${percentReviewed}% (${totalItems - (items.filter(i => (i.status ?? '').toLowerCase() === 'to review').length)}/${totalItems})`} />
+          <ListItemText
+            primary="Total Items Reviewed"
+            secondary={`${percentReviewed}% (${totalItems - items.filter((i) => (i.status ?? '').toLowerCase() === 'to review').length}/${totalItems})`}
+          />
         </ListItem>
         <Divider />
         <ListItem>
@@ -141,15 +150,15 @@ const ExportPageContent: React.FC<ExportPageContentProps> = ({
           fontWeight: 700,
           bgcolor: theme.palette.success.main,
           color: theme.palette.getContrastText(theme.palette.success.main),
-          "&:hover": { bgcolor: theme.palette.success.dark },
+          '&:hover': { bgcolor: theme.palette.success.dark },
         }}
       >
-        Download {fileName.replace(".csv", ".CSV")}
+        Download {fileName.replace('.csv', '.CSV')}
       </Button>
-      
+
       <Box sx={{ mt: 3 }}>
         <Typography variant="caption" color="text.disabled">
-            File Name: {fileName}
+          File Name: {fileName}
         </Typography>
       </Box>
     </Paper>

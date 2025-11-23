@@ -6,7 +6,7 @@ export async function createTeamspace(
   description: string,
   userId: string,
   uic: string,
-  fe: string
+  fe: string,
 ) {
   const res = await fetch('/trpc/createTeamspace', {
     method: 'POST',
@@ -26,7 +26,6 @@ export async function createTeamspace(
   const json = await res.json();
   return json?.result?.data;
 }
-
 
 /* GET TEAMSPACE */
 export async function getTeamspace(userId: string) {

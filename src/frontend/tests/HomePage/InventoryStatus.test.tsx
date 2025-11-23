@@ -16,7 +16,7 @@ const renderComponent = (teamName: string, totals: Totals) => {
   return render(
     <ThemeProvider theme={theme}>
       <InventoryStatus teamName={teamName} totals={totals} />
-    </ThemeProvider>
+    </ThemeProvider>,
   );
 };
 
@@ -262,9 +262,7 @@ describe('InventoryStatus', () => {
       const longName = 'Very Long Team Name That Might Cause Layout Issues';
       renderComponent(longName, defaultTotals);
 
-      expect(
-        screen.getByText(`${longName}'s Inventory Status`)
-      ).toBeInTheDocument();
+      expect(screen.getByText(`${longName}'s Inventory Status`)).toBeInTheDocument();
     });
 
     it('handles team name with numbers', () => {

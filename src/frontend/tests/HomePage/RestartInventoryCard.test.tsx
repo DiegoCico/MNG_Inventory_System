@@ -19,7 +19,7 @@ const renderComponent = (teamId: string) => {
   return render(
     <ThemeProvider theme={theme}>
       <RestartInventoryCard teamId={teamId} />
-    </ThemeProvider>
+    </ThemeProvider>,
   );
 };
 
@@ -77,7 +77,7 @@ describe('RestartInventoryCard', () => {
 
       // Verify the component renders with the restart functionality
       expect(container.querySelector('[data-testid="restart-process"]')).toBeInTheDocument();
-      
+
       const restartButton = screen.getByRole('button', { name: /restart/i });
       expect(restartButton).toBeInTheDocument();
     });
@@ -119,7 +119,7 @@ describe('RestartInventoryCard', () => {
       const { rerender } = render(
         <ThemeProvider theme={theme}>
           <RestartInventoryCard teamId="team-123" />
-        </ThemeProvider>
+        </ThemeProvider>,
       );
 
       expect(screen.getByText('Team ID: team-123')).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe('RestartInventoryCard', () => {
       rerender(
         <ThemeProvider theme={theme}>
           <RestartInventoryCard teamId="team-456" />
-        </ThemeProvider>
+        </ThemeProvider>,
       );
 
       expect(screen.getByText('Team ID: team-456')).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe('RestartInventoryCard', () => {
       renderComponent('team-123');
 
       const restartButton = screen.getByRole('button', { name: /restart/i });
-      
+
       // Simulate rapid clicking
       for (let i = 0; i < 10; i++) {
         fireEvent.click(restartButton);
