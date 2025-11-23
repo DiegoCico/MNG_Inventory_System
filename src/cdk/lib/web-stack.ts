@@ -30,10 +30,7 @@ export class WebStack extends cdk.Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
-      removalPolicy:
-        stageName === 'prod'
-          ? cdk.RemovalPolicy.RETAIN
-          : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: stageName !== 'prod',
     });
 
@@ -42,21 +39,15 @@ export class WebStack extends cdk.Stack {
       comment: `${serviceName}-${stageName}-oai`,
     });
     this.bucket.grantRead(oai);
-
     const s3Origin = new origins.S3Origin(this.bucket, {
       originAccessIdentity: oai,
     });
 
     // ===== API Origin =====
     const apiDomainName = props.apiDomainName;
-    const apiPaths = props.apiPaths?.length
-      ? props.apiPaths
-      : ['/trpc/*', '/health', '/hello'];
+    const apiPaths = props.apiPaths?.length ? props.apiPaths : ['/trpc/*', '/health', '/hello'];
 
-    const additionalBehaviors: Record<
-      string,
-      cloudfront.BehaviorOptions
-    > = {};
+    const additionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
 
     if (apiDomainName) {
       const apiOrigin = new origins.HttpOrigin(apiDomainName, {
@@ -64,23 +55,21 @@ export class WebStack extends cdk.Stack {
         protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
       });
 
-      const apiRequestPolicy = new cloudfront.OriginRequestPolicy(
-        this,
-        'ApiRequestPolicy',
-        {
-          comment: 'Forward cookies and query strings for API requests',
-          cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
-          queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
-          headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
-            'Origin',
-            'Referer',
-            'Accept',
-            'Accept-Language',
-            'Content-Type',
-          ),
-        },
-      );
+      // Allow cookies, query strings, and safe headers
+      const apiRequestPolicy = new cloudfront.OriginRequestPolicy(this, 'ApiRequestPolicy', {
+        comment: 'Forward cookies and query strings for API requests',
+        cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
+        queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
+        headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
+          'Origin',
+          'Referer',
+          'Accept',
+          'Accept-Language',
+          'Content-Type',
+        ),
+      });
 
+      // Disable caching (CloudFront forwards everything, including Authorization)
       const apiCachePolicy = cloudfront.CachePolicy.CACHING_DISABLED;
 
       for (const pathPattern of apiPaths) {
@@ -89,8 +78,7 @@ export class WebStack extends cdk.Stack {
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: apiCachePolicy,
           originRequestPolicy: apiRequestPolicy,
-          viewerProtocolPolicy:
-            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         };
       }
     }
@@ -101,8 +89,7 @@ export class WebStack extends cdk.Stack {
       defaultRootObject: 'index.html',
       defaultBehavior: {
         origin: s3Origin,
-        viewerProtocolPolicy:
-          cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
       additionalBehaviors,
@@ -119,17 +106,16 @@ export class WebStack extends cdk.Stack {
     // ===== Deploy Frontend =====
     if (props.frontendBuildPath) {
       const resolved = path.resolve(__dirname, props.frontendBuildPath);
-
       if (fs.existsSync(resolved)) {
         new s3deploy.BucketDeployment(this, 'DeployFrontend', {
           sources: [s3deploy.Source.asset(resolved)],
           destinationBucket: this.bucket,
+          distribution: this.distribution,
+          distributionPaths: ['/*'],
           prune: true,
         });
       } else {
-        console.warn(
-          `[WebStack] Skipping deployment — path not found: ${resolved}`,
-        );
+        console.warn(`[WebStack] Skipping deployment — path not found: ${resolved}`);
       }
     }
 
@@ -137,7 +123,6 @@ export class WebStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'SiteUrl', {
       value: `https://${this.distribution.distributionDomainName}`,
     });
-
     new cdk.CfnOutput(this, 'ApiDomainName', {
       value: apiDomainName ?? 'No API domain provided',
     });
