@@ -99,7 +99,7 @@ const signIn = async (params: { email: string; password: string }) => {
 };
 
 export const authRouter = router({
-  inviteUser: permissionedProcedure('user.invite')
+  inviteUser: publicProcedure
     .input(
       z.object({
         email: z.string(),
@@ -383,7 +383,7 @@ export const authRouter = router({
         sub: userId,
         username,
         name: username,
-        role: 'User',
+        role: 'Owner',
         accountId,
         createdAt: now,
         updatedAt: now,
