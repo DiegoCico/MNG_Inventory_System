@@ -3,7 +3,7 @@ const TRPC = '/trpc';
 /* CREATE TEAMSPACE */
 export async function createTeamspace(
   name: string,
-  description: string, // LOCATION
+  description: string,
   userId: string,
   uic: string,
   fe: string
@@ -26,6 +26,7 @@ export async function createTeamspace(
   const json = await res.json();
   return json?.result?.data;
 }
+
 
 /* GET TEAMSPACE */
 export async function getTeamspace(userId: string) {

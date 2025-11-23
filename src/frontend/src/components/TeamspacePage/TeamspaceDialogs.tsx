@@ -50,15 +50,24 @@ export function CreateTeamDialog({
   showSnackbar,
 }: CreateTeamDialogProps) {
   const [workspaceName, setWorkspaceName] = useState('');
-  const [workspaceDesc, setWorkspaceDesc] = useState('');
-
-  // NEW — FE / UIC FIELDS
   const [uic, setUic] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
+
+  const [errors, setErrors] = useState({
+    workspaceName: false,
+    uic: false,
+    contactName: false,
+    contactEmail: false,
+  });
 
   const [loading, setLoading] = useState(false);
+
+  const allFilled =
+    workspaceName.trim() &&
+    uic.trim() &&
+    contactName.trim() &&
+    contactEmail.trim();
 
   async function getUserId(): Promise<string> {
     const user = await me();
@@ -66,18 +75,32 @@ export function CreateTeamDialog({
     return user.userId;
   }
 
+  function validateFields() {
+    const newErrors = {
+      workspaceName: workspaceName.trim() === '',
+      uic: uic.trim() === '',
+      contactName: contactName.trim() === '',
+      contactEmail: contactEmail.trim() === '',
+    };
+    setErrors(newErrors);
+
+    return !Object.values(newErrors).includes(true);
+  }
+
   async function handleCreate() {
+    if (!validateFields()) return;
+
     try {
       setLoading(true);
       const userId = await getUserId();
 
-      const result = await createTeamspace({
-        name: workspaceName,
-        description: contactEmail, 
+      const result = await createTeamspace(
+        workspaceName,
+        contactEmail, // location/description
+        userId,
         uic,
-        fe: contactName,       
-        userId,                 
-      });
+        contactName
+      );
 
       if (!result?.success) {
         showSnackbar(result.error || 'Failed to create team.', 'error');
@@ -101,7 +124,6 @@ export function CreateTeamDialog({
     }
   }
 
-
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>Create New Teamspace</DialogTitle>
@@ -112,6 +134,8 @@ export function CreateTeamDialog({
           label="Teamspace Name"
           value={workspaceName}
           onChange={(e) => setWorkspaceName(e.target.value)}
+          error={errors.workspaceName}
+          helperText={errors.workspaceName ? 'Required' : ''}
           sx={{ mb: 2 }}
         />
 
@@ -120,6 +144,8 @@ export function CreateTeamDialog({
           label="UIC"
           value={uic}
           onChange={(e) => setUic(e.target.value)}
+          error={errors.uic}
+          helperText={errors.uic ? 'Required' : ''}
           sx={{ mb: 2 }}
         />
 
@@ -128,6 +154,8 @@ export function CreateTeamDialog({
           label="FE"
           value={contactName}
           onChange={(e) => setContactName(e.target.value)}
+          error={errors.contactName}
+          helperText={errors.contactName ? 'Required' : ''}
           sx={{ mb: 2 }}
         />
 
@@ -136,6 +164,8 @@ export function CreateTeamDialog({
           label="Location"
           value={contactEmail}
           onChange={(e) => setContactEmail(e.target.value)}
+          error={errors.contactEmail}
+          helperText={errors.contactEmail ? 'Required' : ''}
           sx={{ mb: 2 }}
         />
       </DialogContent>
@@ -148,7 +178,7 @@ export function CreateTeamDialog({
           onClick={handleCreate}
           variant="contained"
           color="primary"
-          disabled={loading}
+          disabled={loading || !allFilled}
         >
           Create
         </Button>
