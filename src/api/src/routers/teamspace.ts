@@ -28,7 +28,9 @@ export const teamspaceRouter = router({
     .input(
       z.object({
         name: z.string().min(2).max(60),
-        description: z.string().max(280).optional(),
+        description: z.string().min(1),   // LOCATION
+        uic: z.string().min(1),
+        fe: z.string().min(1),
         userId: z.string().min(1),
       }),
     )
@@ -37,6 +39,7 @@ export const teamspaceRouter = router({
         const cleanName = input.name.trim().toLowerCase();
         const now = new Date().toISOString();
 
+        // Check duplicate name
         const dup = await doc.send(
           new QueryCommand({
             TableName: TABLE_NAME,
@@ -52,19 +55,28 @@ export const teamspaceRouter = router({
 
         const teamId = newId(12);
 
+        /** TEAM METADATA RECORD */
         const teamItem = {
           PK: `TEAM#${teamId}`,
           SK: 'METADATA',
           Type: 'Team',
           teamId,
           name: input.name,
-          description: input.description ?? '',
+
+          // LOCATION
+          description: input.description,
+
+          // NEW FIELDS
+          uic: input.uic,
+          fe: input.fe,
+
           ownerId: input.userId,
           createdAt: now,
           updatedAt: now,
           GSI_NAME: cleanName,
         };
 
+        /** MEMBERSHIP RECORD FOR OWNER */
         const memberItem = {
           PK: `TEAM#${teamId}`,
           SK: `MEMBER#${input.userId}`,
@@ -89,8 +101,9 @@ export const teamspaceRouter = router({
       }
     }),
 
+
   /** GET TEAMSPACES */
-  getTeamspace: permissionedProcedure("team.view")
+  getTeamspace: permissionedProcedure('team.view')
     .input(z.object({ userId: z.string().min(1) }))
     .query(async ({ input }) => {
       try {
@@ -125,41 +138,41 @@ export const teamspaceRouter = router({
       }
     }),
 
-/** GET SINGLE TEAM BY ID */
-getTeamById: publicProcedure
-  .input(z.object({ teamId: z.string().min(1), userId: z.string().min(1) }))
-  .query(async ({ input }) => {
-    try {
-      // Check if user is a member of this team (any role/permission grants access to view)
-      const memberCheck = await doc.send(
-        new GetCommand({
-          TableName: TABLE_NAME,
-          Key: { PK: `TEAM#${input.teamId}`, SK: `MEMBER#${input.userId}` },
-        }),
-      );
+  /** GET SINGLE TEAM BY ID */
+  getTeamById: publicProcedure
+    .input(z.object({ teamId: z.string().min(1), userId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      try {
+        // Check if user is a member of this team (any role/permission grants access to view)
+        const memberCheck = await doc.send(
+          new GetCommand({
+            TableName: TABLE_NAME,
+            Key: { PK: `TEAM#${input.teamId}`, SK: `MEMBER#${input.userId}` },
+          }),
+        );
 
-      if (!memberCheck.Item) {
-        return { success: false, error: 'Not authorized to view this team.' };
+        if (!memberCheck.Item) {
+          return { success: false, error: 'Not authorized to view this team.' };
+        }
+
+        // Get team metadata
+        const res = await doc.send(
+          new GetCommand({
+            TableName: TABLE_NAME,
+            Key: { PK: `TEAM#${input.teamId}`, SK: 'METADATA' },
+          }),
+        );
+
+        if (!res.Item) {
+          return { success: false, error: 'Team not found.' };
+        }
+
+        return { success: true, team: res.Item };
+      } catch (err: any) {
+        console.error('❌ getTeamById error:', err);
+        return { success: false, error: err.message || 'Failed to fetch team.' };
       }
-
-      // Get team metadata
-      const res = await doc.send(
-        new GetCommand({
-          TableName: TABLE_NAME,
-          Key: { PK: `TEAM#${input.teamId}`, SK: 'METADATA' },
-        }),
-      );
-
-      if (!res.Item) {
-        return { success: false, error: 'Team not found.' };
-      }
-
-      return { success: true, team: res.Item };
-    } catch (err: any) {
-      console.error('❌ getTeamById error:', err);
-      return { success: false, error: err.message || 'Failed to fetch team.' };
-    }
-  }),
+    }),
 
   /** ADD USER TO TEAMSPACE */
   addUserTeamspace: permissionedProcedure('team.add_member')
@@ -330,8 +343,7 @@ getTeamById: publicProcedure
       }
     }),
   /** GET ALL USERS */
-  getAllUsers: protectedProcedure
-  .query(async () => {
+  getAllUsers: protectedProcedure.query(async () => {
     try {
       const res = await doc.send(
         new ScanCommand({
