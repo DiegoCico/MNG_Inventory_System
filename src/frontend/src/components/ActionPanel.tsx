@@ -2,15 +2,13 @@
 import React, { useState } from 'react';
 import {
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Stack,
+  Box,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Typography,
+  Stack,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -21,7 +19,6 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { createItem, deleteItem, updateItem } from '../api/items';
 import { me } from '../api/auth';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '@mui/material/styles';
 
 async function getUserId(): Promise<string> {
   try {
@@ -33,20 +30,19 @@ async function getUserId(): Promise<string> {
 }
 
 export default function ActionPanel({
-  isCreateMode,
-  isEditMode,
-  setIsEditMode,
-  product,
-  editedProduct,
-  teamId,
-  itemId,
-  selectedImageFile,
-  imagePreview,
-  setShowSuccess,
-  damageReports,
-}: any) {
+                                      isCreateMode,
+                                      isEditMode,
+                                      setIsEditMode,
+                                      product,
+                                      editedProduct,
+                                      teamId,
+                                      itemId,
+                                      selectedImageFile,
+                                      imagePreview,
+                                      setShowSuccess,
+                                      damageReports,
+                                    }: any) {
   const navigate = useNavigate();
-  const theme = useTheme();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -108,7 +104,7 @@ export default function ActionPanel({
           editedProduct.actualName || nameValue,
           editedProduct.nsn || editedProduct.serialNumber || '',
           editedProduct.serialNumber || '',
-          imageBase64, // ← CLEAN FIX
+          imageBase64,
           editedProduct.description || '',
           editedProduct.parent?.itemId || null,
         );
@@ -126,7 +122,7 @@ export default function ActionPanel({
           serialNumber: editedProduct.serialNumber || '',
           quantity: Number(editedProduct.quantity) || 1,
           description: editedProduct.description || '',
-          imageBase64, // ← CLEAN FIX
+          imageBase64,
           status: editedProduct.status || 'To Review',
           notes: editedProduct.notes || '',
           parent: editedProduct.parent?.itemId || null,
@@ -151,83 +147,65 @@ export default function ActionPanel({
 
   return (
     <>
-      <Card
-        variant="outlined"
-        sx={{
-          position: 'sticky',
-          top: 16,
-          borderRadius: 3,
-          boxShadow:
-            theme.palette.mode === 'dark'
-              ? '0 2px 10px rgba(0,0,0,0.4)'
-              : '0 2px 8px rgba(0,0,0,0.05)',
-          bgcolor: theme.palette.background.paper,
-        }}
-      >
-        <CardHeader title="Actions" />
-        <CardContent>
-          {/* Buttons */}
-          <Stack spacing={1}>
-            {(isEditMode || isCreateMode) && (
-              <>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={() => handleSave()}
-                >
-                  {isCreateMode ? 'Create Item' : 'Save Changes'}
-                </Button>
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        {(isEditMode || isCreateMode) && (
+          <>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={() => handleSave()}
+              sx={{ flex: 1 }}
+            >
+              {isCreateMode ? 'Create' : 'Save'}
+            </Button>
 
-                {!isCreateMode && (
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<CancelIcon />}
-                    onClick={() => setIsEditMode(false)}
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </>
+            {!isCreateMode && (
+              <Button
+                variant="outlined"
+                startIcon={<CancelIcon />}
+                onClick={() => setIsEditMode(false)}
+                sx={{ flex: 1 }}
+              >
+                Cancel
+              </Button>
             )}
+          </>
+        )}
 
-            {!isEditMode && !isCreateMode && (
-              <>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="success"
-                  startIcon={<SaveIcon />}
-                  onClick={() => handleSave(true)}
-                >
-                  Save
-                </Button>
+        {!isEditMode && !isCreateMode && (
+          <>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<SaveIcon />}
+              onClick={() => handleSave(true)}
+              sx={{ flex: 1 }}
+            >
+              Save
+            </Button>
 
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  startIcon={<EditIcon />}
-                  onClick={() => setIsEditMode(true)}
-                >
-                  Edit
-                </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<EditIcon />}
+              onClick={() => setIsEditMode(true)}
+              sx={{ flex: 1 }}
+            >
+              Edit
+            </Button>
 
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="error"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  Delete
-                </Button>
-              </>
-            )}
-          </Stack>
-        </CardContent>
-      </Card>
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteOpen(true)}
+              sx={{ flex: 1 }}
+            >
+              Delete
+            </Button>
+          </>
+        )}
+      </Box>
 
       {/* Delete Dialog */}
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>

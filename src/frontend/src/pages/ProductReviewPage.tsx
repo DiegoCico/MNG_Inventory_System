@@ -166,21 +166,37 @@ export default function ProductReviewPage() {
             mt: 3,
           }}
         >
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate(-1)}
-            sx={{
-              textTransform: 'none',
-              color: theme.palette.text.secondary,
-              mb: 2,
-              '&:hover': {
-                bgcolor:
-                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-              },
-            }}
-          >
-            Back
-          </Button>
+          {/* Back button and Action Panel on same row */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate(-1)}
+              sx={{
+                textTransform: 'none',
+                color: theme.palette.text.secondary,
+                '&:hover': {
+                  bgcolor:
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                },
+              }}
+            >
+              Back
+            </Button>
+
+            <ActionPanel
+              isCreateMode={isCreateMode}
+              isEditMode={isEditMode}
+              setIsEditMode={setIsEditMode}
+              product={product}
+              editedProduct={editedProduct}
+              teamId={teamId!}
+              itemId={itemId!}
+              selectedImageFile={selectedImageFile}
+              imagePreview={imagePreview}
+              setShowSuccess={setShowSuccess}
+              damageReports={damageReports}
+            />
+          </Box>
 
           <Grid container spacing={3} justifyContent="center" alignItems="flex-start">
             <Grid item xs={12} md={4}>
@@ -193,7 +209,7 @@ export default function ProductReviewPage() {
               />
             </Grid>
 
-            <Grid item xs={12} md={5}>
+            <Grid item xs={12} md={8}>
               <ItemDetailsForm
                 editedProduct={editedProduct}
                 setEditedProduct={setEditedProduct}
@@ -213,22 +229,6 @@ export default function ProductReviewPage() {
               )}
 
               {editedProduct && <ChildrenTree editedProduct={editedProduct} teamId={teamId!} />}
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <ActionPanel
-                isCreateMode={isCreateMode}
-                isEditMode={isEditMode}
-                setIsEditMode={setIsEditMode}
-                product={product}
-                editedProduct={editedProduct}
-                teamId={teamId!}
-                itemId={itemId!}
-                selectedImageFile={selectedImageFile}
-                imagePreview={imagePreview}
-                setShowSuccess={setShowSuccess}
-                damageReports={damageReports}
-              />
             </Grid>
           </Grid>
 
