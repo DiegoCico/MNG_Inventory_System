@@ -42,7 +42,9 @@ export default function ProductReviewPage() {
     (async () => {
       try {
         if (!teamId) throw new Error('Missing team ID');
+
         const all = await getItems(teamId);
+
         if (all.success && all.items) {
           const flat = flattenTree(all.items);
           setItemsList(flat.filter((x: any) => x.itemId !== itemId));
@@ -53,9 +55,16 @@ export default function ProductReviewPage() {
             productName: '',
             actualName: '',
             description: '',
+            nsn: '',
             serialNumber: '',
-            quantity: 1,
-            status: 'Incomplete',
+            authQuantity: 1,
+            ohQuantity: 1,
+            liin: '',
+            endItemNiin: '',
+            status: 'To Review',
+            isKit: false,
+            parent: null,
+            notes: '',
           };
           setProduct(blank);
           setEditedProduct(blank);
@@ -64,6 +73,7 @@ export default function ProductReviewPage() {
         }
 
         const res = await getItem(teamId, itemId!);
+
         if (!res.success || !res.item) throw new Error(res.error);
 
         const item = res.item;
@@ -71,7 +81,7 @@ export default function ProductReviewPage() {
         // Map API fields to component fields
         const mappedItem = {
           ...item,
-          productName: item.name, // Map 'name' to 'productName'
+          productName: item.name,
           actualName: item.actualName,
         };
 
@@ -189,6 +199,7 @@ export default function ProductReviewPage() {
                 setEditedProduct={setEditedProduct}
                 itemsList={itemsList}
                 isEditMode={isEditMode}
+                isCreateMode={isCreateMode}
                 alwaysEditableFields={['status', 'description', 'notes']}
               />
 
@@ -201,7 +212,7 @@ export default function ProductReviewPage() {
                 />
               )}
 
-              <ChildrenTree editedProduct={editedProduct} teamId={teamId!} />
+              {editedProduct && <ChildrenTree editedProduct={editedProduct} teamId={teamId!} />}
             </Grid>
 
             <Grid item xs={12} md={3}>

@@ -37,9 +37,11 @@ describe('ProductReviewPage', () => {
         actualName: 'M4 Carbine',
         description: 'Standard issue',
         serialNumber: 'R001',
-        quantity: 1,
+        authQuantity: 1,
+        ohQuantity: 1,
         status: 'Available',
         children: [],
+        isKit: false,
       },
     });
   });
