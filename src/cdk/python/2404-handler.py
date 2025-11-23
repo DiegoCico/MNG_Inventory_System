@@ -41,16 +41,7 @@ FIELD_COORDS = {
     "NOMENCLATURE":       (390, 720),
     "MODEL":              (500, 720),
     "SERIAL_NUMBER":      (90, 690),
-    "TYPE_OF_INSPECTION": (490, 690),
-    "TM_NUMBER":          (90, 660),
-    "TM_DATE":            (220, 660),
-    "MILES":              (190, 690),
-    "HOURS":              (250, 690),
-    "ROUNDS":             (290, 690),
-    "HOTSTARTS":          (340, 690),
     "DATE":               (400, 690),
-    "TM2_NUMBER":         (330, 660),
-    "TM2_DATE":           (500, 660),
 }
 
 REMARKS_TABLE = {
@@ -69,16 +60,7 @@ PLACEHOLDERS = {
     "NOMENCLATURE":       "<nomenclature>",
     "MODEL":              "<model>",
     "SERIAL_NUMBER":      "<serial>",
-    "MILES":              "<miles>",
-    "HOURS":              "<hours>",
-    "ROUNDS":             "<rounds>",
-    "HOTSTARTS":          "<hotstarts>",
     "DATE":               "<yyyy-mm-dd>",
-    "TYPE_OF_INSPECTION": "<inspectionType>",
-    "TM_NUMBER":          "<tmNumber>",
-    "TM_DATE":            "<tmDate>",
-    "TM2_NUMBER":         "<tm2Number>",
-    "TM2_DATE":           "<tm2Date>",
     "REMARKS":            "<remarks row>",
 }
 
@@ -88,16 +70,7 @@ LABELS = {
     "MODEL":              "MODEL",
     "SERIAL NUMBER":      "SERIAL NUMBER",
     "SERIAL_NUMBER":      "SERIAL NUMBER",
-    "MILES":              "MILES",
-    "HOURS":              "HOURS",
-    "ROUNDS":             "ROUNDS",
-    "HOTSTARTS":          "HOTSTARTS",
     "DATE":               "DATE",
-    "TYPE_OF_INSPECTION": "TYPE OF INSPECTION",
-    "TM_NUMBER":          "TM NUMBER",
-    "TM_DATE":            "TM DATE",
-    "TM2_NUMBER":         "TM2 NUMBER",
-    "TM2_DATE":           "TM2 DATE",
     "REMARKS":            "REMARKS",
 }
 
@@ -196,9 +169,6 @@ def stamp(template_bytes, values, font="Helvetica", size=9):
     return out.getvalue()
 
 def read_template_bytes():
-    """
-    Reads DA-2404 template PDF from S3.
-    """
     bucket = "mng-dev-uploads-245120345540"
     key    = "templates/DA2404_template.pdf"
 
@@ -234,12 +204,7 @@ def s3_put_pdf(bucket: str, key: str, body: bytes):
         ACL="private"
     )
 
-
 def to_pdf_values(payload):
-    """
-    Accepts either direct request fields OR a DDB-shaped dict.
-    Produces the overlay field map expected by the stamper.
-    """
     if payload.get("_labels"):
         keys = list(FIELD_COORDS.keys()) + ["REMARKS"]
         out = {k: LABELS.get(k, k) for k in keys}
@@ -269,16 +234,7 @@ def to_pdf_values(payload):
         "NOMENCLATURE":       pick("nomenclature", "NOMENCLATURE"),
         "MODEL":              pick("model", "MODEL"),
         "SERIAL_NUMBER":      (payload.get("serial") or payload.get("serialNumber") or "N/A"),
-        "MILES":              pick("miles", "MILES"),
-        "HOURS":              pick("hours", "HOURS"),
-        "ROUNDS":             pick("rounds", "ROUNDS"),
-        "HOTSTARTS":          pick("hotstarts", "HOTSTARTS"),
         "DATE":               (payload.get("date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-        "TYPE_OF_INSPECTION": pick("inspectionType", "TYPE_OF_INSPECTION"),
-        "TM_NUMBER":          pick("tmNumber", "TM_NUMBER"),
-        "TM_DATE":            pick("tmDate", "TM_DATE"),
-        "TM2_NUMBER":         pick("tm2Number", "TM2_NUMBER"),
-        "TM2_DATE":           pick("tm2Date", "TM2_DATE"),
         "REMARKS_LIST":       remarks_list,
     }
 
@@ -336,24 +292,20 @@ def lambda_handler(event, context):
     sk = payload.get("sk", "LATEST")
     save_to_s3 = bool(payload.get("saveToS3", True))
 
-    # derive unit/asset from PK if possible
     unit = asset = None
     if pk:
         parts = pk.split("#")
         unit  = parts[2] if len(parts) > 2 else None
         asset = parts[3] if len(parts) > 3 else None
 
-    # load template
     try:
         tmpl = read_template_bytes()
     except Exception as e:
         return _resp(500, {"error": f"Template read failed: {e}"})
 
-
     try:
         if pk:
             ddb_item = ddb_get(pk, sk)
-            # allow request to provide overrides on top of DDB
             merged = {**ddb_item, **payload.get("override", {})}
             values = to_pdf_values(merged)
         else:
@@ -362,12 +314,10 @@ def lambda_handler(event, context):
     except Exception as e:
         return _resp(500, {"error": f"Stamping failed: {e}"})
 
-    # file naming + path in uploads bucket
     form_id = (payload.get("formId") or asset or str(uuid.uuid4())).strip()
     filename = f"DA2404_{form_id}.pdf"
 
     if save_to_s3:
-        # choose team/asset fallbacks
         team_id = payload.get("teamId") or unit or "UnknownTeam"
         asset_id = asset or payload.get("asset") or form_id
         key = f"Documents/{team_id}/2404/{filename}"  
@@ -377,7 +327,6 @@ def lambda_handler(event, context):
             return _resp(500, {"error": f"S3 put failed: {e}"})
         return _resp(200, {"ok": True, "s3Key": key, "contentType": "application/pdf"})
 
-    # inline download
     b64 = base64.b64encode(pdf_bytes).decode("utf-8")
     return _resp(
         200,

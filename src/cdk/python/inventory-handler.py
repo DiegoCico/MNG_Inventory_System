@@ -156,7 +156,7 @@ def render_inventory_csv(data):
         writer.writerow([
             overrides.get("fe") or "",
             overrides.get("uic") or "",
-            overrides.get("unitDesc") or "",
+            overrides.get("teamName") or "",
             end_niin or "",
             end_lin or "",
             end_desc or ""
