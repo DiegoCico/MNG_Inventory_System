@@ -47,7 +47,7 @@ export async function getItems(teamId: string) {
     )}`,
     { method: 'GET' },
   );
-  console.log(data);
+  // console.log(data);
   return data ?? {};
 }
 

@@ -185,6 +185,7 @@ export default function RoleManagementTab() {
         onClose={() => setFormOpen(false)}
         onSubmit={formMode === 'create' ? handleCreateRole : handleEditRole}
         mode={formMode}
+        readOnly={selectedRole ? DEFAULT_ROLES.includes(selectedRole.name) : false}
         initialData={
           selectedRole
             ? {

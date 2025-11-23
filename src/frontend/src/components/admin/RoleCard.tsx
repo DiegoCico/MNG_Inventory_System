@@ -12,6 +12,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { Permission } from './PermissionCheckboxGroup';
 
 interface RoleCardProps {
@@ -66,10 +67,10 @@ export default function RoleCard({
       </CardContent>
 
       <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
-        <Tooltip title={isDefault ? 'Default roles cannot be edited' : 'Edit role'}>
+        <Tooltip title={isDefault ? 'View permissions' : 'Edit role'}>
           <span>
-            <IconButton size="small" onClick={onEdit} disabled={isDefault} color="primary">
-              <EditIcon fontSize="small" />
+            <IconButton size="small" onClick={onEdit} color="primary">
+              {isDefault ? <VisibilityIcon fontSize="small" /> : <EditIcon fontSize="small" />}
             </IconButton>
           </span>
         </Tooltip>
