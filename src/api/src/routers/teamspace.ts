@@ -10,6 +10,7 @@ import {
 import crypto from 'crypto';
 import { doc } from '../aws';
 import { loadConfig } from '../process';
+import { DeleteObjectsCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 
 const config = loadConfig();
 const TABLE_NAME = config.TABLE_NAME;
@@ -123,6 +124,42 @@ export const teamspaceRouter = router({
         return { success: false, error: err.message || 'Failed to fetch teams.' };
       }
     }),
+
+/** GET SINGLE TEAM BY ID */
+getTeamById: publicProcedure
+  .input(z.object({ teamId: z.string().min(1), userId: z.string().min(1) }))
+  .query(async ({ input }) => {
+    try {
+      // Check if user is a member of this team (any role/permission grants access to view)
+      const memberCheck = await doc.send(
+        new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: `TEAM#${input.teamId}`, SK: `MEMBER#${input.userId}` },
+        }),
+      );
+
+      if (!memberCheck.Item) {
+        return { success: false, error: 'Not authorized to view this team.' };
+      }
+
+      // Get team metadata
+      const res = await doc.send(
+        new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: `TEAM#${input.teamId}`, SK: 'METADATA' },
+        }),
+      );
+
+      if (!res.Item) {
+        return { success: false, error: 'Team not found.' };
+      }
+
+      return { success: true, team: res.Item };
+    } catch (err: any) {
+      console.error('❌ getTeamById error:', err);
+      return { success: false, error: err.message || 'Failed to fetch team.' };
+    }
+  }),
 
   /** ADD USER TO TEAMSPACE */
   addUserTeamspace: permissionedProcedure('team.add_member')
@@ -244,7 +281,9 @@ export const teamspaceRouter = router({
           new QueryCommand({
             TableName: TABLE_NAME,
             KeyConditionExpression: 'PK = :pk',
-            ExpressionAttributeValues: { ':pk': `TEAM#${input.inviteWorkspaceId}` },
+            ExpressionAttributeValues: {
+              ':pk': `TEAM#${input.inviteWorkspaceId}`,
+            },
           }),
         );
 
@@ -259,6 +298,30 @@ export const teamspaceRouter = router({
             ),
           ),
         );
+
+        const s3 = new S3Client({ region: config.REGION });
+
+        const prefix = `items/${input.inviteWorkspaceId}/`;
+
+        const listed = await s3.send(
+          new ListObjectsV2Command({
+            Bucket: config.BUCKET_NAME,
+            Prefix: prefix,
+          }),
+        );
+
+        const contents = listed.Contents ?? [];
+
+        if (contents.length > 0) {
+          await s3.send(
+            new DeleteObjectsCommand({
+              Bucket: config.BUCKET_NAME,
+              Delete: {
+                Objects: contents.map((o) => ({ Key: o.Key! })),
+              },
+            }),
+          );
+        }
 
         return { success: true, deleted: input.inviteWorkspaceId };
       } catch (err: any) {

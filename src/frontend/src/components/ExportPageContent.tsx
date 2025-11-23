@@ -1,307 +1,159 @@
-import React, { useState } from 'react';
-import { Box, Stack, Typography, Button, Paper, useTheme, useMediaQuery } from '@mui/material';
-import { useParams } from 'react-router-dom';
-import PrintIcon from '@mui/icons-material/Print';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import CircularProgressBar from './CircularProgressBar';
-import ExportPreview from './ExportPreview';
-import { getInventoryForm } from '../api/api';
+import React from "react";
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+} from "@mui/material";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import { useTheme } from "@mui/material/styles";
 
-export default function ExportPageContent() {
-  const { teamId } = useParams<{ teamId: string }>();
+// Define the core types used by the page component (normally imported from a shared file)
+
+interface InventoryItem {
+    itemId?: string;
+    name?: string;
+    status?: string;
+    description?: string;
+    createdAt: number;
+    [key: string]: unknown; 
+}
+
+// FIX 1 & 2: Define CsvItem explicitly to avoid empty interface and 'any' errors
+interface CsvItem {
+    "Item ID": string;
+    "Product Name": string;
+    "Status": string;
+    "Description": string;
+    "Date Added": string;
+    "Team ID": string;
+    [key: string]: unknown; 
+}
+
+// FIX 3: Define component props using the explicit types
+interface ExportPageContentProps {
+    items: InventoryItem[]; // Replaced any[]
+    percentReviewed: number;
+    activeCategory: 'completed' | 'broken';
+    csvData: CsvItem[]; // Replaced any[]
+}
+
+const ExportPageContent: React.FC<ExportPageContentProps> = ({
+  items,
+  percentReviewed,
+  activeCategory,
+  csvData,
+}) => {
   const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
-  const [previewOpen, setPreviewOpen] = useState(false);
 
-  // Local state for fetched PDF
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const fileName = `${activeCategory}_inventory_report_${new Date().toLocaleDateString()}.csv`;
+  const totalItems = items.length;
+  const filteredCount = csvData.length;
 
-  // Temporary static values
-  const completion = 80;
-  const cardBorder = `1px solid ${theme.palette.divider}`;
-  const team = 'MNG INVENTORY';
-
-  const handlePrint = () => window.print();
-
-  const handleDownloadPDF = async () => {
-    try {
-      const data = await getInventoryForm(teamId, '2404'); // or dynamic nsn
-      if (data?.url) {
-        window.open(data.url, '_blank'); // opens PDF in new tab
-      } else {
-        alert('PDF not found or could not be retrieved.');
-      }
-    } catch (err: unknown) {
-      console.error('Error fetching inventory form:', err);
-      if (err instanceof Error) {
-        alert(err.message);
-      } else {
-        alert('Failed to fetch PDF.');
-      }
+  const downloadCsv = () => {
+    if (csvData.length === 0) {
+      console.warn("No data to export.");
+      return;
     }
-  };
 
-  const handlePreviewOpen = async () => {
-    try {
-      const data = await getInventoryForm(teamId, '2404');
-      if (data?.url) {
-        setPdfUrl(data.url);
-        setPreviewOpen(true);
-      } else {
-        alert('PDF not found.');
-      }
-    } catch (err: unknown) {
-      console.error('Error fetching preview:', err);
-      if (err instanceof Error) {
-        alert(err.message);
-      } else {
-        alert('Failed to open preview.');
-      }
-    }
+    // Convert data to CSV string
+    const headers = Object.keys(csvData[0]);
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          // Handle null/undefined and escape inner quotes
+          return `"${(value === null || value === undefined ? '' : String(value)).replace(/"/g, '""')}"`;
+        }).join(",")
+      )
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <Box
+    <Paper
+      elevation={4}
       sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflowX: 'hidden',
+        p: { xs: 3, md: 6 },
+        maxWidth: 800,
+        mx: "auto",
+        mt: 4,
+        borderRadius: 4,
+        textAlign: "center",
       }}
     >
-      {/* Main Content */}
-      <Box
+      <FileDownloadIcon
+        sx={{ fontSize: 70, color: theme.palette.success.main, mb: 2 }}
+      />
+      <Typography variant="h4" fontWeight={800} gutterBottom>
+        Documents Ready
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+        Your report for the **{activeCategory.toUpperCase()}** inventory is generated and ready for download.
+      </Typography>
+
+      <List
         sx={{
-          flex: 1,
+          maxWidth: 400,
+          mx: "auto",
           bgcolor: theme.palette.background.default,
-          p: { xs: 2, sm: 3, md: 4 },
-          color: theme.palette.text.primary,
-          pb: { xs: 12, sm: 14 },
+          borderRadius: 2,
+          mb: 4,
+          p: 1,
+          border: `1px solid ${theme.palette.divider}`,
         }}
       >
-        {isDesktop ? (
-          // Desktop Layout
-          <Box sx={{ display: 'flex', gap: 3, height: 'calc(100vh - 140px)' }}>
-            {/* PDF Viewer */}
-            <Paper
-              elevation={0}
-              sx={{
-                flex: 1,
-                border: cardBorder,
-                bgcolor: theme.palette.background.paper,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  borderBottom: cardBorder,
-                  bgcolor: theme.palette.background.default,
-                }}
-              >
-                <Typography variant="h6" fontWeight={800}>
-                  Completed Inventory Form
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Team: {team} {teamId && `• ID: ${teamId}`}
-                </Typography>
-              </Box>
+        <ListItem>
+          <ListItemText primary="Report Type" secondary={activeCategory === 'completed' ? 'Completed/Found Items' : 'Damaged/Missing Items'} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Total Items Reviewed" secondary={`${percentReviewed}% (${totalItems - (items.filter(i => (i.status ?? '').toLowerCase() === 'to review').length)}/${totalItems})`} />
+        </ListItem>
+        <Divider />
+        <ListItem>
+          <ListItemText primary="Items in Report" secondary={`${filteredCount} items`} />
+        </ListItem>
+      </List>
 
-              {/* PDF Display Area */}
-              <Box
-                sx={{
-                  flex: 1,
-                  p: 0,
-                  bgcolor: theme.palette.mode === 'dark' ? '#1a1a1a' : '#f5f5f5',
-                }}
-              >
-                {pdfUrl ? (
-                  <iframe
-                    src={pdfUrl}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 'none' }}
-                    title="Inventory Form PDF"
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '100%',
-                      color: theme.palette.text.secondary,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      PDF not loaded — click “Download PDF” or “View Completed Form”.
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            </Paper>
-
-            {/* Sidebar */}
-            <Box sx={{ width: 320 }}>
-              <Stack spacing={3}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    border: cardBorder,
-                    bgcolor: theme.palette.background.paper,
-                    textAlign: 'center',
-                  }}
-                >
-                  <Typography variant="h6" fontWeight={800} mb={2}>
-                    Export Status
-                  </Typography>
-                  <CircularProgressBar value={completion} />
-                </Paper>
-
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    border: cardBorder,
-                    bgcolor: theme.palette.background.paper,
-                  }}
-                >
-                  <Typography variant="h6" fontWeight={800} mb={3}>
-                    Export Actions
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      fullWidth
-                      size="large"
-                      startIcon={<PrintIcon />}
-                      onClick={handlePrint}
-                      sx={{ py: 1.5, fontWeight: 700 }}
-                    >
-                      Print Report
-                    </Button>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      size="large"
-                      startIcon={<PictureAsPdfIcon />}
-                      onClick={handleDownloadPDF}
-                      sx={{
-                        py: 1.5,
-                        fontWeight: 700,
-                        bgcolor: theme.palette.warning.main,
-                        color: theme.palette.getContrastText(theme.palette.warning.main),
-                        '&:hover': {
-                          bgcolor: theme.palette.warning.dark,
-                        },
-                      }}
-                    >
-                      Download PDF
-                    </Button>
-                  </Stack>
-                </Paper>
-
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    border: cardBorder,
-                    bgcolor: theme.palette.background.paper,
-                  }}
-                >
-                  <Typography variant="subtitle2" fontWeight={700} mb={1}>
-                    Document Information
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Generated: {new Date().toLocaleDateString()}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Format: PDF Document
-                  </Typography>
-                </Paper>
-              </Stack>
-            </Box>
-          </Box>
-        ) : (
-          // Mobile Layout
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Paper
-              elevation={0}
-              sx={{
-                p: 4,
-                border: cardBorder,
-                bgcolor: theme.palette.background.paper,
-                maxWidth: 600,
-                width: '100%',
-              }}
-            >
-              <Typography variant="h5" fontWeight={800} mb={1}>
-                Inventory Export
-              </Typography>
-
-              <Typography variant="body2" color="text.secondary" mb={3}>
-                Team: <strong>{team}</strong> {teamId && `• ID: ${teamId}`}
-              </Typography>
-
-              <Typography variant="body1" sx={{ mb: 3 }}>
-                Review and export your completed inventory report.
-              </Typography>
-
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  my: 3,
-                }}
-              >
-                <CircularProgressBar value={completion} />
-              </Box>
-
-              <Box sx={{ mt: 4 }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  fullWidth
-                  sx={{
-                    py: 1.5,
-                    fontWeight: 700,
-                  }}
-                  onClick={handlePreviewOpen}
-                >
-                  View Completed Form
-                </Button>
-              </Box>
-            </Paper>
-          </Box>
-        )}
+      <Button
+        onClick={downloadCsv}
+        variant="contained"
+        size="large"
+        startIcon={<FileDownloadIcon />}
+        sx={{
+          borderRadius: 2,
+          px: 5,
+          py: 1.5,
+          fontWeight: 700,
+          bgcolor: theme.palette.success.main,
+          color: theme.palette.getContrastText(theme.palette.success.main),
+          "&:hover": { bgcolor: theme.palette.success.dark },
+        }}
+      >
+        Download {fileName.replace(".csv", ".CSV")}
+      </Button>
+      
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="caption" color="text.disabled">
+            File Name: {fileName}
+        </Typography>
       </Box>
-
-      {/* PDF Preview Modal (Mobile Only) */}
-      <ExportPreview
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        pdfUrl={pdfUrl || ''}
-        completion={completion}
-        team={team}
-        onPrint={handlePrint}
-        onDownload={handleDownloadPDF}
-      />
-
-      {/* Bottom Nav */}
-      <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}></Box>
-    </Box>
+    </Paper>
   );
-}
+};
+
+export default ExportPageContent;

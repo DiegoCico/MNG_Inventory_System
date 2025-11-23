@@ -59,7 +59,6 @@ export default function FollowUpsTable({ followUps }: FollowUpsTableProps) {
             <th>Kit</th>
             <th>Status</th>
             <th>Reviewed On</th>
-            <th>Notes</th>
           </tr>
         </thead>
         <tbody>
@@ -79,7 +78,6 @@ export default function FollowUpsTable({ followUps }: FollowUpsTableProps) {
                 <td>{item.parent ?? 'N/A'}</td>
                 <td>{item.status}</td>
                 <td>{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : 'N/A'}</td>
-                <td>{item.notes}</td>
               </tr>
             ))
           ) : (

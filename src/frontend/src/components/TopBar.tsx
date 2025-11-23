@@ -66,7 +66,7 @@ export default function TopBar({
             onClick={onProfileClick}
             sx={{
               color: theme.palette.primary.contrastText,
-              '&:hover': { bgcolor: theme.palette.primary.dark },
+              '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.15) },
             }}
           >
             {profileImage ? (

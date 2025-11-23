@@ -17,6 +17,8 @@ import RestartInventoryProcess from '../components/HomePage/RestartInventoryCard
 import TeamActivityChart from '../components/HomePage/TeamActivityChart';
 
 import { getItems } from '../api/items';
+import { me } from '../api/auth'; // Import your auth function
+import { getTeam } from '../api/home';
 
 export default function HomePage() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -25,6 +27,7 @@ export default function HomePage() {
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<any | null>(null);
+  const [teamName, setTeamName] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,16 +47,31 @@ export default function HomePage() {
         setLoading(true);
         setError(null);
 
-        // use getItems function and summarize a subset of data to populate the different dashboard components
-        const result = await getItems(teamId);
+        // Get current user for auth
+        const currentUser = await me();
 
-        if (!result.success || !result.items) {
-          setError(result.error || 'Failed to fetch items');
+        // use getItems function and summarize a subset of data to populate the different dashboard components
+                // Fetch team data and items in parallel
+        const [teamResult, itemsResult] = await Promise.all([
+          getTeam(teamId, currentUser.userId),
+          getItems(teamId)
+        ]);
+
+        // Set team name
+        if (teamResult.success && teamResult.team) {
+          setTeamName(teamResult.team.name);
+        }
+
+        //const result = await getItems(teamId);
+
+        // Process items data
+        if (!itemsResult.success || !itemsResult.items) {
+          setError(itemsResult.error || 'Failed to fetch items');
           return;
         }
 
         //const items = Array.isArray(result.items) ? result.items : [];
-        const fetchedItems = Array.isArray(result.items) ? result.items : [];
+        const fetchedItems = Array.isArray(itemsResult.items) ? itemsResult.items : [];
         setItems(fetchedItems); // store raw items
 
         // define dashboard constants
@@ -66,7 +84,6 @@ export default function HomePage() {
           status: string;
           updatedAt: string;
           createdBy: string;
-          notes: string;
           parent: string;
         }> = [];
         for (const item of fetchedItems) {
@@ -102,7 +119,6 @@ export default function HomePage() {
               name: item.name,
               status,
               parent: item.parent ?? 'N/A',
-              notes: item.notes ?? '',
               updatedAt: item.updatedAt ?? '',
               createdBy,
             });
@@ -166,7 +182,7 @@ export default function HomePage() {
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 8 }}>
               <Stack spacing={3}>
-                <InventoryStatus teamId={teamId!} totals={totals} />
+                <InventoryStatus teamName={teamName || teamId!} totals={totals} />
                 <InventoryReviewed
                   percentReviewed={percentReviewed}
                   items={items}

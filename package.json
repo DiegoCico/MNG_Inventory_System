@@ -27,7 +27,8 @@
     "bootstrap": "npm -w src/cdk run cdk:bootstrap",
     "synth": "npm -w src/cdk run cdk:synth",
     "diff": "npm -w src/cdk run cdk:diff",
-    "deploy": "npm -w src/cdk run cdk:deploy",
+    "deploy:dev": "npx src/cdk deploy --all --require-approval never -c stage=dev",
+    "deploy:prod": "npx src/cdk deploy --all --require-approval never -c stage=prod",
     "destroy": "npm -w src/cdk run cdk:destroy",
     "// misc": "=============== MISC =================",
     "clean": "rimraf node_modules src/**/node_modules src/cdk/cdk.out || true"
