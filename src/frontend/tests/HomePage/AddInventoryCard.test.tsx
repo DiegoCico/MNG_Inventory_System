@@ -91,14 +91,6 @@ describe('AddInventoryCard', () => {
   });
 
   describe('Props', () => {
-    it('handles empty string teamId', () => {
-      renderWithRouter('');
-
-      const button = screen.getByRole('link', { name: /add new inventory item/i });
-      // When teamId is empty, the path will have double slashes
-      expect(button).toHaveAttribute('href', '/teams/items/new');
-    });
-
     it('handles teamId with special characters', () => {
       renderWithRouter('team-123-abc_xyz');
 

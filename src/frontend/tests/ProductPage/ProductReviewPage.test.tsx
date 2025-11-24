@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import ProductReviewPage from '../../src/pages/ProductReviewPage';
+import ProductReviewPage from '../src/pages/ProductReviewPage';
+
 import * as itemsApi from '../../src/api/items';
 
 vi.mock('../src/api/items');

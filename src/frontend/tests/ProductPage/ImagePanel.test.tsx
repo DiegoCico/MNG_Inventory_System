@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ImagePanel from '../src/components/ImagePanel';
+import ImagePanel from '../src/components/ProductPage/ImagePanel';
 
 describe('ImagePanel', () => {
   const mockSetImagePreview = vi.fn();

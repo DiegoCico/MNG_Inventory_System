@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ItemDetailsForm from '../../src/components/ItemDetailsForm';
+import ItemDetailsForm from '../../src/components/ProductPage/ItemDetailsForm';
 
 // Mock clipboard API
 Object.assign(navigator, {

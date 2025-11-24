@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import ActionPanel from '../../src/components/ActionPanel';
+import ActionPanel from '../src/components/ProductPage/ActionPanel';
+
 import * as itemsAPI from '../../src/api/items';
 
 const mockNavigate = vi.fn();
