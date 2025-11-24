@@ -59,3 +59,5 @@ Once these changes are done and deployed, the infrastructure will be fully confi
 
 1. **Updating Database in Items**
    Currently, once a user updates the status of an item, it saves their userId, username, and name to that item as the last reviewed person. However, if a user then switches their name and/or username, it does not dynamically update the name and/or username to that already reviewed item. In order to fix this, we need to save only the userId to that item, and when getItems is called, the current username and name will be fetched based on that unique userId.
+2. **Change URL**
+   inside `src/cdk/bin/app.ts` once you set up your domain, make sure to switch all the URL with the correct domain URL.
