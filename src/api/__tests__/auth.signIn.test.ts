@@ -148,8 +148,7 @@ describe('Auth Router - signIn', () => {
         password: 'WrongPassword42!', // valid length, but rejected
       });
 
-    // tRPC default error is 500 unless you're mapping codes
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(401);
     expect(JSON.stringify(res.body)).toContain('Invalid email or password');
   });
 

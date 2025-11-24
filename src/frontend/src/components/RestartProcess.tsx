@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Alert,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { softReset } from '../api/home';
@@ -22,24 +23,35 @@ export default function RestartProcess({ teamId, onRestart }: RestartProcessCard
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleRestartProcess = async () => {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      await softReset(teamId); // <-- call the API
+      const result = await softReset(teamId);
+      if (result?.success === false) {
+        setError(result.error || 'Failed to restart process');
+        return;
+      }
       console.log('Soft reset completed');
+      setIsDialogOpen(false);
       if (onRestart) onRestart();
-    } catch (err: any) {
-      console.error('Failed to restart process:', err.message || err);
-      alert('Failed to restart process. See console for details.');
+    } catch (err) {
+      console.error('Failed to restart process:', err);
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'An unexpected error occurred while restarting process.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
-      setIsDialogOpen(false);
     }
   };
 
   const openWizard = () => {
     setWizardStep(1);
+    setError('');
     setIsDialogOpen(true);
   };
 
@@ -81,7 +93,7 @@ export default function RestartProcess({ teamId, onRestart }: RestartProcessCard
       </Paper>
 
       {/* Two-Step Wizard */}
-      <Dialog open={isDialogOpen} onClose={closeWizard}>
+      <Dialog open={isDialogOpen} onClose={() => !loading && closeWizard()}>
         <DialogTitle
           sx={{
             bgcolor: theme.palette.background.paper,
@@ -107,13 +119,23 @@ export default function RestartProcess({ teamId, onRestart }: RestartProcessCard
               cannot be undone.
             </Typography>
           )}
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions sx={{ bgcolor: theme.palette.background.paper }}>
           <Button onClick={closeWizard} disabled={loading}>
             Cancel
           </Button>
           {wizardStep === 1 ? (
-            <Button variant="contained" color="warning" onClick={() => setWizardStep(2)}>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={() => setWizardStep(2)}
+              disabled={loading}
+            >
               Continue
             </Button>
           ) : (

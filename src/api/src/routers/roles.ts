@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, publicProcedure, permissionedProcedure, protectedProcedure } from './trpc';
 import {
   GetCommand,
@@ -131,7 +132,10 @@ export const rolesRouter = router({
 
       const existing = await getRole(roleId);
       if (existing) {
-        throw new Error(`Role "${input.name}" already exists`);
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: `Role "${input.name}" already exists`,
+        });
       }
 
       const role: RoleEntity = {
@@ -169,10 +173,20 @@ export const rolesRouter = router({
   getRole: protectedProcedure
     .input(z.object({ roleId: z.string().optional(), name: z.string().optional() }))
     .query(async ({ input }) => {
-      if (!input.roleId && !input.name) throw new Error('Provide roleId or name');
+      if (!input.roleId && !input.name) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Provide roleId or name',
+        });
+      }
       const roleId = input.roleId || input.name!.toUpperCase();
       const role = await getRole(roleId);
-      if (!role) throw new Error('Role not found');
+      if (!role) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Role not found',
+        });
+      }
       return { role };
     }),
 
@@ -181,7 +195,21 @@ export const rolesRouter = router({
     .mutation(async ({ input }) => {
       const roleId = input.name.trim().toUpperCase();
       const existing = await getRole(roleId);
-      if (!existing) throw new Error('Role not found');
+      if (!existing) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Role not found',
+        });
+      }
+
+      // Prevent updating default roles
+      const defaultRoleNames = DEFAULT_ROLES.map((r) => r.name.toUpperCase());
+      if (defaultRoleNames.includes(roleId)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot modify default roles',
+        });
+      }
 
       const now = new Date().toISOString();
       const values: Record<string, string | Permission[]> = { ':updatedAt': now };
@@ -223,6 +251,15 @@ export const rolesRouter = router({
       const roleId = input.name.trim().toUpperCase();
       const role = await getRole(roleId);
       if (!role) return { success: true, deleted: false };
+
+      // Prevent deleting default roles
+      const defaultRoleNames = DEFAULT_ROLES.map((r) => r.name.toUpperCase());
+      if (defaultRoleNames.includes(roleId)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot delete default roles',
+        });
+      }
 
       await doc.send(
         new DeleteCommand({

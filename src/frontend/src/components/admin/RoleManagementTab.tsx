@@ -42,6 +42,8 @@ export default function RoleManagementTab() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadRoles();
@@ -73,13 +75,22 @@ export default function RoleManagementTab() {
 
   const handleDeleteRole = async () => {
     if (!roleToDelete) return;
+    setDeleting(true);
+    setDeleteError('');
     try {
-      await adminApi.deleteRole(roleToDelete.name);
+      const result = await adminApi.deleteRole(roleToDelete.name);
+      if (result?.success === false) {
+        setDeleteError(result.error || 'Failed to delete role');
+        return;
+      }
       await loadRoles();
       setDeleteDialogOpen(false);
       setRoleToDelete(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete role');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete role';
+      setDeleteError(errorMessage);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -97,6 +108,7 @@ export default function RoleManagementTab() {
 
   const openDeleteDialog = (role: Role) => {
     setRoleToDelete(role);
+    setDeleteError('');
     setDeleteDialogOpen(true);
   };
 
@@ -185,6 +197,7 @@ export default function RoleManagementTab() {
         onClose={() => setFormOpen(false)}
         onSubmit={formMode === 'create' ? handleCreateRole : handleEditRole}
         mode={formMode}
+        readOnly={selectedRole ? DEFAULT_ROLES.includes(selectedRole.name) : false}
         initialData={
           selectedRole
             ? {
@@ -199,7 +212,7 @@ export default function RoleManagementTab() {
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onClose={() => !deleting && setDeleteDialogOpen(false)}
         PaperProps={{
           sx: { bgcolor: theme.palette.background.paper },
         }}
@@ -210,11 +223,18 @@ export default function RoleManagementTab() {
             Are you sure you want to delete the role "{roleToDelete?.name}"? This action cannot be
             undone.
           </DialogContentText>
+          {deleteError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteError}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteRole} color="error" variant="contained">
-            Delete
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteRole} color="error" variant="contained" disabled={deleting}>
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

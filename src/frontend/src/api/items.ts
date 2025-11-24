@@ -1,3 +1,4 @@
+import { trpcFetch } from './utils';
 import { me } from './auth';
 
 const TRPC = '/trpc';
@@ -28,49 +29,40 @@ export async function createItem(
     parent,
   };
 
-  const res = await fetch(`${TRPC}/createItem`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) throw new Error(`createItem failed: ${res.status}`);
-  const json = await res.json();
-  return json?.result?.data ?? {};
+  return (
+    (await trpcFetch(`${TRPC}/createItem`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })) ?? {}
+  );
 }
 
 /** GET ALL ITEMS */
 export async function getItems(teamId: string) {
   const currentUser = await me();
 
-  const res = await fetch(
+  const data = await trpcFetch(
     `${TRPC}/getItems?input=${encodeURIComponent(
       JSON.stringify({ teamId, userId: currentUser.userId }),
     )}`,
-    { method: 'GET', credentials: 'include' },
+    { method: 'GET' },
   );
-
-  if (!res.ok) throw new Error(`getItems failed: ${res.status}`);
-  const json = await res.json();
-  console.log(json?.result?.data);
-  return json?.result?.data ?? {};
+  // console.log(data);
+  return data ?? {};
 }
 
 /** GET SINGLE ITEM */
 export async function getItem(teamId: string, itemId: string) {
   const currentUser = await me();
 
-  const res = await fetch(
-    `${TRPC}/getItem?input=${encodeURIComponent(
-      JSON.stringify({ teamId, itemId, userId: currentUser.userId }),
-    )}`,
-    { method: 'GET', credentials: 'include' },
+  return (
+    (await trpcFetch(
+      `${TRPC}/getItem?input=${encodeURIComponent(
+        JSON.stringify({ teamId, itemId, userId: currentUser.userId }),
+      )}`,
+      { method: 'GET' },
+    )) ?? {}
   );
-
-  if (!res.ok) throw new Error(`getItem failed: ${res.status}`);
-  const json = await res.json();
-  return json?.result?.data ?? {};
 }
 
 /** UPDATE ITEM */
@@ -100,44 +92,38 @@ export async function updateItem(
     ...updates,
   };
 
-  const res = await fetch(`${TRPC}/updateItem`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) throw new Error(`updateItem failed: ${res.status}`);
-  const json = await res.json();
-  return json?.result?.data ?? {};
+  return (
+    (await trpcFetch(`${TRPC}/updateItem`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })) ?? {}
+  );
 }
 
 /** DELETE ITEM */
 export async function deleteItem(teamId: string, itemId: string) {
   const currentUser = await me();
 
-  const res = await fetch(`${TRPC}/deleteItem`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      teamId,
-      itemId,
-      userId: currentUser.userId,
-    }),
-  });
-
-  if (!res.ok) throw new Error(`deleteItem failed: ${res.status}`);
-  const json = await res.json();
-  return json?.result?.data ?? {};
+  return (
+    (await trpcFetch(`${TRPC}/deleteItem`, {
+      method: 'POST',
+      body: JSON.stringify({
+        teamId,
+        itemId,
+        userId: currentUser.userId,
+      }),
+    })) ?? {}
+  );
 }
 
 /** UPLOAD IMAGE */
 export async function uploadImage(teamId: string, nsn: string, imageBase64: string) {
-  const res = await fetch(`${TRPC}/uploadImage`, {
+  interface UploadImageResponse {
+    imageKey?: string;
+  }
+
+  const data: UploadImageResponse = await trpcFetch(`${TRPC}/uploadImage`, {
     method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       teamId,
       nsn,
@@ -145,8 +131,5 @@ export async function uploadImage(teamId: string, nsn: string, imageBase64: stri
     }),
   });
 
-  if (!res.ok) throw new Error(`uploadImage failed: ${res.status}`);
-  const json = await res.json();
-
-  return json?.imageKey ? { imageKey: json.imageKey } : (json?.result?.data ?? {});
+  return data?.imageKey ? { imageKey: data.imageKey } : (data ?? {});
 }

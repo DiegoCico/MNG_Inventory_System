@@ -19,6 +19,7 @@ interface RoleFormProps {
   mode: 'create' | 'edit';
   initialData?: RoleFormData;
   title?: string;
+  readOnly?: boolean;
 }
 
 export interface RoleFormData {
@@ -34,6 +35,7 @@ export default function RoleForm({
   mode,
   initialData,
   title,
+  readOnly = false,
 }: RoleFormProps) {
   const theme = useTheme();
   const [name, setName] = useState('');
@@ -93,7 +95,7 @@ export default function RoleForm({
       }}
     >
       <DialogTitle sx={{ fontWeight: 600 }}>
-        {title || (mode === 'create' ? 'Create New Role' : 'Edit Role')}
+        {title || (readOnly ? 'View Role' : mode === 'create' ? 'Create New Role' : 'Edit Role')}
       </DialogTitle>
       <DialogContent>
         {error && (
@@ -107,7 +109,7 @@ export default function RoleForm({
           fullWidth
           value={name}
           onChange={(e) => setName(e.target.value)}
-          disabled={loading}
+          disabled={loading || readOnly}
           required
           sx={{ mt: 1, mb: 2, bgcolor: theme.palette.background.paper }}
         />
@@ -119,7 +121,7 @@ export default function RoleForm({
           rows={2}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          disabled={loading}
+          disabled={loading || readOnly}
           sx={{ mb: 3, bgcolor: theme.palette.background.paper }}
         />
 
@@ -127,17 +129,19 @@ export default function RoleForm({
           <PermissionCheckboxGroup
             selected={permissions}
             onChange={setPermissions}
-            disabled={loading}
+            disabled={loading || readOnly}
           />
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={loading}>
-          Cancel
+          {readOnly ? 'Close' : 'Cancel'}
         </Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={loading}>
-          {loading ? 'Saving...' : mode === 'create' ? 'Create Role' : 'Save Changes'}
-        </Button>
+        {!readOnly && (
+          <Button variant="contained" onClick={handleSubmit} disabled={loading}>
+            {loading ? 'Saving...' : mode === 'create' ? 'Create Role' : 'Save Changes'}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

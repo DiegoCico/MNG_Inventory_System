@@ -99,7 +99,7 @@ describe('Auth Router - respondToChallenge', () => {
     });
   });
 
-  it('CodeMismatchException -> 500 with "Invalid code"', async () => {
+  it('CodeMismatchException -> 400 with "Invalid code"', async () => {
     cognitoSendSpy.mockImplementation(async (command: any) => {
       if (isCmd(command, AdminRespondToAuthChallengeCommand)) {
         const err: any = new Error('bad code');
@@ -119,7 +119,7 @@ describe('Auth Router - respondToChallenge', () => {
         email: 'mfa@example.com',
       });
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).toContain('Invalid code');
   });
 

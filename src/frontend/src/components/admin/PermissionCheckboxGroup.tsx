@@ -52,7 +52,7 @@ const PERMISSION_CATEGORIES: PermissionCategory[] = [
     icon: '👥',
     permissions: [
       { value: 'user.invite', label: 'Invite Users' },
-      { value: 'user.assign_roles', label: 'Access Role Management Page' },
+      { value: 'user.assign_roles', label: 'Assign Roles to Users' },
       { value: 'user.delete', label: 'Delete Users' },
     ],
   },
