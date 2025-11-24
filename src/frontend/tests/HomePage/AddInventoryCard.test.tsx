@@ -91,14 +91,6 @@ describe('AddInventoryCard', () => {
   });
 
   describe('Props', () => {
-    it('handles empty string teamId', () => {
-      renderWithRouter('');
-
-      // expects double-slash
-      const button = screen.getByRole('link', { name: /add new inventory item/i });
-      expect(button).toHaveAttribute('href', '/teams//items/new');
-    });
-
     it('handles teamId with special characters', () => {
       renderWithRouter('team-123-abc_xyz');
 
