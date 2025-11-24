@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -13,19 +14,21 @@ vi.mock('recharts', () => ({
       {children}
     </div>
   ),
-  Bar: ({ dataKey, stackId, fill }: { dataKey: string; stackId?: string; fill: string }) => (
-    <div data-testid={`bar-${dataKey}`} data-stack-id={stackId} data-fill={fill} />
+  Bar: ({ dataKey, stackId, fill, shape }: { dataKey: string; stackId?: string; fill: string; shape?: any }) => (
+    <div data-testid={`bar-${dataKey}`} data-stack-id={stackId} data-fill={fill} data-has-shape={!!shape} />
   ),
   XAxis: ({ dataKey }: { dataKey: string }) => <div data-testid="x-axis" data-key={dataKey} />,
   YAxis: () => <div data-testid="y-axis" />,
   Tooltip: () => <div data-testid="tooltip" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
+  Cell: ({ children }: { children?: React.ReactNode }) => <div data-testid="cell">{children}</div>,
 }));
 
 const theme = createTheme();
 
 interface TeamStat {
   userId: string;
+  name: string;
   completed: number;
   shortages: number;
   damaged: number;
@@ -41,8 +44,8 @@ const renderComponent = (teamStats: TeamStat[]) => {
 
 describe('TeamActivityChart', () => {
   const defaultTeamStats: TeamStat[] = [
-    { userId: 'user-1', completed: 10, shortages: 2, damaged: 1 },
-    { userId: 'user-2', completed: 15, shortages: 3, damaged: 0 },
+    { userId: 'user-1', name: 'John Doe', completed: 10, shortages: 2, damaged: 1 },
+    { userId: 'user-2', name: 'Jane Smith', completed: 15, shortages: 3, damaged: 0 },
   ];
 
   beforeEach(() => {
@@ -84,6 +87,14 @@ describe('TeamActivityChart', () => {
       expect(screen.getByTestId('bar-shortages')).toBeInTheDocument();
       expect(screen.getByTestId('bar-damaged')).toBeInTheDocument();
     });
+
+    it('bars have custom shape component', () => {
+      renderComponent(defaultTeamStats);
+
+      expect(screen.getByTestId('bar-completed')).toHaveAttribute('data-has-shape', 'true');
+      expect(screen.getByTestId('bar-shortages')).toHaveAttribute('data-has-shape', 'true');
+      expect(screen.getByTestId('bar-damaged')).toHaveAttribute('data-has-shape', 'true');
+    });
   });
 
   describe('Data Processing', () => {
@@ -95,13 +106,13 @@ describe('TeamActivityChart', () => {
 
       expect(data).toHaveLength(2);
       expect(data[0]).toEqual({
-        name: 'user-1',
+        name: 'John Doe',
         completed: 10,
         shortages: 2,
         damaged: 1,
       });
       expect(data[1]).toEqual({
-        name: 'user-2',
+        name: 'Jane Smith',
         completed: 15,
         shortages: 3,
         damaged: 0,
@@ -109,7 +120,7 @@ describe('TeamActivityChart', () => {
     });
 
     it('handles single user stats', () => {
-      const singleUser: TeamStat[] = [{ userId: 'user-1', completed: 5, shortages: 1, damaged: 0 }];
+      const singleUser: TeamStat[] = [{ userId: 'user-1', name: 'Alice', completed: 5, shortages: 1, damaged: 0 }];
 
       const { container } = renderComponent(singleUser);
 
@@ -117,15 +128,15 @@ describe('TeamActivityChart', () => {
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
       expect(data).toHaveLength(1);
-      expect(data[0].name).toBe('user-1');
+      expect(data[0].name).toBe('Alice');
     });
 
     it('handles multiple users', () => {
       const multipleUsers: TeamStat[] = [
-        { userId: 'user-1', completed: 10, shortages: 2, damaged: 1 },
-        { userId: 'user-2', completed: 15, shortages: 3, damaged: 0 },
-        { userId: 'user-3', completed: 8, shortages: 1, damaged: 2 },
-        { userId: 'user-4', completed: 12, shortages: 0, damaged: 1 },
+        { userId: 'user-1', name: 'John', completed: 10, shortages: 2, damaged: 1 },
+        { userId: 'user-2', name: 'Jane', completed: 15, shortages: 3, damaged: 0 },
+        { userId: 'user-3', name: 'Bob', completed: 8, shortages: 1, damaged: 2 },
+        { userId: 'user-4', name: 'Carol', completed: 12, shortages: 0, damaged: 1 },
       ];
 
       const { container } = renderComponent(multipleUsers);
@@ -145,9 +156,9 @@ describe('TeamActivityChart', () => {
       expect(data).toHaveLength(0);
     });
 
-    it('preserves userId as name in chart data', () => {
+    it('uses name field from team stats', () => {
       const stats: TeamStat[] = [
-        { userId: 'john.doe@example.com', completed: 5, shortages: 1, damaged: 0 },
+        { userId: 'user-1', name: 'John Doe', completed: 5, shortages: 1, damaged: 0 },
       ];
 
       const { container } = renderComponent(stats);
@@ -155,7 +166,7 @@ describe('TeamActivityChart', () => {
       const chart = container.querySelector('[data-testid="bar-chart"]');
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
-      expect(data[0].name).toBe('john.doe@example.com');
+      expect(data[0].name).toBe('John Doe');
     });
   });
 
@@ -199,7 +210,7 @@ describe('TeamActivityChart', () => {
 
   describe('User Stats Values', () => {
     it('handles zero values', () => {
-      const zeroStats: TeamStat[] = [{ userId: 'user-1', completed: 0, shortages: 0, damaged: 0 }];
+      const zeroStats: TeamStat[] = [{ userId: 'user-1', name: 'Zero User', completed: 0, shortages: 0, damaged: 0 }];
 
       const { container } = renderComponent(zeroStats);
 
@@ -213,7 +224,7 @@ describe('TeamActivityChart', () => {
 
     it('handles large values', () => {
       const largeStats: TeamStat[] = [
-        { userId: 'user-1', completed: 1000, shortages: 500, damaged: 250 },
+        { userId: 'user-1', name: 'Large User', completed: 1000, shortages: 500, damaged: 250 },
       ];
 
       const { container } = renderComponent(largeStats);
@@ -228,8 +239,8 @@ describe('TeamActivityChart', () => {
 
     it('handles mixed zero and non-zero values', () => {
       const mixedStats: TeamStat[] = [
-        { userId: 'user-1', completed: 10, shortages: 0, damaged: 5 },
-        { userId: 'user-2', completed: 0, shortages: 3, damaged: 0 },
+        { userId: 'user-1', name: 'Mixed User 1', completed: 10, shortages: 0, damaged: 5 },
+        { userId: 'user-2', name: 'Mixed User 2', completed: 0, shortages: 3, damaged: 0 },
       ];
 
       const { container } = renderComponent(mixedStats);
@@ -238,13 +249,13 @@ describe('TeamActivityChart', () => {
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
       expect(data[0]).toEqual({
-        name: 'user-1',
+        name: 'Mixed User 1',
         completed: 10,
         shortages: 0,
         damaged: 5,
       });
       expect(data[1]).toEqual({
-        name: 'user-2',
+        name: 'Mixed User 2',
         completed: 0,
         shortages: 3,
         damaged: 0,
@@ -252,38 +263,38 @@ describe('TeamActivityChart', () => {
     });
   });
 
-  describe('UserId Variations', () => {
-    it('handles email addresses as userId', () => {
-      const emailStats: TeamStat[] = [
-        { userId: 'john@example.com', completed: 5, shortages: 1, damaged: 0 },
-        { userId: 'jane@example.com', completed: 8, shortages: 2, damaged: 1 },
+  describe('Name Variations', () => {
+    it('handles full names', () => {
+      const nameStats: TeamStat[] = [
+        { userId: 'user-1', name: 'John Doe', completed: 5, shortages: 1, damaged: 0 },
+        { userId: 'user-2', name: 'Jane Smith', completed: 8, shortages: 2, damaged: 1 },
       ];
 
-      const { container } = renderComponent(emailStats);
+      const { container } = renderComponent(nameStats);
 
       const chart = container.querySelector('[data-testid="bar-chart"]');
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
-      expect(data[0].name).toBe('john@example.com');
-      expect(data[1].name).toBe('jane@example.com');
+      expect(data[0].name).toBe('John Doe');
+      expect(data[1].name).toBe('Jane Smith');
     });
 
-    it('handles numeric userIds', () => {
-      const numericStats: TeamStat[] = [
-        { userId: '12345', completed: 5, shortages: 1, damaged: 0 },
+    it('handles single word names', () => {
+      const singleNameStats: TeamStat[] = [
+        { userId: 'user-1', name: 'Alice', completed: 5, shortages: 1, damaged: 0 },
       ];
 
-      const { container } = renderComponent(numericStats);
+      const { container } = renderComponent(singleNameStats);
 
       const chart = container.querySelector('[data-testid="bar-chart"]');
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
-      expect(data[0].name).toBe('12345');
+      expect(data[0].name).toBe('Alice');
     });
 
-    it('handles userIds with special characters', () => {
+    it('handles names with special characters', () => {
       const specialStats: TeamStat[] = [
-        { userId: 'user_123-abc', completed: 5, shortages: 1, damaged: 0 },
+        { userId: 'user-1', name: "O'Brien-Smith", completed: 5, shortages: 1, damaged: 0 },
       ];
 
       const { container } = renderComponent(specialStats);
@@ -291,11 +302,11 @@ describe('TeamActivityChart', () => {
       const chart = container.querySelector('[data-testid="bar-chart"]');
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
-      expect(data[0].name).toBe('user_123-abc');
+      expect(data[0].name).toBe("O'Brien-Smith");
     });
 
-    it('handles empty userId', () => {
-      const emptyStats: TeamStat[] = [{ userId: '', completed: 5, shortages: 1, damaged: 0 }];
+    it('handles empty name', () => {
+      const emptyStats: TeamStat[] = [{ userId: 'user-1', name: '', completed: 5, shortages: 1, damaged: 0 }];
 
       const { container } = renderComponent(emptyStats);
 
@@ -350,27 +361,29 @@ describe('TeamActivityChart', () => {
   });
 
   describe('Edge Cases', () => {
-    it('handles very long userId', () => {
-      const longUserStats: TeamStat[] = [
+    it('handles very long name', () => {
+      const longNameStats: TeamStat[] = [
         {
-          userId: 'very-long-user-id-that-might-cause-layout-issues-1234567890',
+          userId: 'user-1',
+          name: 'Very Long Name That Might Cause Layout Issues In The Chart Display Area',
           completed: 5,
           shortages: 1,
           damaged: 0,
         },
       ];
 
-      const { container } = renderComponent(longUserStats);
+      const { container } = renderComponent(longNameStats);
 
       const chart = container.querySelector('[data-testid="bar-chart"]');
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
-      expect(data[0].name).toBe('very-long-user-id-that-might-cause-layout-issues-1234567890');
+      expect(data[0].name).toBe('Very Long Name That Might Cause Layout Issues In The Chart Display Area');
     });
 
     it('handles many users', () => {
       const manyUsers: TeamStat[] = Array.from({ length: 20 }, (_, i) => ({
         userId: `user-${i}`,
+        name: `User ${i}`,
         completed: i * 2,
         shortages: i,
         damaged: i % 3,
@@ -386,7 +399,7 @@ describe('TeamActivityChart', () => {
 
     it('handles negative values', () => {
       const negativeStats: TeamStat[] = [
-        { userId: 'user-1', completed: -5, shortages: -1, damaged: -2 },
+        { userId: 'user-1', name: 'Negative User', completed: -5, shortages: -1, damaged: -2 },
       ];
 
       const { container } = renderComponent(negativeStats);
@@ -401,7 +414,7 @@ describe('TeamActivityChart', () => {
 
     it('handles decimal values', () => {
       const decimalStats: TeamStat[] = [
-        { userId: 'user-1', completed: 10.5, shortages: 2.3, damaged: 1.7 },
+        { userId: 'user-1', name: 'Decimal User', completed: 10.5, shortages: 2.3, damaged: 1.7 },
       ];
 
       const { container } = renderComponent(decimalStats);
@@ -453,9 +466,9 @@ describe('TeamActivityChart', () => {
   describe('Data Integrity', () => {
     it('maintains data order', () => {
       const orderedStats: TeamStat[] = [
-        { userId: 'user-1', completed: 10, shortages: 2, damaged: 1 },
-        { userId: 'user-2', completed: 15, shortages: 3, damaged: 0 },
-        { userId: 'user-3', completed: 8, shortages: 1, damaged: 2 },
+        { userId: 'user-1', name: 'First User', completed: 10, shortages: 2, damaged: 1 },
+        { userId: 'user-2', name: 'Second User', completed: 15, shortages: 3, damaged: 0 },
+        { userId: 'user-3', name: 'Third User', completed: 8, shortages: 1, damaged: 2 },
       ];
 
       const { container } = renderComponent(orderedStats);
@@ -463,14 +476,14 @@ describe('TeamActivityChart', () => {
       const chart = container.querySelector('[data-testid="bar-chart"]');
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
-      expect(data[0].name).toBe('user-1');
-      expect(data[1].name).toBe('user-2');
-      expect(data[2].name).toBe('user-3');
+      expect(data[0].name).toBe('First User');
+      expect(data[1].name).toBe('Second User');
+      expect(data[2].name).toBe('Third User');
     });
 
     it('preserves all stat values', () => {
       const stats: TeamStat[] = [
-        { userId: 'user-1', completed: 123, shortages: 456, damaged: 789 },
+        { userId: 'user-1', name: 'Test User', completed: 123, shortages: 456, damaged: 789 },
       ];
 
       const { container } = renderComponent(stats);
@@ -479,7 +492,7 @@ describe('TeamActivityChart', () => {
       const data = JSON.parse(chart?.getAttribute('data-chart-data') || '[]');
 
       expect(data[0]).toEqual({
-        name: 'user-1',
+        name: 'Test User',
         completed: 123,
         shortages: 456,
         damaged: 789,

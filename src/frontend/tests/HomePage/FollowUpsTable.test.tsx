@@ -21,8 +21,8 @@ interface FollowUpItem {
   name: string;
   status: string;
   updatedAt: string;
-  notes: string;
-  parent: string;
+  lastReviewedByName: string;
+  parentName: string;
 }
 
 const renderWithRouter = (followUps: FollowUpItem[], teamId = 'team-123') => {
@@ -71,8 +71,8 @@ describe('FollowUpsTable', () => {
           name: 'M4 Carbine',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: 'Test notes',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -90,16 +90,16 @@ describe('FollowUpsTable', () => {
           name: 'M4 Carbine',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
         {
           itemId: 'item-2',
           name: 'Helmet',
           status: 'shortages',
           updatedAt: '2024-01-16T14:20:00Z',
-          notes: '',
-          parent: 'Kit-B',
+          lastReviewedByName: 'Jane Smith',
+          parentName: 'Kit-B',
         },
       ];
 
@@ -120,8 +120,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -139,8 +139,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -159,8 +159,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: null as unknown as string,
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -172,16 +172,16 @@ describe('FollowUpsTable', () => {
     });
   });
 
-  describe('Parent Field Handling', () => {
-    it('displays parent name when provided', () => {
+  describe('ParentName Field Handling', () => {
+    it('displays parentName when provided', () => {
       const followUps = [
         {
           itemId: 'item-1',
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Parent Kit',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Parent Kit',
         },
       ];
 
@@ -190,15 +190,15 @@ describe('FollowUpsTable', () => {
       expect(screen.getByText('Parent Kit')).toBeInTheDocument();
     });
 
-    it('displays "N/A" when parent is null', () => {
+    it('displays "N/A" when parentName is null', () => {
       const followUps = [
         {
           itemId: 'item-1',
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: null as unknown as string,
+          lastReviewedByName: 'John Doe',
+          parentName: null as unknown as string,
         },
       ];
 
@@ -209,15 +209,15 @@ describe('FollowUpsTable', () => {
       expect(within(dataRow).getAllByText('N/A')[0]).toBeInTheDocument();
     });
 
-    it('displays "N/A" when parent is undefined', () => {
+    it('displays "N/A" when parentName is undefined', () => {
       const followUps = [
         {
           itemId: 'item-1',
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: undefined as unknown as string,
+          lastReviewedByName: 'John Doe',
+          parentName: undefined as unknown as string,
         },
       ];
 
@@ -226,6 +226,25 @@ describe('FollowUpsTable', () => {
       const rows = screen.getAllByRole('row');
       const dataRow = rows[1];
       expect(within(dataRow).getAllByText('N/A')[0]).toBeInTheDocument();
+    });
+
+    it('displays "N/A" when parentName equals "N/A"', () => {
+      const followUps = [
+        {
+          itemId: 'item-1',
+          name: 'Item 1',
+          status: 'damaged',
+          updatedAt: '2024-01-15T10:30:00Z',
+          lastReviewedByName: 'John Doe',
+          parentName: 'N/A',
+        },
+      ];
+
+      renderWithRouter(followUps);
+
+      const rows = screen.getAllByRole('row');
+      const dataRow = rows[1];
+      expect(within(dataRow).getAllByText('N/A').length).toBeGreaterThan(0);
     });
   });
 
@@ -237,8 +256,8 @@ describe('FollowUpsTable', () => {
           name: 'M4 Carbine',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -257,8 +276,8 @@ describe('FollowUpsTable', () => {
           name: 'Helmet',
           status: 'shortages',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-B',
+          lastReviewedByName: 'Jane Smith',
+          parentName: 'Kit-B',
         },
       ];
 
@@ -277,8 +296,8 @@ describe('FollowUpsTable', () => {
           name: 'M4 Carbine',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -297,16 +316,16 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
         {
           itemId: 'item-2',
           name: 'Item 2',
           status: 'shortages',
           updatedAt: '2024-01-16T14:20:00Z',
-          notes: '',
-          parent: 'Kit-B',
+          lastReviewedByName: 'Jane Smith',
+          parentName: 'Kit-B',
         },
       ];
 
@@ -329,8 +348,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -347,8 +366,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -368,8 +387,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -393,8 +412,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -410,8 +429,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'shortages',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -452,8 +471,8 @@ describe('FollowUpsTable', () => {
           name: '',
           status: '',
           updatedAt: '',
-          notes: '',
-          parent: '',
+          lastReviewedByName: '',
+          parentName: '',
         },
       ];
 
@@ -470,8 +489,8 @@ describe('FollowUpsTable', () => {
           name: 'Very Long Item Name That Might Cause Layout Issues In The Table',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -489,8 +508,8 @@ describe('FollowUpsTable', () => {
           name: 'Item & Special <Characters> "Test"',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
@@ -505,14 +524,51 @@ describe('FollowUpsTable', () => {
         name: `Item ${i}`,
         status: i % 2 === 0 ? 'damaged' : 'shortages',
         updatedAt: '2024-01-15T10:30:00Z',
-        notes: '',
-        parent: `Kit-${i}`,
+        lastReviewedByName: `User ${i}`,
+        parentName: `Kit-${i}`,
       }));
 
       renderWithRouter(followUps);
 
       expect(screen.getByText('Item 0')).toBeInTheDocument();
       expect(screen.getByText('Item 99')).toBeInTheDocument();
+    });
+  });
+
+  describe('LastReviewedByName Field', () => {
+    it('includes lastReviewedByName in follow-up data', () => {
+      const followUps = [
+        {
+          itemId: 'item-1',
+          name: 'Item 1',
+          status: 'damaged',
+          updatedAt: '2024-01-15T10:30:00Z',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
+        },
+      ];
+
+      renderWithRouter(followUps);
+
+      // Component should handle lastReviewedByName field
+      expect(screen.getByText('Follow-Ups')).toBeInTheDocument();
+    });
+
+    it('handles missing lastReviewedByName', () => {
+      const followUps = [
+        {
+          itemId: 'item-1',
+          name: 'Item 1',
+          status: 'damaged',
+          updatedAt: '2024-01-15T10:30:00Z',
+          lastReviewedByName: '',
+          parentName: 'Kit-A',
+        },
+      ];
+
+      renderWithRouter(followUps);
+
+      expect(screen.getByText('Follow-Ups')).toBeInTheDocument();
     });
   });
 
@@ -538,8 +594,8 @@ describe('FollowUpsTable', () => {
           name: 'Item 1',
           status: 'damaged',
           updatedAt: '2024-01-15T10:30:00Z',
-          notes: '',
-          parent: 'Kit-A',
+          lastReviewedByName: 'John Doe',
+          parentName: 'Kit-A',
         },
       ];
 
