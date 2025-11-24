@@ -235,7 +235,7 @@ export default function ItemDetailsForm({
             )}
           </Stack>
 
-          {isEditMode && !isCreateMode ? (
+          {isEditMode ? (
             <TextField
               label="Authorized Quantity"
               type="number"
@@ -243,6 +243,7 @@ export default function ItemDetailsForm({
               fullWidth
               value={editedProduct.authQuantity || 1}
               onChange={(e) => handleChange('authQuantity', parseInt(e.target.value) || 1)}
+              required
             />
           ) : !isCreateMode ? (
             <Box>
