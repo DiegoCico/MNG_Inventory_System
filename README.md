@@ -54,3 +54,8 @@ To complete the project and prepare it for a production environment, a couople c
    Replace the current account number with your own AWS account number and region inside `src/cdk/bin/app.ts` line 24.
 
 Once these changes are done and deployed, the infrastructure will be fully configured for production use, with a proper domain, unrestricted email sending, and CloudFront serving content under your chosen URL.
+
+## Bugs
+
+1. **Updating Database in Items**
+   Currently, once a user updates the status of an item, it saves their userId, username, and name to that item as the last reviewed person. However, if a user then switches their name and/or username, it does not dynamically update the name and/or username to that already reviewed item. In order to fix this, we need to save only the userId to that item, and when getItems is called, the current username and name will be fetched based on that unique userId.

@@ -1,11 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Paper, Typography, Box } from '@mui/material';
 import { useTheme, alpha } from '@mui/material/styles';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 
 interface TeamActivityChartProps {
   teamStats: Array<{
     userId: string;
-    userName: string;
+    name: string;
     completed: number;
     shortages: number;
     damaged: number;
@@ -16,6 +17,30 @@ export default function TeamActivityChart({ teamStats }: TeamActivityChartProps)
   const theme = useTheme();
   const cardBorder = `1px solid ${theme.palette.divider}`;
 
+  // Custom shape component for rounded top bars
+  const RoundedBar = (props: any) => {
+    const { fill, x, y, width, height, isTopBar } = props;
+    
+    if (!isTopBar || height <= 0) {
+      // Regular rectangle for non-top bars
+      return <rect x={x} y={y} width={width} height={height} fill={fill} />;
+    }
+
+    // Rounded rectangle for top bar
+    const radius = 4;
+    const path = `
+      M ${x},${y + radius}
+      Q ${x},${y} ${x + radius},${y}
+      L ${x + width - radius},${y}
+      Q ${x + width},${y} ${x + width},${y + radius}
+      L ${x + width},${y + height}
+      L ${x},${y + height}
+      Z
+    `;
+    
+    return <path d={path} fill={fill} />;
+  };
+
   return (
     <Paper elevation={0} sx={{ p: 3, bgcolor: theme.palette.background.paper, border: cardBorder }}>
       <Typography variant="h6" fontWeight={800} mb={2}>
@@ -25,7 +50,7 @@ export default function TeamActivityChart({ teamStats }: TeamActivityChartProps)
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={teamStats.map((t) => ({
-              name: t.userName,
+              name: t.name,
               completed: t.completed,
               shortages: t.shortages,
               damaged: t.damaged,
@@ -62,13 +87,34 @@ export default function TeamActivityChart({ teamStats }: TeamActivityChartProps)
               dataKey="completed"
               stackId="a"
               fill={theme.palette.success.main}
+              shape={(props: any) => (
+                <RoundedBar 
+                  {...props} 
+                  isTopBar={props.payload.damaged === 0 && props.payload.shortages === 0}
+                />
+              )}
             />
-            <Bar dataKey="shortages" stackId="a" fill={theme.palette.warning.main} />
+            <Bar 
+              dataKey="shortages" 
+              stackId="a" 
+              fill={theme.palette.warning.main}
+              shape={(props: any) => (
+                <RoundedBar 
+                  {...props} 
+                  isTopBar={props.payload.damaged === 0 && props.payload.shortages > 0}
+                />
+              )}
+            />
             <Bar 
               dataKey="damaged" 
               stackId="a" 
               fill={theme.palette.error.main}
-              radius={[4, 4, 0, 0]}
+              shape={(props: any) => (
+                <RoundedBar 
+                  {...props} 
+                  isTopBar={props.payload.damaged > 0}
+                />
+              )}
             />
           </BarChart>
         </ResponsiveContainer>

@@ -14,6 +14,7 @@ interface TopBarProps {
   onProfileClick?: () => void;
   profileImage?: string | null;
   onRequestAccess?: () => void;
+  showThemeToggle?: boolean;
 }
 
 export default function TopBar({
@@ -21,6 +22,7 @@ export default function TopBar({
   onProfileClick,
   profileImage,
   onRequestAccess,
+  showThemeToggle = true,
 }: TopBarProps) {
   const theme = useTheme();
   const { mode, toggleTheme } = useColorMode();
@@ -48,16 +50,18 @@ export default function TopBar({
         </Stack>
 
         {/* Theme toggle */}
-        <IconButton
-          onClick={toggleTheme}
-          sx={{
-            color: theme.palette.primary.contrastText,
-            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.15) },
-            mr: !isLoggedIn ? 1 : 0, // spacing if buttons exist
-          }}
-        >
-          {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
-        </IconButton>
+        {showThemeToggle && (
+          <IconButton
+            onClick={toggleTheme}
+            sx={{
+              color: theme.palette.primary.contrastText,
+              '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.15) },
+              mr: !isLoggedIn ? 1 : 0, // spacing if buttons exist
+            }}
+          >
+            {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
+          </IconButton>
+        )}
 
         {/* Right side */}
         {isLoggedIn ? (

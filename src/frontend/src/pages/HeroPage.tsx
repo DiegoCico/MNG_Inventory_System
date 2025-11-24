@@ -66,7 +66,7 @@ export default function HeroPage() {
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* TopBar: Sign In + Request Access */}
-      <TopBar isLoggedIn={false} onRequestAccess={() => setAccessOpen(true)} />
+      <TopBar isLoggedIn={false} onRequestAccess={() => setAccessOpen(true)} showThemeToggle={false} />
 
       {/* Hero Section */}
       <Box sx={{ ...heroBg }}>
@@ -113,19 +113,6 @@ export default function HeroPage() {
                 }}
               >
                 Enter Secure Portal
-              </Button>
-              <Button
-                component="a"
-                href="/about"
-                size={downSm ? 'medium' : 'large'}
-                variant="text"
-                sx={{
-                  color: theme.palette.text.primary,
-                  ':hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
-                  fontWeight: 800,
-                }}
-              >
-                Learn More
               </Button>
             </Stack>
           </Stack>

@@ -76,7 +76,7 @@ export default function HomePage() {
 
         // define dashboard constants
         const totals = { toReview: 0, completed: 0, shortages: 0, damaged: 0 };
-        const users: Record<string, { completed: number; shortages: number; damaged: number; userName: string }> = {};
+        const users: Record<string, { completed: number; shortages: number; damaged: number; name: string }> = {};
 
         const followUps: Array<{
           itemId: string;
@@ -109,7 +109,7 @@ export default function HomePage() {
             default:
               totals.toReview++;
           }
-          if (!users[reviewedBy]) users[reviewedBy] = { completed: 0, shortages: 0, damaged: 0, userName: reviewedByName };
+          if (!users[reviewedBy]) users[reviewedBy] = { completed: 0, shortages: 0, damaged: 0, name: reviewedByName };
           if (status === 'completed') users[reviewedBy].completed++;
           if (status === 'shortages') users[reviewedBy].shortages++;
           if (status === 'damaged') users[reviewedBy].damaged++;
@@ -141,7 +141,7 @@ export default function HomePage() {
           })
           .map(([userId, data]) => ({ 
             userId,
-            userName: data.userName, 
+            name: data.name, 
             completed: data.completed,
             shortages: data.shortages,
             damaged: data.damaged
@@ -149,6 +149,7 @@ export default function HomePage() {
           followUps,
         };
 
+        console.log(users);
         setDashboardData(overview);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
@@ -168,7 +169,7 @@ export default function HomePage() {
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <TopBar isLoggedIn onProfileClick={() => setProfileOpen(true)} />
-      <Box sx={{ flex: 1, p: 4 }}>
+      <Box sx={{ flex: 1, p: { xs: 2, sm: 3, md: 4 } }}>
         <Box mb={3}>
           <Button
             startIcon={<ArrowBackIcon />}
@@ -208,7 +209,10 @@ export default function HomePage() {
                   onChangeValue={setSelectedValue}
                 />
 
-                <FollowUpsTable followUps={dashboardData?.followUps ?? []} />
+                {/* Hide FollowUpsTable on mobile */}
+                <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                  <FollowUpsTable followUps={dashboardData?.followUps ?? []} />
+                </Box>
               </Stack>
             </Grid>
 
@@ -216,7 +220,11 @@ export default function HomePage() {
               <Stack spacing={3}>
                 <AddInventoryCard teamId={teamId!} />
                 <RestartInventoryProcess teamId={teamId!} />
-                <TeamActivityChart teamStats={teamStats} />
+                
+                {/* Hide TeamActivityChart on mobile */}
+                <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                  <TeamActivityChart teamStats={teamStats} />
+                </Box>
               </Stack>
             </Grid>
           </Grid>

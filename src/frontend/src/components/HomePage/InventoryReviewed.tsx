@@ -73,13 +73,24 @@ export default function InventoryReviewed({
   return (
     <Paper elevation={0} sx={{ p: 3, bgcolor: theme.palette.background.paper, border: cardBorder }}>
       {/* --- TITLE + TIME CONTROLS ROW --- */}
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
+      <Stack 
+        direction={{ xs: 'column', md: 'row' }} 
+        alignItems={{ xs: 'flex-start', md: 'center' }} 
+        justifyContent="space-between" 
+        spacing={{ xs: 2, md: 0 }}
+        mb={2}
+      >
         <Typography variant="h6" fontWeight={800}>
           Inventory Reviewed
         </Typography>
 
-        {/* Right-side Time Range Controls */}
-        <Stack direction="row" spacing={2} alignItems="center">
+        {/* Right-side Time Range Controls - Hide on mobile */}
+        <Stack 
+          direction="row" 
+          spacing={2} 
+          alignItems="center"
+          sx={{ display: { xs: 'none', md: 'flex' } }}
+        >
           <ToggleButtonGroup
             color="primary"
             exclusive
@@ -126,12 +137,27 @@ export default function InventoryReviewed({
       </Stack>
 
       {/* --- MAIN CONTENT ROW: CIRCLE LEFT, HISTOGRAM RIGHT --- */}
-      <Stack direction="row" spacing={3} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+      <Stack 
+        direction={{ xs: 'column', md: 'row' }} 
+        spacing={3} 
+        alignItems="center"
+      >
         {/* Circular progress on left */}
-        <CircularProgressBar value={percentReviewed} />
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: { xs: 'center', md: 'flex-start' },
+          width: { xs: '100%', md: 'auto' }
+        }}>
+          <CircularProgressBar value={percentReviewed} />
+        </Box>
 
-        {/* Histogram on right */}
-        <Box sx={{ flex: 1, minHeight: 180 }}>
+        {/* Histogram on right - Hide on mobile */}
+        <Box sx={{ 
+          flex: 1, 
+          minHeight: 180,
+          display: { xs: 'none', md: 'block' },
+          width: '100%'
+        }}>
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
             Reviews in Last {selectedValue} {timeMode}
           </Typography>
