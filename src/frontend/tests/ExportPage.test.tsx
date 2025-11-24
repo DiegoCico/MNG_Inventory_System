@@ -27,7 +27,12 @@ vi.mock('../src/components/NavBar', () => ({
 }));
 
 vi.mock('../src/components/ExportPageContent', () => ({
-  default: ({ items, percentReviewed, activeCategory, csvData }: {
+  default: ({
+    items,
+    percentReviewed,
+    activeCategory,
+    csvData,
+  }: {
     items: unknown[];
     percentReviewed: number;
     activeCategory: string;
@@ -57,7 +62,7 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/export/team123'
           <Route path="/export/:teamId" element={ui} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   );
 };
 
@@ -119,15 +124,15 @@ describe('ExportPage', () => {
   describe('Initial Loading', () => {
     it('renders loading spinner while fetching items', () => {
       mockGetItems.mockImplementation(
-        () => new Promise(() => {}) // Never resolves
+        () => new Promise(() => {}), // Never resolves
       );
 
       renderWithProviders(<ExportPage />);
 
       // Look for the circular progress spinner during loading
       const spinners = screen.getAllByRole('progressbar');
-      const loadingSpinner = spinners.find(el => 
-        el.classList.contains('MuiCircularProgress-root')
+      const loadingSpinner = spinners.find((el) =>
+        el.classList.contains('MuiCircularProgress-root'),
       );
       expect(loadingSpinner).toBeInTheDocument();
     });
@@ -181,8 +186,6 @@ describe('ExportPage', () => {
     });
   });
 
-
-
   describe('Document Generation Flow', () => {
     beforeEach(() => {
       mockGetItems.mockResolvedValue({ items: mockItems });
@@ -210,8 +213,6 @@ describe('ExportPage', () => {
       expect(screen.getByText('Generating your documents...')).toBeInTheDocument();
     });
   });
-
-
 
   describe('Component Rendering', () => {
     it('renders TopBar with logged in state', async () => {
@@ -242,8 +243,8 @@ describe('ExportPage', () => {
         { itemId: '2', name: 'Item 2', status: 'completed', createdAt: Date.now() },
       ];
 
-      mockGetItems.mockResolvedValue({ 
-        items: itemsWithMissingStatus
+      mockGetItems.mockResolvedValue({
+        items: itemsWithMissingStatus,
       });
 
       renderWithProviders(<ExportPage />);
@@ -263,7 +264,7 @@ describe('ExportPage', () => {
               <Route path="/export/:teamId?" element={<ExportPage />} />
             </Routes>
           </MemoryRouter>
-        </ThemeProvider>
+        </ThemeProvider>,
       );
 
       // Should not call API without teamId

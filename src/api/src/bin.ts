@@ -128,8 +128,6 @@
 //     }),
 // });
 
-
-
 /** Check if a user has a permission inside a specific teamspace */
 // async function hasPermission(userId: string, teamId: string, permission: string): Promise<boolean> {
 //   try {

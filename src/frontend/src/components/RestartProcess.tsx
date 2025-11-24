@@ -10,7 +10,7 @@ import {
   DialogActions,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { softReset } from '../api/home'; 
+import { softReset } from '../api/home';
 
 interface RestartProcessCardProps {
   teamId: string; // pass the current teamId

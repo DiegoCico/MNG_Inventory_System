@@ -33,7 +33,7 @@ Our job is to create a web-based application for use by inventory-taking technic
 
 SupplyNet operates entirely on AWS infrastructure, using Amplify for hosting, Cognito for authentication, DynamoDB for storing users, teams, items, and logs, S3 for item images and generated reports, and Lambda for server-side PDF generation. The system is browser-based, responsive, and optimized for desktop, laptop, and tablet usage. While not built for full mobile or offline operation, its lightweight design and cloud architecture allow fast, secure access for a small team of fewer than ten active users at a time, with the potential to scale to additional National Guard units.
 
---- 
+---
 
 # Remaining Project Tasks
 
@@ -51,6 +51,6 @@ To complete the project and prepare it for a production environment, a couople c
    Replace development environment variables with your final domain name, hosted zone details, and SES identity. These updates should be made inside the CDK stacks under `src/cdk/lib/` and the application entry file at `src/cdk/bin/app.ts`.
 
 4. **Update Account Number**
-    Replace the current account number with your own AWS account number and region inside `src/cdk/bin/app.ts` line 24.
+   Replace the current account number with your own AWS account number and region inside `src/cdk/bin/app.ts` line 24.
 
 Once these changes are done and deployed, the infrastructure will be fully configured for production use, with a proper domain, unrestricted email sending, and CloudFront serving content under your chosen URL.

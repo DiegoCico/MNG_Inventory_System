@@ -39,7 +39,7 @@ const renderComponent = (
   percentReviewed: number,
   items: InventoryItem[],
   timeMode: 'hours' | 'days' = 'hours',
-  selectedValue = 5
+  selectedValue = 5,
 ) => {
   const mockOnChangeTimeMode = vi.fn();
   const mockOnChangeValue = vi.fn();
@@ -55,7 +55,7 @@ const renderComponent = (
           onChangeTimeMode={mockOnChangeTimeMode}
           onChangeValue={mockOnChangeValue}
         />
-      </ThemeProvider>
+      </ThemeProvider>,
     ),
     mockOnChangeTimeMode,
     mockOnChangeValue,
@@ -307,9 +307,9 @@ describe('InventoryReviewed', () => {
 
       // Verify data structure
       expect(data).toHaveLength(5);
-      expect(data.every((d: { label: string; reviewed: number }) => 
-        typeof d.reviewed === 'number'
-      )).toBe(true);
+      expect(
+        data.every((d: { label: string; reviewed: number }) => typeof d.reviewed === 'number'),
+      ).toBe(true);
     });
 
     it('ignores items outside time range', () => {

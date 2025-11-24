@@ -96,7 +96,7 @@ const renderWithRouter = (teamId = 'team-123') => {
           <Route path="/teams/:teamId" element={<HomePage />} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   );
 };
 
@@ -119,7 +119,7 @@ describe('HomePage', () => {
   describe('Initial Render and Loading', () => {
     it('renders loading state initially', () => {
       (itemsAPI.getItems as ReturnType<typeof vi.fn>).mockImplementation(
-        () => new Promise(() => {}) // Never resolves
+        () => new Promise(() => {}), // Never resolves
       );
 
       renderWithRouter();
@@ -168,7 +168,7 @@ describe('HomePage', () => {
               <Route path="/teams/" element={<HomePage />} />
             </Routes>
           </MemoryRouter>
-        </ThemeProvider>
+        </ThemeProvider>,
       );
 
       await waitFor(() => {

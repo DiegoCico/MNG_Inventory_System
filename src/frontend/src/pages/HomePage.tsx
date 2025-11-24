@@ -51,10 +51,10 @@ export default function HomePage() {
         const currentUser = await me();
 
         // use getItems function and summarize a subset of data to populate the different dashboard components
-                // Fetch team data and items in parallel
+        // Fetch team data and items in parallel
         const [teamResult, itemsResult] = await Promise.all([
           getTeam(teamId, currentUser.userId),
-          getItems(teamId)
+          getItems(teamId),
         ]);
 
         // Set team name

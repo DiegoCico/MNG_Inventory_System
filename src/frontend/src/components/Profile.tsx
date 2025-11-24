@@ -104,8 +104,8 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
       try {
         const res = await uploadProfileImage(authUser.userId, dataUrl);
         if (res.url) setProfileImage(res.url);
-      } catch (err) {
-        console.error(err);
+      } catch {
+        /* ignore */
       } finally {
         setUploading(false);
       }
@@ -119,7 +119,6 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
 
     try {
       await updateProfile(authUser.userId, editedName, editedUsername);
-
       const refreshed = await me();
 
       const mapped: MeResponse = {
@@ -133,10 +132,9 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
       setAuthUser(mapped);
       setEditedName(mapped.name);
       setEditedUsername(mapped.username);
-
       setEditing(false);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      /* ignore */
     }
   };
 
@@ -156,7 +154,7 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
       PaperProps={{
         sx: {
           borderRadius: 4,
-          bgcolor: theme.palette.mode === 'dark' ? '#1E1E1E' : '#fafafa',
+          bgcolor: theme.palette.background.paper,
           color: theme.palette.text.primary,
           border: `1px solid ${theme.palette.divider}`,
           boxShadow: 5,
@@ -170,7 +168,7 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: `1px solid ${theme.palette.divider}`,
-          bgcolor: theme.palette.mode === 'dark' ? '#2B2B2B' : '#f2f2f2',
+          bgcolor: theme.palette.background.default,
         }}
       >
         <Typography variant="h6" fontWeight={800}>
@@ -188,12 +186,11 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
         </Box>
       ) : !authUser?.authenticated ? (
         <Box p={4} textAlign="center">
-          <AccountCircleIcon sx={{ fontSize: 100, color: 'text.secondary' }} />
+          <AccountCircleIcon sx={{ fontSize: 100, color: theme.palette.text.secondary }} />
           <Typography sx={{ mt: 2 }}>Please sign in</Typography>
         </Box>
       ) : (
         <>
-          {/* CONTENT */}
           <DialogContent sx={{ px: 4, py: 4 }}>
             {/* AVATAR */}
             <Box textAlign="center" mb={4} position="relative">
@@ -229,7 +226,7 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
                             bottom: 6,
                             right: 'calc(50% - 70px)',
                             bgcolor: theme.palette.primary.main,
-                            color: 'white',
+                            color: theme.palette.primary.contrastText,
                             borderRadius: '50%',
                             width: 32,
                             height: 32,
@@ -272,31 +269,35 @@ const Profile: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
           {/* FOOTER */}
           <DialogActions sx={{ px: 4, py: 2 }}>
             {!editing ? (
-              <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditing(true)}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<EditIcon />}
+                onClick={() => setEditing(true)}
+              >
                 Edit Profile
               </Button>
             ) : (
               <>
                 <Button
-                  variant="outlined"
+                  variant="contained"
+                  onClick={handleSave}
+                  sx={{
+                    ml: 'auto',
+                    bgcolor: '#2F7A32',
+                    color: '#fff',
+                    '&:hover': { bgcolor: '#27682A' },
+                  }}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="contained"
+                  color="warning"
                   onClick={() => {
                     setEditedName(authUser.name);
                     setEditedUsername(authUser.username);
                     setEditing(false);
-                  }}
-                  sx={{
-                    borderRadius: 2,
-                    fontWeight: 700,
-                    px: 3,
-                    borderWidth: 2,
-                    color: '#000',
-                    borderColor: '#FBC02D',
-                    bgcolor: '#FFEB3B',
-
-                    '&:hover': {
-                      borderColor: '#F9A825',
-                      bgcolor: '#FDD835',
-                    },
                   }}
                 >
                   Cancel

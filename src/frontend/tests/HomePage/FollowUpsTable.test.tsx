@@ -33,7 +33,7 @@ const renderWithRouter = (followUps: FollowUpItem[], teamId = 'team-123') => {
           <Route path="/teams/:teamId" element={<FollowUpsTable followUps={followUps} />} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   );
 };
 
@@ -478,7 +478,7 @@ describe('FollowUpsTable', () => {
       renderWithRouter(followUps);
 
       expect(
-        screen.getByText('Very Long Item Name That Might Cause Layout Issues In The Table')
+        screen.getByText('Very Long Item Name That Might Cause Layout Issues In The Table'),
       ).toBeInTheDocument();
     });
 
