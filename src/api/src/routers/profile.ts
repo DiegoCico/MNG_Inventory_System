@@ -139,7 +139,7 @@ export const profileRouter = router({
         const vars: Record<string, any> = {};
         const names: Record<string, string> = {};
 
-        // USERNAME UPDATE (only if changed AND not empty)
+        // USERNAME UPDATE
         if (
           input.username &&
           input.username.trim() &&
@@ -147,14 +147,16 @@ export const profileRouter = router({
         ) {
           const clean = input.username.trim().replace(/[^a-zA-Z0-9_-]/g, '');
           const unique = await ensureUniqueUsername(clean);
-
           updates.push('#un = :username');
           names['#un'] = 'username';
+          vars[':username'] = unique;
+        }
+
+        // NAME UPDATE (independent)
+        if (input.name && input.name.trim() && input.name.trim() !== existing.Item.name) {
           updates.push('#nm = :name');
           names['#nm'] = 'name';
-          if (input.name) {
-            vars[':name'] = input.name.trim();
-          }
+          vars[':name'] = input.name.trim();
         }
 
         // ROLE UPDATE
@@ -164,10 +166,8 @@ export const profileRouter = router({
           vars[':role'] = input.role.trim();
         }
 
-        // No updates?
-        if (updates.length === 0) {
-          return { success: true, message: 'No changes' };
-        }
+        // Nothing to update
+        if (updates.length === 0) return { success: true, message: 'No changes' };
 
         // Always update timestamp
         updates.push('updatedAt = :updatedAt');

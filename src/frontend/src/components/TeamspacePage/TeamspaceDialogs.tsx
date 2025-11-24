@@ -63,11 +63,7 @@ export function CreateTeamDialog({
 
   const [loading, setLoading] = useState(false);
 
-  const allFilled =
-    workspaceName.trim() &&
-    uic.trim() &&
-    contactName.trim() &&
-    contactEmail.trim();
+  const allFilled = workspaceName.trim() && uic.trim() && contactName.trim() && contactEmail.trim();
 
   async function getUserId(): Promise<string> {
     const user = await me();
@@ -99,7 +95,7 @@ export function CreateTeamDialog({
         contactEmail, // location/description
         userId,
         uic,
-        contactName
+        contactName,
       );
 
       if (!result?.success) {

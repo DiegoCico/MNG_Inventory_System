@@ -5,12 +5,12 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
-  HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import { doc } from '../aws';
 import { loadConfig } from '../process';
+import { TRPCError } from '@trpc/server';
 
 const config = loadConfig();
 const TABLE_NAME = config.TABLE_NAME;
@@ -36,6 +36,25 @@ function getImageExtension(base64: string): string {
 
 function stripBase64Header(base64: string): string {
   return base64.replace(/^data:image\/\w+;base64,/, '');
+}
+
+async function assertTeamMembership(userId: string, teamId: string) {
+  const res = await doc.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `TEAM#${teamId}`,
+        SK: `MEMBER#${userId}`,
+      },
+    }),
+  );
+
+  if (!res.Item) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'User is not a member of this teamspace',
+    });
+  }
 }
 
 async function getUserName(userId: string): Promise<string | undefined> {
@@ -215,7 +234,16 @@ export const itemsRouter = router({
           }),
         );
 
-        const rawItems = result.Items ?? [];
+        const result = await doc.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+            ExpressionAttributeValues: {
+              ':pk': `TEAM#${input.teamId}`,
+              ':sk': 'ITEM#',
+            },
+          }),
+        );
 
         const items = await Promise.all(
           rawItems.map(async (raw: any) => {
@@ -271,6 +299,16 @@ export const itemsRouter = router({
           }),
         );
 
+        const result = await doc.send(
+          new GetCommand({
+            TableName: TABLE_NAME,
+            Key: {
+              PK: `TEAM#${input.teamId}`,
+              SK: `ITEM#${input.itemId}`,
+            },
+          }),
+        );
+
         if (!result.Item) return { success: false, error: 'Item not found' };
 
         const signed = await getPresignedUrl(result.Item.imageKey);
@@ -279,10 +317,7 @@ export const itemsRouter = router({
           success: true,
           item: { ...result.Item, imageLink: signed },
         };
-      } catch (err: any) {
-        return { success: false, error: err.message };
-      }
-    }),
+      }),
 
   updateItem: permissionedProcedure('item.update')
     .input(

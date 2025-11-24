@@ -28,7 +28,7 @@ export const teamspaceRouter = router({
     .input(
       z.object({
         name: z.string().min(2).max(60),
-        description: z.string().min(1),   // LOCATION
+        description: z.string().min(1), // LOCATION
         uic: z.string().min(1),
         fe: z.string().min(1),
         userId: z.string().min(1),
@@ -100,7 +100,6 @@ export const teamspaceRouter = router({
         return { success: false, error: err.message || 'Failed to create teamspace.' };
       }
     }),
-
 
   /** GET TEAMSPACES */
   getTeamspace: permissionedProcedure('team.view')
