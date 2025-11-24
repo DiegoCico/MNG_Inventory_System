@@ -125,9 +125,21 @@ export default function ProductReviewPage() {
 
   if (error)
     return (
-      <Container maxWidth="md" sx={{ mt: 4 }}>
+      <Box
+        sx={{
+          width: {
+            xs: '100%',
+            sm: '600px',
+            md: '900px',
+            lg: '1100px',
+          },
+          mx: 'auto',
+          mt: 4,
+          px: 2,
+        }}
+      >
         <Alert severity="error">{error}</Alert>
-      </Container>
+      </Box>
     );
 
   return (
@@ -152,11 +164,18 @@ export default function ProductReviewPage() {
           pb: 10,
         }}
       >
-        <Container
-          maxWidth="lg"
+        <Box
           sx={{
+            width: {
+              xs: '100%',
+              sm: '600px',
+              md: '900px',
+              lg: '1100px',
+            },
+            mx: 'auto',
             pt: 3,
             pb: 8,
+            px: 3,
             backgroundColor: theme.palette.background.paper,
             borderRadius: 3,
             boxShadow:
@@ -164,6 +183,7 @@ export default function ProductReviewPage() {
                 ? '0 4px 20px rgba(0,0,0,0.4)'
                 : '0 4px 16px rgba(0,0,0,0.05)',
             mt: 3,
+            minHeight: '900px',
           }}
         >
           {/* Back button and Action Panel on same row */}
@@ -198,7 +218,7 @@ export default function ProductReviewPage() {
             />
           </Box>
 
-          <Grid container spacing={3} justifyContent="center" alignItems="flex-start">
+          <Grid container spacing={3}>
             <Grid item xs={12} md={4}>
               <ImagePanel
                 imagePreview={imagePreview}
@@ -209,7 +229,7 @@ export default function ProductReviewPage() {
               />
             </Grid>
 
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} md={8} sx={{ minWidth: 0 }}>
               <ItemDetailsForm
                 editedProduct={editedProduct}
                 setEditedProduct={setEditedProduct}
@@ -239,7 +259,7 @@ export default function ProductReviewPage() {
           >
             <Alert severity="success">Item updated successfully!</Alert>
           </Snackbar>
-        </Container>
+        </Box>
       </Box>
 
       <Profile open={profileOpen} onClose={() => setProfileOpen(false)} />

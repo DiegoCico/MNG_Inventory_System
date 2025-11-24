@@ -3,7 +3,6 @@ import {
   Box,
   Stack,
   Typography,
-  Chip,
   TextField,
   IconButton,
   Tooltip,
@@ -11,16 +10,20 @@ import {
   Fade,
   useTheme,
   alpha,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export default function DamageReportsSection({
-  damageReports,
-  setDamageReports,
-  isEditMode,
-}: {
+                                               damageReports,
+                                               setDamageReports,
+                                               isEditMode,
+                                             }: {
   damageReports: string[];
   setDamageReports: (r: string[]) => void;
   isEditMode?: boolean;
@@ -56,6 +59,7 @@ export default function DamageReportsSection({
               ? theme.palette.warning.main
               : alpha(theme.palette.warning.main, 0.5)
           }`,
+          width: '100%',
         }}
       >
         <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
@@ -79,24 +83,40 @@ export default function DamageReportsSection({
             No damage reports yet.
           </Alert>
         ) : (
-          <Stack direction="row" flexWrap="wrap" gap={1} mb={1.5}>
+          <List dense sx={{ mb: 1.5, py: 0 }}>
             {damageReports.map((report, i) => (
-              <Chip
+              <ListItem
                 key={i}
-                label={report}
-                onDelete={() => handleDelete(i)}
-                deleteIcon={<DeleteIcon />}
                 sx={{
                   bgcolor:
                     theme.palette.mode === 'light'
                       ? alpha(theme.palette.warning.light, 0.3)
                       : alpha(theme.palette.warning.dark, 0.3),
                   border: `1px solid ${theme.palette.warning.main}`,
-                  '& .MuiChip-deleteIcon': { color: theme.palette.warning.dark },
+                  borderRadius: 1,
+                  mb: 1,
+                  '&:last-child': { mb: 0 },
                 }}
-              />
+              >
+                <ListItemText
+                  primary={report}
+                  primaryTypographyProps={{
+                    sx: { wordBreak: 'break-word', pr: 5 }
+                  }}
+                />
+                <ListItemSecondaryAction>
+                  <IconButton
+                    edge="end"
+                    size="small"
+                    onClick={() => handleDelete(i)}
+                    sx={{ color: theme.palette.warning.dark }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </ListItemSecondaryAction>
+              </ListItem>
             ))}
-          </Stack>
+          </List>
         )}
 
         {isEditMode && (
@@ -128,6 +148,7 @@ export default function DamageReportsSection({
                   bgcolor: theme.palette.primary.main,
                   color: theme.palette.getContrastText(theme.palette.primary.main),
                   '&:hover': { bgcolor: theme.palette.primary.dark },
+                  flexShrink: 0,
                 }}
               >
                 <AddCircleIcon />

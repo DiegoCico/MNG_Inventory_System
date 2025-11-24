@@ -91,7 +91,7 @@ export default function ItemDetailsForm({
   }, [isCreateMode, itemType, editedProduct.parent]);
 
   return (
-    <Stack spacing={2} sx={{ mb: 2, width: '100%', maxWidth: '500px' }}>
+    <Stack spacing={2} sx={{ mb: 2, width: '100%' }}>
       {isCreateMode && isEditMode && (
         <Box>
           <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
@@ -141,7 +141,7 @@ export default function ItemDetailsForm({
             <Typography variant="subtitle2" color="text.secondary">
               Display Name
             </Typography>
-            <Typography variant="body1" fontWeight={600}>
+            <Typography variant="body1" fontWeight={600} sx={{ wordBreak: 'break-word' }}>
               {editedProduct.productName || '-'}
             </Typography>
           </Box>
@@ -149,7 +149,7 @@ export default function ItemDetailsForm({
             <Typography variant="subtitle2" color="text.secondary">
               Army Nomenclature
             </Typography>
-            <Typography variant="body1" fontWeight={600}>
+            <Typography variant="body1" fontWeight={600} sx={{ wordBreak: 'break-word' }}>
               {editedProduct.actualName || '-'}
             </Typography>
           </Box>
@@ -174,7 +174,7 @@ export default function ItemDetailsForm({
               <Typography variant="subtitle2" color="text.secondary">
                 Description
               </Typography>
-              <Typography>{editedProduct.description || 'No description'}</Typography>
+              <Typography sx={{ wordBreak: 'break-word' }}>{editedProduct.description || 'No description'}</Typography>
             </Box>
           )}
 
@@ -189,11 +189,11 @@ export default function ItemDetailsForm({
                 required
               />
             ) : (
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   National Serial Number
                 </Typography>
-                <Typography>{editedProduct.nsn || '-'}</Typography>
+                <Typography sx={{ wordBreak: 'break-all' }}>{editedProduct.nsn || '-'}</Typography>
               </Box>
             )}
             {editedProduct.nsn && (
@@ -216,11 +216,11 @@ export default function ItemDetailsForm({
                 required
               />
             ) : (
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   Serial Number
                 </Typography>
-                <Typography>{editedProduct.serialNumber || '-'}</Typography>
+                <Typography sx={{ wordBreak: 'break-all' }}>{editedProduct.serialNumber || '-'}</Typography>
               </Box>
             )}
             {editedProduct.serialNumber && (
@@ -290,11 +290,11 @@ export default function ItemDetailsForm({
                 required
               />
             ) : (
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   LIIN
                 </Typography>
-                <Typography>{editedProduct.liin || '-'}</Typography>
+                <Typography sx={{ wordBreak: 'break-all' }}>{editedProduct.liin || '-'}</Typography>
               </Box>
             )}
             {editedProduct.liin && (
@@ -317,11 +317,11 @@ export default function ItemDetailsForm({
                 required
               />
             ) : (
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" color="text.secondary">
                   End Item NIIN
                 </Typography>
-                <Typography>{editedProduct.endItemNiin || '-'}</Typography>
+                <Typography sx={{ wordBreak: 'break-all' }}>{editedProduct.endItemNiin || '-'}</Typography>
               </Box>
             )}
             {editedProduct.endItemNiin && (
@@ -369,11 +369,6 @@ export default function ItemDetailsForm({
               />
             )}
           />
-          {parentError && (
-            <Alert severity="error" sx={{ mt: 1 }}>
-              Items must belong to a kit. Please select a parent kit.
-            </Alert>
-          )}
         </Box>
       )}
 
@@ -382,7 +377,7 @@ export default function ItemDetailsForm({
           <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
             Status
           </Typography>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} flexWrap="wrap">
             {statuses.map((s) => (
               <Button
                 key={s.value}
