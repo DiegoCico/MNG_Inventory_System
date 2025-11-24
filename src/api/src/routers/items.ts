@@ -11,6 +11,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import { doc } from '../aws';
 import { loadConfig } from '../process';
+import { TRPCError } from '@trpc/server';
 
 const config = loadConfig();
 const TABLE_NAME = config.TABLE_NAME;
