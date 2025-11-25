@@ -82,6 +82,7 @@ export default function ReviewedPage() {
                 }),
                 parent: item.parent,
                 status: item.status,
+                isKit: item.isKit,
                 children: [],
               };
             });

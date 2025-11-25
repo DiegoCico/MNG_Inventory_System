@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Container, Grid, Snackbar } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Grid, Snackbar } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import NavBar from '../components/NavBar';
 import ImagePanel from '../components/ProductPage/ImagePanel';
@@ -18,7 +18,9 @@ import Profile from '../components/Profile';
 export default function ProductReviewPage() {
   const { teamId, itemId } = useParams<{ teamId: string; itemId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
+  const parentIdFromState = location.state?.parentId;
 
   const isCreateMode = itemId === 'new';
 
@@ -43,6 +45,9 @@ export default function ProductReviewPage() {
       try {
         if (!teamId) throw new Error('Missing team ID');
 
+        setLoading(true);
+        setError(null);
+
         const all = await getItems(teamId);
 
         if (all.success && all.items) {
@@ -63,11 +68,12 @@ export default function ProductReviewPage() {
             endItemNiin: '',
             status: 'To Review',
             isKit: false,
-            parent: null,
-            notes: '',
+            parent: parentIdFromState || null,
+            notes: ''
           };
           setProduct(blank);
           setEditedProduct(blank);
+          setImagePreview('');
           setLoading(false);
           return;
         }
@@ -82,7 +88,7 @@ export default function ProductReviewPage() {
         const mappedItem = {
           ...item,
           productName: item.name,
-          actualName: item.actualName,
+          actualName: item.actualName
         };
 
         // Manually find children from the full items list
@@ -108,39 +114,74 @@ export default function ProductReviewPage() {
         setLoading(false);
       }
     })();
-  }, [teamId, itemId, isCreateMode]);
+  }, [teamId, itemId, isCreateMode, parentIdFromState]);
 
-  if (loading)
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="60vh"
-        sx={{ bgcolor: theme.palette.background.default }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-
-  if (error)
+  if (loading) {
     return (
       <Box
         sx={{
-          width: {
-            xs: '100%',
-            sm: '600px',
-            md: '900px',
-            lg: '1100px',
-          },
-          mx: 'auto',
-          mt: 4,
-          px: 2,
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: theme.palette.background.default
         }}
       >
-        <Alert severity="error">{error}</Alert>
+        <TopBar
+          isLoggedIn={true}
+          profileImage={profileImage}
+          onProfileClick={() => setProfileOpen(true)}
+        />
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          flex={1}
+        >
+          <CircularProgress />
+        </Box>
+        <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+          <NavBar />
+        </Box>
       </Box>
     );
+  }
+
+  if (error) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: theme.palette.background.default
+        }}
+      >
+        <TopBar
+          isLoggedIn={true}
+          profileImage={profileImage}
+          onProfileClick={() => setProfileOpen(true)}
+        />
+        <Box
+          sx={{
+            width: {
+              xs: '100%',
+              sm: '600px',
+              md: '900px',
+              lg: '1100px'
+            },
+            mx: 'auto',
+            mt: 4,
+            px: 2
+          }}
+        >
+          <Alert severity="error">{error}</Alert>
+        </Box>
+        <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+          <NavBar />
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -148,7 +189,7 @@ export default function ProductReviewPage() {
         minHeight: '100vh',
         bgcolor: theme.palette.background.default,
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'column'
       }}
     >
       <TopBar
@@ -161,7 +202,7 @@ export default function ProductReviewPage() {
         sx={{
           flex: 1,
           bgcolor: theme.palette.background.default,
-          pb: 10,
+          pb: 10
         }}
       >
         <Box
@@ -170,7 +211,7 @@ export default function ProductReviewPage() {
               xs: '100%',
               sm: '600px',
               md: '900px',
-              lg: '1100px',
+              lg: '1100px'
             },
             mx: 'auto',
             pt: 3,
@@ -183,7 +224,7 @@ export default function ProductReviewPage() {
                 ? '0 4px 20px rgba(0,0,0,0.4)'
                 : '0 4px 16px rgba(0,0,0,0.05)',
             mt: 3,
-            minHeight: '900px',
+            minHeight: '900px'
           }}
         >
           {/* Back button and Action Panel on same row */}
@@ -196,8 +237,8 @@ export default function ProductReviewPage() {
                 color: theme.palette.text.secondary,
                 '&:hover': {
                   bgcolor:
-                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-                },
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'
+                }
               }}
             >
               Back
@@ -248,7 +289,8 @@ export default function ProductReviewPage() {
                 />
               )}
 
-              {editedProduct && <ChildrenTree editedProduct={editedProduct} teamId={teamId!} />}
+              {editedProduct &&
+                <ChildrenTree editedProduct={editedProduct} teamId={teamId!} isCreateMode={isCreateMode} />}
             </Grid>
           </Grid>
 
@@ -275,7 +317,7 @@ export default function ProductReviewPage() {
           boxShadow:
             theme.palette.mode === 'dark'
               ? '0 -2px 8px rgba(0,0,0,0.6)'
-              : '0 -2px 8px rgba(0,0,0,0.05)',
+              : '0 -2px 8px rgba(0,0,0,0.05)'
         }}
       >
         <NavBar />

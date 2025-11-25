@@ -3,6 +3,7 @@ import { Box, Card, CardMedia, Typography, IconButton, Collapse } from '@mui/mat
 import { useNavigate, useParams } from 'react-router-dom';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import AddIcon from '@mui/icons-material/Add';
 import { useTheme, alpha } from '@mui/material/styles';
 
 export interface ItemListItem {
@@ -14,6 +15,7 @@ export interface ItemListItem {
   date: string;
   parent?: string | null;
   status?: string;
+  isKit?: boolean;
   children?: ItemListItem[];
 }
 
@@ -50,6 +52,21 @@ export default function ItemListComponent({
     );
   }
 
+  // Recursively count all nested children (including all descendants)
+  const getTotalChildCount = (item: ItemListItem): number => {
+    if (!item.children || item.children.length === 0) {
+      return 0;
+    }
+
+    let count = 0;
+    item.children.forEach((child) => {
+      count += 1; // Count the child itself
+      count += getTotalChildCount(child); // Count the child's descendants
+    });
+
+    return count;
+  };
+
   const getStatusColor = (status?: string) => {
     const s = (status ?? '').toLowerCase();
     if (s === 'completed') return { bg: '#d4edda', text: '#155724' };
@@ -74,10 +91,83 @@ export default function ItemListComponent({
     });
   };
 
+  const handleAddItemClick = (parentId: string | number) => {
+    navigate(`/teams/${teamId}/items/new`, {
+      state: { parentId: parentId },
+    });
+  };
+
+  const renderAddItemButton = (parentId: string | number, level: number) => {
+    return (
+      <Box sx={{ mb: 1 }}>
+        <Card
+          onClick={() => handleAddItemClick(parentId)}
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '96px 1fr',
+            gap: 2,
+            alignItems: 'center',
+            p: 2,
+            ml: level * 3,
+            backgroundColor: alpha(theme.palette.primary.main, 0.02),
+            border: '2px dashed',
+            borderColor: alpha(theme.palette.primary.main, 0.3),
+            borderRadius: 2,
+            transition: 'all 0.2s ease',
+            minHeight: 112,
+            cursor: 'pointer',
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              borderColor: theme.palette.primary.main,
+              boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.2)}`,
+            },
+          }}
+        >
+          {/* Icon */}
+          <Box
+            sx={{
+              width: 96,
+              height: 96,
+              borderRadius: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+              border: `2px dashed ${alpha(theme.palette.primary.main, 0.3)}`,
+            }}
+          >
+            <AddIcon
+              sx={{
+                fontSize: 48,
+                color: theme.palette.primary.main,
+              }}
+            />
+          </Box>
+
+          {/* Content */}
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography
+              variant="body1"
+              sx={{
+                fontWeight: 600,
+                fontSize: '1.1rem',
+                color: theme.palette.primary.main,
+              }}
+            >
+              Add New Item
+            </Typography>
+          </Box>
+        </Card>
+      </Box>
+    );
+  };
+
   const renderItem = (item: ItemListItem, level = 0) => {
     const hasChildren = item.children && item.children.length > 0;
+    const totalChildCount = getTotalChildCount(item);
     const isExpanded = expandedItems.has(item.id);
     const statusColors = getStatusColor(item.status);
+    const isKit = item.isKit;
 
     return (
       <Box key={item.id} sx={{ mb: 1 }}>
@@ -216,7 +306,7 @@ export default function ItemListComponent({
                 {item.date}
               </Typography>
 
-              {hasChildren && (
+              {isKit && (
                 <Box
                   sx={{
                     display: 'flex',
@@ -231,12 +321,12 @@ export default function ItemListComponent({
                     fontWeight: 600,
                   }}
                 >
-                  📦 {item.children!.length} {item.children!.length === 1 ? 'item' : 'items'}
+                  📦 {totalChildCount} {totalChildCount === 1 ? 'item' : 'items'}
                 </Box>
               )}
             </Box>
 
-            {/* Bottom section - Status and Expand button */}
+            {/* Bottom section - Kit/Item indicator, Status and Expand button */}
             <Box
               sx={{
                 display: 'flex',
@@ -244,6 +334,26 @@ export default function ItemListComponent({
                 gap: 1,
               }}
             >
+              {/* Kit/Item Indicator */}
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 1,
+                  backgroundColor: isKit
+                    ? alpha(theme.palette.info.main, 0.1)
+                    : alpha(theme.palette.success.main, 0.1),
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  color: isKit ? theme.palette.info.main : theme.palette.success.main,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.3px',
+                  flexShrink: 0,
+                }}
+              >
+                {isKit ? 'Kit' : 'Item'}
+              </Box>
+
               {item.status && (
                 <Box
                   sx={{
@@ -263,7 +373,8 @@ export default function ItemListComponent({
                 </Box>
               )}
 
-              {hasChildren && (
+              {/* Show expand button for all kits, even with 0 children */}
+              {isKit && (
                 <IconButton
                   className="expand-button"
                   onClick={(e) => toggleExpand(item.id, e)}
@@ -288,10 +399,13 @@ export default function ItemListComponent({
           </Box>
         </Card>
 
-        {hasChildren && (
+        {/* Show collapse for all kits, even with 0 children */}
+        {isKit && (
           <Collapse in={isExpanded} timeout="auto">
             <Box sx={{ mt: 1 }}>
-              {item.children!.map((child) => renderItem(child, level + 1))}
+              {hasChildren && item.children!.map((child) => renderItem(child, level + 1))}
+              {/* Add button for kits */}
+              {renderAddItemButton(item.id, level + 1)}
             </Box>
           </Collapse>
         )}

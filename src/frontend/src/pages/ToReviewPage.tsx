@@ -59,6 +59,7 @@ export default function ToReviewPage() {
                 }),
                 parent: item.parent,
                 status: item.status,
+                isKit: item.isKit,
                 children: []
               };
             });
