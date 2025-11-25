@@ -1,13 +1,30 @@
 module.exports = {
+  preset: 'ts-jest',
   testEnvironment: 'node',
   coverageDirectory: 'coverage',
   collectCoverage: true,
   collectCoverageFrom: [
-    'src/api/**/*.js',
-    '!src/api/__tests__/**',
-    '!src/api/jest.config.js'
+    'src/**/*.ts',
+    '!src/**/*.test.ts',
+    '!src/__tests__/**',
+    '!src/bin.ts',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
-  setupFilesAfterEnv: ['<rootDir>/src/api/__tests__/setup/jest.setup.ts'],
-  testTimeout: 10000
+  setupFilesAfterEnv: ['<rootDir>/__tests__/jest.setup.ts'],
+  testMatch: ['**/__tests__/**/*.test.ts'],
+  moduleFileExtensions: ['ts', 'js', 'json'],
+  testTimeout: 10000,
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      tsconfig: {
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+      },
+    }],
+  },
+  globals: {
+    'ts-jest': {
+      isolatedModules: true,
+    },
+  },
 };
