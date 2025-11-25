@@ -33,6 +33,7 @@ describe('ReviewedPage', () => {
           parent: null,
           createdAt: '2025-01-01T00:00:00.000Z',
           imageLink: 'https://example.com/image.jpg',
+          isKit: false,
         },
         {
           itemId: 'item-2',
@@ -43,6 +44,7 @@ describe('ReviewedPage', () => {
           parent: null,
           createdAt: '2025-01-02T00:00:00.000Z',
           imageLink: '',
+          isKit: false,
         },
         {
           itemId: 'item-3',
@@ -53,6 +55,7 @@ describe('ReviewedPage', () => {
           parent: null,
           createdAt: '2025-01-03T00:00:00.000Z',
           imageLink: '',
+          isKit: false,
         },
       ],
     });
@@ -63,13 +66,13 @@ describe('ReviewedPage', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('loads and displays three tabs with correct counts', async () => {
+  it('loads and displays three tabs without counts', async () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText(/Completed \(1\)/i)).toBeInTheDocument();
-      expect(screen.getByText(/Shortages \(1\)/i)).toBeInTheDocument();
-      expect(screen.getByText(/Damaged \(1\)/i)).toBeInTheDocument();
+      expect(screen.getByText('Completed')).toBeInTheDocument();
+      expect(screen.getByText('Shortages')).toBeInTheDocument();
+      expect(screen.getByText('Damaged')).toBeInTheDocument();
     });
   });
 
@@ -146,11 +149,12 @@ describe('ReviewedPage', () => {
       items: [
         {
           itemId: 'parent-1',
-          name: 'Kit',
+          name: 'Medical Kit',
           actualName: 'Main Kit',
           status: 'Found',
           parent: null,
           createdAt: '2025-01-01T00:00:00.000Z',
+          isKit: true,
         },
         {
           itemId: 'child-1',
@@ -159,6 +163,7 @@ describe('ReviewedPage', () => {
           status: 'Found',
           parent: 'parent-1',
           createdAt: '2025-01-01T00:00:00.000Z',
+          isKit: false,
         },
       ],
     });
@@ -166,8 +171,7 @@ describe('ReviewedPage', () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText('Kit')).toBeInTheDocument();
-      // The "Contains X items" text appears in ItemListComponent's subtitle
+      expect(screen.getByText('Medical Kit')).toBeInTheDocument();
       expect(screen.getByText('Main Kit')).toBeInTheDocument();
     });
   });
@@ -178,17 +182,21 @@ describe('ReviewedPage', () => {
       items: [
         {
           itemId: 'parent-1',
-          name: 'Kit',
+          name: 'Medical Kit',
+          actualName: 'Main Medical Kit',
           status: 'Found',
           parent: null,
           createdAt: '2025-01-01T00:00:00.000Z',
+          isKit: true,
         },
         {
           itemId: 'child-1',
-          name: 'Item',
+          name: 'Bandages',
+          actualName: 'Gauze',
           status: 'Damaged',
           parent: 'parent-1',
           createdAt: '2025-01-01T00:00:00.000Z',
+          isKit: false,
         },
       ],
     });
@@ -196,17 +204,16 @@ describe('ReviewedPage', () => {
     renderWithRouter();
 
     await waitFor(() => {
-      // Use getAllByText since "Kit" appears twice (h2 title and body subtitle)
-      const kitElements = screen.getAllByText('Kit');
-      expect(kitElements.length).toBeGreaterThan(0);
+      const medicalKitElements = screen.getAllByText('Medical Kit');
+      expect(medicalKitElements.length).toBeGreaterThan(0);
     });
 
     const damagedTab = screen.getByRole('tab', { name: /Damaged/i });
     fireEvent.click(damagedTab);
 
     await waitFor(() => {
-      const kitElements = screen.getAllByText('Kit');
-      expect(kitElements.length).toBeGreaterThan(0);
+      const medicalKitElements = screen.getAllByText('Medical Kit');
+      expect(medicalKitElements.length).toBeGreaterThan(0);
     });
   });
 
@@ -220,6 +227,7 @@ describe('ReviewedPage', () => {
           status: 'FOUND',
           parent: null,
           createdAt: '2025-01-01T00:00:00.000Z',
+          isKit: false,
         },
       ],
     });
@@ -227,7 +235,7 @@ describe('ReviewedPage', () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText(/Completed \(1\)/i)).toBeInTheDocument();
+      expect(screen.getByText('Completed')).toBeInTheDocument();
     });
   });
 
@@ -238,7 +246,6 @@ describe('ReviewedPage', () => {
       expect(screen.getByText('M4 Carbine')).toBeInTheDocument();
     });
 
-    // TopBar should render - check for the account circle icon by testid
     const accountIcon = screen.getByTestId('AccountCircleIcon');
     expect(accountIcon).toBeInTheDocument();
   });
@@ -250,7 +257,6 @@ describe('ReviewedPage', () => {
       expect(screen.getByText('M4 Carbine')).toBeInTheDocument();
     });
 
-    // NavBar renders navigation buttons - check for one of them
     const navButtons = screen.getAllByRole('button');
     expect(navButtons.length).toBeGreaterThan(0);
   });

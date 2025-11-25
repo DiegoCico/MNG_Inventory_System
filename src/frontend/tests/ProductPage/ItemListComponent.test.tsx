@@ -29,6 +29,7 @@ describe('ItemListComponent', () => {
       date: '11/14/25',
       status: 'Completed',
       parent: null,
+      isKit: false,
       children: [],
     },
     {
@@ -40,6 +41,7 @@ describe('ItemListComponent', () => {
       date: '11/13/25',
       status: 'Damaged',
       parent: null,
+      isKit: true,
       children: [
         {
           id: 'item-3',
@@ -50,6 +52,7 @@ describe('ItemListComponent', () => {
           date: '11/13/25',
           status: 'Completed',
           parent: 'item-2',
+          isKit: false,
           children: [],
         },
       ],
@@ -84,6 +87,7 @@ describe('ItemListComponent', () => {
         image: '',
         date: '11/14/25',
         parent: null,
+        isKit: false,
         children: [],
       },
       {
@@ -94,6 +98,7 @@ describe('ItemListComponent', () => {
         image: '',
         date: '11/14/25',
         parent: 'parent',
+        isKit: false,
         children: [],
       },
     ];
@@ -115,10 +120,10 @@ describe('ItemListComponent', () => {
     expect(damagedBadge).toBeInTheDocument();
   });
 
-  it('shows child count indicator for items with children', () => {
+  it('shows child count indicator for kits', () => {
     renderWithRouter(<ItemListComponent items={mockItems} />);
 
-    // Get all elements that match the pattern, then verify at least one exists
+    // Should show "1 item" for the kit with one child
     const childCountElements = screen.getAllByText((_content, element) => {
       const hasText = (node: Element | null) => {
         if (!node) return false;
@@ -128,13 +133,13 @@ describe('ItemListComponent', () => {
       return hasText(element);
     });
 
-    // Should find at least one child count indicator
     expect(childCountElements.length).toBeGreaterThan(0);
   });
 
-  it('shows expand button only for items with children', () => {
+  it('shows expand button for all kits', () => {
     renderWithRouter(<ItemListComponent items={mockItems} />);
 
+    // Should have at least one expand button for the kit
     const expandButtons = screen.getAllByRole('button');
     expect(expandButtons.length).toBeGreaterThan(0);
   });
@@ -157,14 +162,15 @@ describe('ItemListComponent', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('expands and shows children when expand button clicked', () => {
+  it('expands and shows children when expand button clicked', async () => {
     renderWithRouter(<ItemListComponent items={mockItems} />);
 
     const parentCard = screen.getByText('First Aid Kit').closest('.MuiCard-root');
     expect(parentCard).toBeInTheDocument();
 
-    const bandagesText = screen.getByText('Bandages');
-    const collapseParent = bandagesText.closest('.MuiCollapse-root');
+    // Children exist in DOM but are hidden via Collapse
+    const bandagesCard = screen.getByText('Bandages').closest('.MuiBox-root');
+    const collapseParent = bandagesCard?.closest('.MuiCollapse-root');
     expect(collapseParent).toHaveClass('MuiCollapse-hidden');
 
     const expandButton = screen
@@ -172,7 +178,10 @@ describe('ItemListComponent', () => {
       .find((btn) => btn.closest('.MuiCard-root') === parentCard);
     fireEvent.click(expandButton!);
 
-    expect(collapseParent).not.toHaveClass('MuiCollapse-hidden');
+    // After expanding, collapse should not have hidden class
+    await waitFor(() => {
+      expect(collapseParent).not.toHaveClass('MuiCollapse-hidden');
+    });
   });
 
   it('collapses children when expand button clicked again', async () => {
@@ -185,31 +194,36 @@ describe('ItemListComponent', () => {
 
     // Expand
     fireEvent.click(expandButton!);
-    const bandagesText = screen.getByText('Bandages');
-    const collapseParent = bandagesText.closest('.MuiCollapse-root');
-    expect(collapseParent).not.toHaveClass('MuiCollapse-hidden');
+    await waitFor(() => {
+      const bandagesCard = screen.getByText('Bandages').closest('.MuiBox-root');
+      const collapseParent = bandagesCard?.closest('.MuiCollapse-root');
+      expect(collapseParent).not.toHaveClass('MuiCollapse-hidden');
+    });
 
     // Collapse
     fireEvent.click(expandButton!);
 
-    // Wait for the collapse animation to complete
+    // Wait for the collapse - check that Collapse has hidden class
     await waitFor(() => {
+      const bandagesCard = screen.getByText('Bandages').closest('.MuiBox-root');
+      const collapseParent = bandagesCard?.closest('.MuiCollapse-root');
       expect(collapseParent).toHaveClass('MuiCollapse-hidden');
     });
   });
 
-  it('renders children with indentation and border', () => {
+  it('renders children with indentation and border', async () => {
     renderWithRouter(<ItemListComponent items={mockItems} />);
 
     const expandButton = screen.getByRole('button');
     fireEvent.click(expandButton);
 
-    const childCard = screen.getByText('Bandages').closest('.MuiCard-root');
-
-    expect(childCard).toHaveStyle({ marginLeft: expect.any(String) });
+    await waitFor(() => {
+      const childCard = screen.getByText('Bandages').closest('.MuiCard-root');
+      expect(childCard).toHaveStyle({ marginLeft: expect.any(String) });
+    });
   });
 
-  it('handles nested children recursively (3+ levels)', () => {
+  it('handles nested children recursively (3+ levels)', async () => {
     const deeplyNested: ItemListItem[] = [
       {
         id: 'level-0',
@@ -219,6 +233,7 @@ describe('ItemListComponent', () => {
         image: '',
         date: '11/14/25',
         parent: null,
+        isKit: true,
         children: [
           {
             id: 'level-1',
@@ -228,15 +243,17 @@ describe('ItemListComponent', () => {
             image: '',
             date: '11/14/25',
             parent: 'level-0',
+            isKit: true,
             children: [
               {
                 id: 'level-2',
-                productName: 'Item',
-                actualName: 'Deep Item',
+                productName: 'Deep Item',
+                actualName: 'Deep Item Name',
                 subtitle: 'Third level',
                 image: '',
                 date: '11/14/25',
                 parent: 'level-1',
+                isKit: false,
                 children: [],
               },
             ],
@@ -249,12 +266,19 @@ describe('ItemListComponent', () => {
 
     const firstExpand = screen.getAllByRole('button')[0];
     fireEvent.click(firstExpand);
-    expect(screen.getByText('Sub Kit')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('Sub Kit')).toBeInTheDocument();
+    });
 
     const secondExpand = screen.getAllByRole('button')[1];
     fireEvent.click(secondExpand);
-    expect(screen.getByText('Item')).toBeInTheDocument();
-    expect(screen.getByText('Deep Item')).toBeInTheDocument();
+
+    await waitFor(() => {
+      // Use getAllByText since productName and actualName are both "Deep Item"
+      const deepItemElements = screen.getAllByText('Deep Item');
+      expect(deepItemElements.length).toBeGreaterThan(0);
+    });
   });
 
   it('displays image or placeholder correctly', () => {
@@ -269,19 +293,20 @@ describe('ItemListComponent', () => {
     const noStatusItems: ItemListItem[] = [
       {
         id: 'item-1',
-        productName: 'Item',
+        productName: 'Test Item',
         actualName: 'Item Name',
         subtitle: 'Description',
         image: '',
         date: '11/14/25',
         parent: null,
+        isKit: false,
         children: [],
       },
     ];
 
     renderWithRouter(<ItemListComponent items={noStatusItems} />);
 
-    expect(screen.getByText('Item')).toBeInTheDocument();
+    expect(screen.getByText('Test Item')).toBeInTheDocument();
     expect(screen.queryByText('undefined')).not.toBeInTheDocument();
   });
 
@@ -295,6 +320,7 @@ describe('ItemListComponent', () => {
         image: '',
         date: '11/14/25',
         parent: null,
+        isKit: true,
         children: [
           {
             id: 'child',
@@ -304,6 +330,7 @@ describe('ItemListComponent', () => {
             image: '',
             date: '11/14/25',
             parent: 'parent',
+            isKit: false,
             children: [],
           },
         ],
@@ -332,6 +359,7 @@ describe('ItemListComponent', () => {
         image: '',
         date: '11/14/25',
         parent: null,
+        isKit: true,
         children: [
           {
             id: 'c1',
@@ -341,6 +369,7 @@ describe('ItemListComponent', () => {
             image: '',
             date: '11/14/25',
             parent: 'parent2',
+            isKit: false,
           },
           {
             id: 'c2',
@@ -350,6 +379,7 @@ describe('ItemListComponent', () => {
             image: '',
             date: '11/14/25',
             parent: 'parent2',
+            isKit: false,
           },
         ],
       },

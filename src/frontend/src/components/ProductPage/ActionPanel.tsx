@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import {
   Button,
-  Box,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -80,8 +79,6 @@ export default function ActionPanel({
         alert('Please add an image before creating the item');
         return;
       }
-
-      const userId = await getUserId();
 
       // Convert new image → base64 if selected
       let imageBase64: string | undefined = undefined;
