@@ -169,8 +169,20 @@ export default function ViewMembersDialog({
       </DialogContent>
 
       <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onClose} variant="outlined">
-          Close
+        <Button
+        onClick={onClose}
+        variant="outlined"
+        sx={{
+            borderColor: 'rgba(0,0,0,0.3)',
+            color: 'rgba(0,0,0,0.7)',
+            fontWeight: 600,
+            '&:hover': {
+            borderColor: 'rgba(0,0,0,0.5)',
+            backgroundColor: 'rgba(0,0,0,0.04)',
+            },
+        }}
+        >
+        Close
         </Button>
       </DialogActions>
     </Dialog>
