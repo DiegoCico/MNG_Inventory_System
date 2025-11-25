@@ -23,6 +23,7 @@ export interface TeamIconProps {
   onInvite?: (teamName: string) => void;
   onRemove?: (teamName: string) => void;
   onDelete?: (teamName: string) => void;
+  onViewMembers?: (teamId: string, teamName: string) => void; // <-- FIXED
 }
 
 export default function TeamIcon({
@@ -32,6 +33,7 @@ export default function TeamIcon({
   onInvite,
   onRemove,
   onDelete,
+  onViewMembers,        // <-- FIXED (was missing!)
 }: TeamIconProps) {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -42,6 +44,7 @@ export default function TeamIcon({
     e.stopPropagation();
     setAnchorEl(e.currentTarget);
   };
+
   const handleClose = () => setAnchorEl(null);
   const handleOpenTeam = () => navigate(`/teams/home/${id}`);
 
@@ -65,7 +68,6 @@ export default function TeamIcon({
             borderColor: theme.palette.primary.main,
             boxShadow: `0 8px 24px ${hoverShadow}`,
           },
-          //height: 220,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -147,6 +149,7 @@ export default function TeamIcon({
         </IconButton>
       </Card>
 
+      {/* MENU */}
       <Menu
         anchorEl={anchorEl}
         open={open}
@@ -162,6 +165,17 @@ export default function TeamIcon({
         >
           Open
         </MenuItem>
+
+        {/* NEW ITEM */}
+        <MenuItem
+          onClick={() => {
+            handleClose();
+            onViewMembers?.(id, name);
+          }}
+        >
+          View Members
+        </MenuItem>
+
         <MenuItem
           onClick={() => {
             handleClose();
@@ -170,7 +184,9 @@ export default function TeamIcon({
         >
           Invite Member
         </MenuItem>
+
         <Divider />
+
         <MenuItem
           onClick={() => {
             handleClose();
@@ -180,6 +196,7 @@ export default function TeamIcon({
         >
           Remove Member
         </MenuItem>
+
         <MenuItem
           onClick={() => {
             handleClose();
@@ -194,8 +211,11 @@ export default function TeamIcon({
   );
 }
 
-function getInitials(name: string) {
-  const parts = name.trim().split(/\s+/);
+function getInitials(name?: string) {
+  const safe = name?.trim() || '';
+  if (!safe) return '??';
+
+  const parts = safe.split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }

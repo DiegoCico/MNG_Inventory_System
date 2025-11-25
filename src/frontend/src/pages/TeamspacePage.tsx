@@ -23,6 +23,8 @@ import {
   MissingNameDialog,
 } from '../components/TeamspacePage/TeamspaceDialogs';
 
+import ViewMembersDialog from '../components/TeamspacePage/ViewMembersDialog';
+
 interface SnackbarState {
   open: boolean;
   message: string;
@@ -54,6 +56,11 @@ export default function TeamspacePage() {
   const [deleteWorkspaceId, setDeleteWorkspaceId] = useState('');
   const [deleteWorkspaceName, setDeleteWorkspaceName] = useState('');
 
+  // 🔥 NEW: View members dialog state
+  const [openViewMembers, setOpenViewMembers] = useState(false);
+  const [viewTeamId, setViewTeamId] = useState('');
+  const [viewTeamName, setViewTeamName] = useState('');
+
   // Snackbar state
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
@@ -74,12 +81,13 @@ export default function TeamspacePage() {
     try {
       setLoading(true);
       setError(null);
+
       const user = await me();
-      if (!user?.userId) {
-        throw new Error('User not authenticated or ID missing');
-      }
+      if (!user?.userId) throw new Error('User not authenticated or ID missing');
+
       const data = await getTeamspace(user.userId);
       setTeams(data?.teams ?? []);
+
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load teams';
       setError(message);
@@ -137,6 +145,13 @@ export default function TeamspacePage() {
     setOpenDelete(true);
   }
 
+  // 🔥 NEW: View Members handler
+  function openMembers(id: string, name: string): void {
+    setViewTeamId(id);
+    setViewTeamName(name);
+    setOpenViewMembers(true);
+  }
+
   // Filtered teams
   const filteredTeams = useMemo(
     () => teams.filter((t) => t.GSI_NAME.toLowerCase().includes(search.toLowerCase())),
@@ -171,6 +186,7 @@ export default function TeamspacePage() {
             onInvite={() => setOpenInvite(true)}
             onRemove={openRemoveFor}
             onDelete={openDeleteFor}
+            onViewMembers={openMembers}   // 🔥 ADDED HERE
           />
         )}
       </Container>
@@ -213,6 +229,15 @@ export default function TeamspacePage() {
       />
 
       <MissingNameDialog open={showNameDialog} onOpenProfile={openProfile} />
+
+      {/* 🔥 NEW: View Members Popup */}
+      <ViewMembersDialog
+        open={openViewMembers}
+        onClose={() => setOpenViewMembers(false)}
+        teamId={viewTeamId}
+        teamName={viewTeamName}
+        showSnackbar={showSnackbar}
+      />
 
       {/* Snackbar */}
       <Snackbar

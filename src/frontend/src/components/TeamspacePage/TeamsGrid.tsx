@@ -1,6 +1,6 @@
 // components/TeamsGrid.tsx
 import { Grid, Box } from '@mui/material';
-import TeamIcon from '../TeamsComponent';
+import TeamIcon from './TeamsComponent';
 
 export interface Team {
   teamId: string;
@@ -13,9 +13,16 @@ interface TeamsGridProps {
   onInvite: () => void;
   onRemove: (teamId: string, teamName: string) => void;
   onDelete: (teamId: string, teamName: string) => void;
+  onViewMembers: (teamId: string, teamName: string) => void;
 }
 
-export default function TeamsGrid({ teams, onInvite, onRemove, onDelete }: TeamsGridProps) {
+export default function TeamsGrid({
+  teams,
+  onInvite,
+  onRemove,
+  onDelete,
+  onViewMembers,
+}: TeamsGridProps) {
   return (
     <Grid
       container
@@ -35,8 +42,8 @@ export default function TeamsGrid({ teams, onInvite, onRemove, onDelete }: Teams
               '& > *': {
                 width: '100%',
                 height: '100%',
-                minWidth: 0, // Allows text truncation to work properly
-              }
+                minWidth: 0,
+              },
             }}
           >
             <TeamIcon
@@ -46,6 +53,7 @@ export default function TeamsGrid({ teams, onInvite, onRemove, onDelete }: Teams
               onInvite={onInvite}
               onRemove={() => onRemove(team.teamId, team.GSI_NAME)}
               onDelete={() => onDelete(team.teamId, team.GSI_NAME)}
+              onViewMembers={() => onViewMembers(team.teamId, team.GSI_NAME)}  
             />
           </Box>
         </Grid>

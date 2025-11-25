@@ -417,4 +417,57 @@ export const teamspaceRouter = router({
       };
     }
   }),
+  /** GET ALL MEMBERS OF A TEAM */
+getTeamMembers: permissionedProcedure('team.view')
+  .input(
+    z.object({
+      teamId: z.string().min(1),
+    }),
+  )
+  .query(async ({ input }) => {
+    try {
+      const q = await doc.send(
+        new QueryCommand({
+          TableName: TABLE_NAME,
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: { ':pk': `TEAM#${input.teamId}` },
+        }),
+      );
+
+      const items = q.Items ?? [];
+      const members = items.filter((it) => it.SK.startsWith('MEMBER#'));
+
+      const enriched = await Promise.all(
+        members.map(async (m) => {
+          const userId = m.userId;
+
+          const userRes = await doc.send(
+            new GetCommand({
+              TableName: TABLE_NAME,
+              Key: { PK: `USER#${userId}`, SK: 'METADATA' },
+            }),
+          );
+
+          const user = userRes.Item || {};
+
+          return {
+            userId,
+            username: user.username ?? '',
+            name: user.name ?? '',
+            role: m.role,
+            joinedAt: m.joinedAt,
+          };
+        }),
+      );
+
+      return { success: true, members: enriched };
+    } catch (err: any) {
+      console.error('❌ getTeamMembers error:', err);
+      return {
+        success: false,
+        error: err.message || 'Failed to fetch team members.',
+      };
+    }
+  }),
+
 });
