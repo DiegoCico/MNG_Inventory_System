@@ -1,4 +1,4 @@
-import { SendEmailCommand, SendEmailCommandOutput } from '@aws-sdk/client-sesv2';
+import { SendEmailCommand } from '@aws-sdk/client-sesv2';
 import { sesClient } from '../../src/aws';
 import { sendInviteEmail } from '../../src/helpers/inviteEmail';
 
