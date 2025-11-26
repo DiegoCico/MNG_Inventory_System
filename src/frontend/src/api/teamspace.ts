@@ -93,3 +93,16 @@ export async function getAllUsers() {
   if (!data) throw new Error('unexpected response from getAllUsers');
   return data;
 }
+
+/* GET TEAM MEMBERS */
+export async function getTeamMembers(teamId: string) {
+  const data = await trpcFetch(
+    `${TRPC}/getTeamMembers?input=${encodeURIComponent(JSON.stringify({ teamId }))}`,
+    {
+      method: 'GET',
+    },
+  );
+
+  if (!data) throw new Error('unexpected response from getTeamMembers');
+  return data;
+}
