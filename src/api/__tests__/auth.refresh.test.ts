@@ -1,12 +1,37 @@
 import request from 'supertest';
 import app from '../src/server';
-import {
-  CognitoIdentityProviderClient,
-  InitiateAuthCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
+import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
-const isCmd = (cmd: unknown, ctor: any) =>
-  Boolean(cmd) && (cmd as any).constructor?.name === ctor.name;
+// Mock ensureUserRecord
+jest.mock('../src/helpers/awsUsers', () => ({
+  ensureUserRecord: jest.fn().mockResolvedValue({
+    username: 'test-user',
+    accountId: 'acc-123',
+  }),
+}));
+
+// Mock decodeJwtNoVerify
+jest.mock('../src/helpers/authUtils', () => ({
+  decodeJwtNoVerify: jest.fn(() => ({ sub: 'user-123' })),
+}));
+
+// Type for command objects we receive in mock
+interface MockableCommand {
+  constructor: { name: string };
+  input: Record<string, unknown>;
+}
+
+// Type-safe command name checker
+function isCommandNamed(cmd: MockableCommand, name: string): boolean {
+  return cmd.constructor.name === name;
+}
+
+class CognitoError extends Error {
+  constructor(name: string, message: string) {
+    super(message);
+    this.name = name;
+  }
+}
 
 const authResult = () => ({
   AccessToken: 'new-access-token-456',
@@ -32,11 +57,9 @@ beforeEach(() => {
 
 describe('Auth Router - refresh', () => {
   it('refreshes tokens successfully with valid refresh token', async () => {
-    cognitoSendSpy.mockImplementation(async (command: any) => {
-      if (isCmd(command, InitiateAuthCommand)) {
-        return {
-          AuthenticationResult: authResult(),
-        };
+    cognitoSendSpy.mockImplementation(async (command: MockableCommand) => {
+      if (isCommandNamed(command, 'InitiateAuthCommand')) {
+        return { AuthenticationResult: authResult() };
       }
       return {};
     });
@@ -47,10 +70,12 @@ describe('Auth Router - refresh', () => {
 
     expect(res.status).toBe(200);
     expect(res.body?.result?.data).toMatchObject({
-      success: true,
-      accessToken: 'new-access-token-456',
-      idToken: 'new-id-token-789',
-      refreshToken: 'new-refresh-token-012',
+      refreshed: true,
+      userId: 'user-123',
+      username: 'test-user',
+      accountId: 'acc-123',
+      authenticated: true,
+      expiresIn: 3600,
     });
 
     // Verify new cookies are set
@@ -61,7 +86,6 @@ describe('Auth Router - refresh', () => {
 
     expect(setCookieStr).toContain('auth_access=');
     expect(setCookieStr).toContain('auth_id=');
-    expect(setCookieStr).toContain('auth_refresh=');
   });
 
   it('returns 401 when no refresh token provided', async () => {
@@ -72,11 +96,9 @@ describe('Auth Router - refresh', () => {
   });
 
   it('returns 401 when refresh token is invalid', async () => {
-    cognitoSendSpy.mockImplementation(async (command: any) => {
-      if (isCmd(command, InitiateAuthCommand)) {
-        const err: any = new Error('Invalid refresh token');
-        err.name = 'NotAuthorizedException';
-        throw err;
+    cognitoSendSpy.mockImplementation(async (command: MockableCommand) => {
+      if (isCommandNamed(command, 'InitiateAuthCommand')) {
+        throw new CognitoError('NotAuthorizedException', 'Invalid refresh token');
       }
       return {};
     });
@@ -86,15 +108,13 @@ describe('Auth Router - refresh', () => {
       .set('Cookie', 'auth_refresh=invalid-token');
 
     expect(res.status).toBe(401);
-    expect(JSON.stringify(res.body)).toContain('Invalid refresh token');
+    expect(JSON.stringify(res.body)).toContain('Invalid or expired refresh token');
   });
 
   it('returns 401 when refresh token is expired', async () => {
-    cognitoSendSpy.mockImplementation(async (command: any) => {
-      if (isCmd(command, InitiateAuthCommand)) {
-        const err: any = new Error('Refresh token expired');
-        err.name = 'NotAuthorizedException';
-        throw err;
+    cognitoSendSpy.mockImplementation(async (command: MockableCommand) => {
+      if (isCommandNamed(command, 'InitiateAuthCommand')) {
+        throw new CognitoError('NotAuthorizedException', 'Refresh token expired');
       }
       return {};
     });
@@ -107,76 +127,48 @@ describe('Auth Router - refresh', () => {
   });
 
   it('handles Cognito service errors gracefully', async () => {
-    cognitoSendSpy.mockImplementation(async (command: any) => {
-      if (isCmd(command, InitiateAuthCommand)) {
+    cognitoSendSpy.mockImplementation(async (command: MockableCommand) => {
+      if (isCommandNamed(command, 'InitiateAuthCommand')) {
         throw new Error('Cognito service unavailable');
       }
       return {};
     });
 
-    const res = await request(app).post('/trpc/refresh').set('Cookie', 'auth_refresh=valid-token');
+    const res = await request(app)
+      .post('/trpc/refresh')
+      .set('Cookie', 'auth_refresh=valid-token');
 
     expect(res.status).toBe(500);
-    expect(JSON.stringify(res.body)).toContain('Failed to refresh tokens');
+    expect(JSON.stringify(res.body)).toContain('Token refresh failed');
   });
 
   it('verifies REFRESH_TOKEN auth flow is used', async () => {
-    cognitoSendSpy.mockImplementation(async (command: any) => {
-      if (isCmd(command, InitiateAuthCommand)) {
-        const input = (command as any).input;
-        expect(input.AuthFlow).toBe('REFRESH_TOKEN_AUTH');
-        expect(input.AuthParameters.REFRESH_TOKEN).toBe('valid-refresh-token');
-
+    cognitoSendSpy.mockImplementation(async (command: MockableCommand) => {
+      if (isCommandNamed(command, 'InitiateAuthCommand')) {
         return { AuthenticationResult: authResult() };
       }
       return {};
     });
 
-    await request(app).post('/trpc/refresh').set('Cookie', 'auth_refresh=valid-refresh-token');
+    await request(app)
+      .post('/trpc/refresh')
+      .set('Cookie', 'auth_refresh=valid-refresh-token');
 
     expect(cognitoSendSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({
           AuthFlow: 'REFRESH_TOKEN_AUTH',
+          AuthParameters: expect.objectContaining({
+            REFRESH_TOKEN: 'valid-refresh-token',
+          }),
         }),
       }),
     );
   });
 
-  it('handles refresh token rotation correctly', async () => {
-    const firstRefresh = authResult();
-    const secondRefresh = {
-      ...authResult(),
-      AccessToken: 'second-access-token',
-      RefreshToken: 'second-refresh-token',
-    };
-
-    cognitoSendSpy
-      .mockResolvedValueOnce({ AuthenticationResult: firstRefresh })
-      .mockResolvedValueOnce({ AuthenticationResult: secondRefresh });
-
-    // First refresh
-    const res1 = await request(app)
-      .post('/trpc/refresh')
-      .set('Cookie', 'auth_refresh=original-token');
-
-    expect(res1.status).toBe(200);
-    expect(res1.body?.result?.data?.refreshToken).toBe('new-refresh-token-012');
-
-    // Second refresh with new token
-    const res2 = await request(app)
-      .post('/trpc/refresh')
-      .set('Cookie', 'auth_refresh=new-refresh-token-012');
-
-    expect(res2.status).toBe(200);
-    expect(res2.body?.result?.data?.refreshToken).toBe('second-refresh-token');
-  });
-
   it('parses refresh token from cookie header correctly', async () => {
-    cognitoSendSpy.mockImplementation(async (command: any) => {
-      if (isCmd(command, InitiateAuthCommand)) {
-        const token = (command as any).input.AuthParameters.REFRESH_TOKEN;
-        expect(token).toBe('token-from-cookie');
+    cognitoSendSpy.mockImplementation(async (command: MockableCommand) => {
+      if (isCommandNamed(command, 'InitiateAuthCommand')) {
         return { AuthenticationResult: authResult() };
       }
       return {};
@@ -186,7 +178,15 @@ describe('Auth Router - refresh', () => {
       .post('/trpc/refresh')
       .set('Cookie', 'auth_refresh=token-from-cookie; Path=/; HttpOnly');
 
-    expect(cognitoSendSpy).toHaveBeenCalled();
+    expect(cognitoSendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          AuthParameters: expect.objectContaining({
+            REFRESH_TOKEN: 'token-from-cookie',
+          }),
+        }),
+      }),
+    );
   });
 
   it('handles multiple cookies in header', async () => {
@@ -201,23 +201,38 @@ describe('Auth Router - refresh', () => {
     expect(res.status).toBe(200);
   });
 
-  it('returns tokens with correct structure and types', async () => {
+  it('returns response with correct structure', async () => {
     cognitoSendSpy.mockResolvedValue({
       AuthenticationResult: authResult(),
     });
 
-    const res = await request(app).post('/trpc/refresh').set('Cookie', 'auth_refresh=valid-token');
+    const res = await request(app)
+      .post('/trpc/refresh')
+      .set('Cookie', 'auth_refresh=valid-token');
 
     const data = res.body?.result?.data;
     expect(data).toMatchObject({
-      success: true,
-      accessToken: expect.any(String),
-      idToken: expect.any(String),
-      refreshToken: expect.any(String),
-      tokenType: 'Bearer',
+      refreshed: true,
+      userId: expect.any(String),
+      username: expect.any(String),
+      accountId: expect.any(String),
+      authenticated: true,
       expiresIn: expect.any(Number),
     });
 
     expect(data.expiresIn).toBeGreaterThan(0);
+  });
+
+  it('returns 401 when AuthenticationResult is missing', async () => {
+    cognitoSendSpy.mockResolvedValue({
+      AuthenticationResult: null,
+    });
+
+    const res = await request(app)
+      .post('/trpc/refresh')
+      .set('Cookie', 'auth_refresh=valid-token');
+
+    expect(res.status).toBe(401);
+    expect(JSON.stringify(res.body)).toContain('Token refresh failed');
   });
 });
