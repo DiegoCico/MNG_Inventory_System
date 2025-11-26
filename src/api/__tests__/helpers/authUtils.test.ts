@@ -1,4 +1,4 @@
-import { decodeJwtNoVerify, DecodedToken } from '../../src/helpers/authUtils';
+import { decodeJwtNoVerify } from '../../src/helpers/authUtils';
 
 describe('authUtils', () => {
   describe('decodeJwtNoVerify()', () => {
