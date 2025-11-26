@@ -1,7 +1,6 @@
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { doc } from '../../src/aws';
 import {
-  id,
   getTeamspace,
   getUserRoleInTeamspace,
   getRolePermissions,
