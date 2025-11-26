@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, ChangeEvent } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -48,7 +48,6 @@ export default function ViewMembersDialog({
 
     async function load() {
       setLoading(true);
-
       try {
         const user = await me();
         setCurrentUserId(user.userId);
@@ -56,37 +55,42 @@ export default function ViewMembersDialog({
         const data = await getTeamMembers(teamId);
 
         if (data?.success) {
-          setMembers(data.members);
+          const list = data.members;
+
+          const sorted = [...list].sort((a, b) => {
+            const pa = a.permissions?.length ?? 0;
+            const pb = b.permissions?.length ?? 0;
+            return pb - pa;
+          });
+
+          setMembers(sorted);
         }
-      } catch (e) {
+      } catch {
         showSnackbar('Failed to load members', 'error');
       }
-
       setLoading(false);
     }
 
     void load();
   }, [open, teamId]);
 
-  async function handleRemove(memberUsername: string) {
+  async function handleRemove(username: string) {
     try {
-      await removeUserTeamspace(currentUserId, memberUsername, teamId);
+      await removeUserTeamspace(currentUserId, username, teamId);
       showSnackbar('Member removed', 'success');
-
-      // Refresh list
       const updated = await getTeamMembers(teamId);
       setMembers(updated.members);
-    } catch (err) {
+    } catch {
       showSnackbar('Failed to remove member', 'error');
     }
   }
 
   const filtered = members.filter((m) => {
-    const term = search.toLowerCase();
+    const t = search.toLowerCase();
     return (
-      m.username?.toLowerCase().includes(term) ||
-      m.name?.toLowerCase().includes(term) ||
-      m.role?.toLowerCase().includes(term)
+      m.username?.toLowerCase().includes(t) ||
+      m.name?.toLowerCase().includes(t) ||
+      m.roleName?.toLowerCase().includes(t)
     );
   });
 
@@ -102,9 +106,7 @@ export default function ViewMembersDialog({
         }}
       >
         Members – {teamName}
-        <IconButton onClick={onClose}>
-          <CloseIcon />
-        </IconButton>
+        <IconButton onClick={onClose}><CloseIcon /></IconButton>
       </DialogTitle>
 
       <DialogContent dividers sx={{ px: 3 }}>
@@ -148,19 +150,11 @@ export default function ViewMembersDialog({
               </Stack>
 
               <Stack direction="row" spacing={1} alignItems="center">
-                <Select
-                  size="small"
-                  value={m.role}
-                  sx={{ minWidth: 120 }}
-                >
-                  <MenuItem value="Owner">Owner</MenuItem>
-                  <MenuItem value="Member">Member</MenuItem>
+                <Select size="small" value={m.roleName} sx={{ minWidth: 130 }}>
+                  <MenuItem value={m.roleName}>{m.roleName}</MenuItem>
                 </Select>
 
-                <IconButton
-                  color="error"
-                  onClick={() => handleRemove(m.username)}
-                >
+                <IconButton color="error" onClick={() => handleRemove(m.username)}>
                   <DeleteIcon />
                 </IconButton>
               </Stack>
@@ -170,19 +164,19 @@ export default function ViewMembersDialog({
 
       <DialogActions sx={{ p: 2 }}>
         <Button
-        onClick={onClose}
-        variant="outlined"
-        sx={{
+          onClick={onClose}
+          variant="outlined"
+          sx={{
             borderColor: 'rgba(0,0,0,0.3)',
             color: 'rgba(0,0,0,0.7)',
             fontWeight: 600,
             '&:hover': {
-            borderColor: 'rgba(0,0,0,0.5)',
-            backgroundColor: 'rgba(0,0,0,0.04)',
+              borderColor: 'rgba(0,0,0,0.5)',
+              backgroundColor: 'rgba(0,0,0,0.04)',
             },
-        }}
+          }}
         >
-        Close
+          Close
         </Button>
       </DialogActions>
     </Dialog>

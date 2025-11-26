@@ -103,7 +103,7 @@ export const authRouter = router({
   inviteUser: publicProcedure
     .input(
       z.object({
-        email: z.string(),
+        email: z.email(),
       }),
     )
     .mutation(async ({ input }) => {

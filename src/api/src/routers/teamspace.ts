@@ -468,56 +468,77 @@ removeUserTeamspace: permissionedProcedure('team.remove_member')
     }
   }),
   /** GET ALL MEMBERS OF A TEAM */
-getTeamMembers: permissionedProcedure('team.view')
-  .input(
-    z.object({
-      teamId: z.string().min(1),
+  getTeamMembers: permissionedProcedure('team.view')
+    .input(
+      z.object({
+        teamId: z.string().min(1),
+      }),
+    )
+    .query(async ({ input }) => {
+      try {
+        // Get all TEAM#<id> items
+        const q = await doc.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: 'PK = :pk',
+            ExpressionAttributeValues: { ':pk': `TEAM#${input.teamId}` },
+          }),
+        );
+
+        const items = q.Items ?? [];
+        const members = items.filter((it) => it.SK.startsWith('MEMBER#'));
+
+        const enriched = await Promise.all(
+          members.map(async (m) => {
+            const userId = m.userId;
+
+            // Fetch full USER metadata 
+            const userRes = await doc.send(
+              new GetCommand({
+                TableName: TABLE_NAME,
+                Key: { PK: `USER#${userId}`, SK: 'METADATA' },
+              }),
+            );
+
+            const user = userRes.Item || {};
+
+            // The ONE TRUE GLOBAL USER ROLE
+            const globalRoleName = user.role ?? 'No Role';
+            const roleId = globalRoleName.toUpperCase();
+
+            // Fetch global role metadata
+            const roleRes = await doc.send(
+              new GetCommand({
+                TableName: TABLE_NAME,
+                Key: {
+                  PK: `ROLE#${roleId}`,
+                  SK: 'METADATA',
+                },
+              }),
+            );
+
+            const roleData = roleRes.Item || {};
+
+            return {
+              userId,
+              username: user.username ?? '',
+              name: user.name ?? '',
+              roleName: globalRoleName,         
+              roleId,                            
+              permissions: roleData.permissions ?? [],
+              joinedAt: m.joinedAt,
+            };
+          }),
+        );
+
+        return { success: true, members: enriched };
+      } catch (err: any) {
+        console.error('❌ getTeamMembers error:', err);
+        return {
+          success: false,
+          error: err.message || 'Failed to fetch team members.',
+        };
+      }
     }),
-  )
-  .query(async ({ input }) => {
-    try {
-      const q = await doc.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          KeyConditionExpression: 'PK = :pk',
-          ExpressionAttributeValues: { ':pk': `TEAM#${input.teamId}` },
-        }),
-      );
-
-      const items = q.Items ?? [];
-      const members = items.filter((it) => it.SK.startsWith('MEMBER#'));
-
-      const enriched = await Promise.all(
-        members.map(async (m) => {
-          const userId = m.userId;
-
-          const userRes = await doc.send(
-            new GetCommand({
-              TableName: TABLE_NAME,
-              Key: { PK: `USER#${userId}`, SK: 'METADATA' },
-            }),
-          );
-
-          const user = userRes.Item || {};
-
-          return {
-            userId,
-            username: user.username ?? '',
-            name: user.name ?? '',
-            role: m.role,
-            joinedAt: m.joinedAt,
-          };
-        }),
-      );
-
-      return { success: true, members: enriched };
-    } catch (err: any) {
-      console.error('❌ getTeamMembers error:', err);
-      return {
-        success: false,
-        error: err.message || 'Failed to fetch team members.',
-      };
-    }
-  }),
 
 });

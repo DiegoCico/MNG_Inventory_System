@@ -40,6 +40,7 @@ export default function TeamIcon({
 }: TeamIconProps) {
   const theme = useTheme();
   const navigate = useNavigate();
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -52,10 +53,26 @@ export default function TeamIcon({
   const handleOpenTeam = () => navigate(`/teams/home/${id}`);
 
   const borderColor = alpha(theme.palette.text.primary, 0.1);
-  const hoverShadow = alpha(theme.palette.primary.main, 0.25);
 
-  // background color behind the % circle
-  const bgColor = alpha(theme.palette.success.main, 0.15);
+  function getColor(p: number) {
+    const clamp = Math.max(0, Math.min(100, p));
+
+    if (clamp <= 50) {
+      const t = clamp / 50;
+      const r = Math.round(211 + (251 - 211) * t);
+      const g = Math.round(47 + (192 - 47) * t);
+      const b = Math.round(47 + (45 - 47) * t);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    const t = (clamp - 50) / 50;
+    const r = Math.round(251 + (56 - 251) * t);
+    const g = Math.round(192 + (142 - 192) * t);
+    const b = Math.round(45 + (60 - 45) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  const ringColor = getColor(percent);
 
   return (
     <>
@@ -69,63 +86,76 @@ export default function TeamIcon({
           transition: 'all 0.25s ease',
           cursor: 'pointer',
           '&:hover': {
-            transform: 'translateY(-5px)',
+            transform: 'translateY(-4px)',
             borderColor: theme.palette.primary.main,
-            boxShadow: `0 8px 24px ${hoverShadow}`,
+            boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.25)}`,
           },
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          p: 2,
+          p: { xs: 1.2, sm: 2 },
+          width: '100%',
         }}
       >
         <CardActionArea
           onClick={handleOpenTeam}
           sx={{
             borderRadius: 3,
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            width: '100%',
           }}
         >
-          <CardContent>
-            <Stack alignItems="center" spacing={1.4}>
+          <CardContent sx={{ p: { xs: 1.5, sm: 2.2 } }}>
+            <Stack alignItems="center" spacing={1.8} sx={{ textAlign: 'center' }}>
 
-              <Box
-                sx={{
-                  position: 'relative',
-                  width: 80,
-                  height: 80,
-                  borderRadius: 2,
-                  backgroundColor: bgColor,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
+              {/* ===== CLEAN PROGRESS RING ===== */}
+              <Box sx={{ position: 'relative', width: 72, height: 72 }}>
+
+                {/* Always show faint outline */}
+                <CircularProgress
+                  variant="determinate"
+                  value={100}
+                  size={72}
+                  thickness={4}
+                  sx={{
+                    color: alpha(theme.palette.text.primary, 0.15),
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                  }}
+                />
+
+                {/* Main colored ring */}
                 <CircularProgress
                   variant="determinate"
                   value={percent}
-                  size={80}
-                  thickness={5}
+                  size={72}
+                  thickness={4}
                   sx={{
-                    color: theme.palette.success.main,
+                    color: ringColor,
                     position: 'absolute',
+                    top: 0,
+                    left: 0,
                     '& .MuiCircularProgress-circle': {
                       strokeLinecap: 'round',
                     },
                   }}
                 />
 
-                <Typography
-                  variant="subtitle1"
-                  fontWeight={800}
-                  sx={{ color: theme.palette.text.primary, position: 'relative' }}
+                {/* % IN MIDDLE */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 >
-                  {percent}%
-                </Typography>
+                  <Typography
+                    fontSize={16}
+                    fontWeight={800}
+                    sx={{ color: theme.palette.text.primary }}
+                  >
+                    {percent}%
+                  </Typography>
+                </Box>
               </Box>
 
               {/* NAME */}
@@ -135,8 +165,8 @@ export default function TeamIcon({
                   sx={{
                     fontWeight: 800,
                     color: theme.palette.text.primary,
-                    textAlign: 'center',  
                     maxWidth: 180,
+                    fontSize: { xs: 14, sm: 16 },
                   }}
                   noWrap
                 >
@@ -150,8 +180,7 @@ export default function TeamIcon({
                   variant="body2"
                   sx={{
                     color: theme.palette.text.secondary,
-                    fontSize: 13,
-                    textAlign: 'center',
+                    fontSize: { xs: 12.5, sm: 13 },
                     maxWidth: 200,
                   }}
                   noWrap
@@ -163,7 +192,7 @@ export default function TeamIcon({
           </CardContent>
         </CardActionArea>
 
-        {/* MENU */}
+        {/* MENU BTN */}
         <IconButton
           size="small"
           onClick={handleMenu}
@@ -179,6 +208,7 @@ export default function TeamIcon({
         </IconButton>
       </Card>
 
+      {/* MENU */}
       <Menu
         anchorEl={anchorEl}
         open={open}
@@ -187,14 +217,8 @@ export default function TeamIcon({
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <MenuItem onClick={() => { handleClose(); handleOpenTeam(); }}>Open</MenuItem>
-
-        <MenuItem onClick={() => { handleClose(); onViewMembers?.(id, name); }}>
-          View Members
-        </MenuItem>
-
-        <MenuItem onClick={() => { handleClose(); onInvite?.(name); }}>
-          Invite Member
-        </MenuItem>
+        <MenuItem onClick={() => { handleClose(); onViewMembers?.(id, name); }}>View Members</MenuItem>
+        <MenuItem onClick={() => { handleClose(); onInvite?.(name); }}>Invite Member</MenuItem>
 
         <Divider />
 

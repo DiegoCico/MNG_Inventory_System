@@ -49,3 +49,10 @@ export async function deleteRole(name: string) {
     body: JSON.stringify({ name }),
   });
 }
+
+export async function deleteUser(userId: string) {
+  return await trpcFetch('/trpc/deleteUser', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
+}
