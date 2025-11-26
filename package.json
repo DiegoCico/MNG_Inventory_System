@@ -34,12 +34,14 @@
     "clean": "rimraf node_modules src/**/node_modules src/cdk/cdk.out || true"
   },
   "devDependencies": {
+    "@babel/preset-typescript": "^7.28.5",
     "aws-sdk-client-mock": "^4.1.0",
     "concurrently": "^9.2.1",
     "eslint": "^9.10.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.3.3",
     "rimraf": "^6.0.1",
+    "ts-jest": "^29.4.5",
     "typescript": "^5.4.0"
   },
   "dependencies": {

@@ -46,20 +46,5 @@
     "tsx": "^4.20.6",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.45.0"
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "setupFilesAfterEnv": [
-      "api/__tests__/setup/test-env.ts"
-    ],
-    "moduleFileExtensions": [
-      "ts",
-      "js",
-      "json"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.test.ts"
-    ]
   }
 }

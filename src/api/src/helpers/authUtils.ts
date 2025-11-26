@@ -7,7 +7,7 @@ export type DecodedToken = {
 /**
  * decodeJwtNoVerify
  * - parses a JWT (AccessToken or IdToken) without verifying signatures
- * - good enough for internal sessions behind your API Gateway
+ * - good enough for internal sessions behind the API Gateway
  */
 export function decodeJwtNoVerify(token?: string | null): DecodedToken | null {
   if (!token) return null;

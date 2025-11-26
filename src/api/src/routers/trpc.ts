@@ -86,7 +86,10 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
   const accessToken = cookies[COOKIE_ACCESS];
 
   if (!accessToken) {
-    throw new Error('UNAUTHORIZED: No auth cookie found');
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'No access token',
+    });
   }
 
   try {
@@ -114,8 +117,11 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
         },
       },
     });
-  } catch (err) {
-    throw new Error(`INVALID_TOKEN: ${err instanceof Error ? err.message : String(err)}`);
+  } catch (err: any) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: `Invalid or expired token: ${err?.message ?? String(err)}`,
+    });
   }
 });
 

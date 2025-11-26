@@ -39,7 +39,7 @@ async function ensureUniqueUsername(base: string): Promise<string> {
 export const profileRouter = router({
   getProfile: protectedProcedure.query(async ({ ctx }) => {
     const userCtx = ctx.user;
-    if (!userCtx) return { authenticated: false, message: 'No session' };
+    if (!userCtx) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No session' });
 
     const userId = userCtx.userId;
 
@@ -105,7 +105,7 @@ export const profileRouter = router({
       };
     } catch (err) {
       console.error('❌ getProfile error:', err);
-      return { authenticated: false, message: 'Invalid session' };
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to fetch profile' });
     }
   }),
 
@@ -186,7 +186,7 @@ export const profileRouter = router({
         return { success: true, message: 'Profile updated' };
       } catch (err) {
         console.error('❌ updateProfile error:', err);
-        return { success: false, message: 'Failed to update profile' };
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to update profile' });
       }
     }),
 });
