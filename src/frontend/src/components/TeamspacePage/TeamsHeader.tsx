@@ -34,7 +34,7 @@ export default function TeamsHeader({ onCreateTeam, onInviteMember }: TeamsHeade
           startIcon={<AdminPanelSettingsIcon />}
           sx={{ fontWeight: 900, textTransform: 'none' }}
         >
-          Permissions
+          Managment
         </Button>
         <Button
           variant="contained"

@@ -44,17 +44,27 @@ Below are the current API methods and use cases. Methods are called using:
 | deleteObject | Delete an S3 object by key                                           | deleteObject({ key })                         | `{ success: true }`                 |
 | listImages   | List images under a computed prefix for the team/scope/item          | listImages({ scope, serialNumber, limit })    | `{ images: string[] }`              |
 
-#### Teamspace
+#### Teamspace 
 
-| Router name             | Use case                                         | Params                                                               | Returns                                                  |
-| ----------------------- | ------------------------------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------- |
-| **createTeamspace**     | Create a new teamspace and add caller as Owner   | `createTeamspace({ name, description, uic, fe, userId })`            | `{ success: boolean, teamId?, name?, error? }`           |
-| **getTeamspace**        | List all teamspaces the user belongs to          | `getTeamspace({ userId })`                                           | `{ success: boolean, teams?: any[], error?: string }`    |
-| **getTeamById**         | Fetch a single team by id (must be a member)     | `getTeamById({ teamId, userId })`                                    | `{ success: boolean, team?: any, error?: string }`       |
-| **addUserTeamspace**    | Add a member to a teamspace using their username | `addUserTeamspace({ userId, memberUsername, inviteWorkspaceId })`    | `{ success: boolean, added?: string, error?: string }`   |
-| **removeUserTeamspace** | Remove a member from a teamspace                 | `removeUserTeamspace({ userId, memberUsername, inviteWorkspaceId })` | `{ success: boolean, removed?: string, error?: string }` |
-| **deleteTeamspace**     | Delete an entire teamspace and related records   | `deleteTeamspace({ userId, inviteWorkspaceId })`                     | `{ success: boolean, deleted?: string, error?: string }` |
-| **getAllUsers**         | Fetch all users + their team memberships         | `getAllUsers()`                                                      | `{ success: boolean, users?: any[], error?: string }`    |
+| Router name             | Use case                                          | Params                                                               | Returns                               |
+| ----------------------- | ------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------- |
+| **createTeamspace**     | Create a new teamspace and add caller as Owner    | `createTeamspace({ name, description, uic, fe, userId })`            | `{ success, teamId?, name?, error? }` |
+| **getTeamspace**        | List all teamspaces the user belongs to           | `getTeamspace({ userId })`                                           | `{ success, teams?, error? }`         |
+| **getTeamById**         | Fetch a single team by id (must be a member)      | `getTeamById({ teamId, userId })`                                    | `{ success, team?, error? }`          |
+| **addUserTeamspace**    | Add a member to a teamspace by username           | `addUserTeamspace({ userId, memberUsername, inviteWorkspaceId })`    | `{ success, added?, error? }`         |
+| **removeUserTeamspace** | Remove a member from a teamspace                  | `removeUserTeamspace({ userId, memberUsername, inviteWorkspaceId })` | `{ success, removed?, error? }`       |
+| **deleteTeamspace**     | Delete a workspace and related records (DDB + S3) | `deleteTeamspace({ userId, inviteWorkspaceId })`                     | `{ success, deleted?, error? }`       |
+| **getAllUsers**         | Fetch all users + their team memberships          | `getAllUsers()`                                                      | `{ success, users?, error? }`         |
+| **getTeamMembers**      | Fetch all members of a specific teamspace         | `getTeamMembers({ teamId })`                                         | `{ success, members?, error? }`       |
+
+#### Users
+
+| Router name            | Use case                                    | Params                             | Returns                                             |
+| ---------------------- | ------------------------------------------- | ---------------------------------- | --------------------------------------------------- |
+| **listUsersWithRoles** | List all users with their global roles      | `listUsersWithRoles()`             | `{ users: [{ userId, username, name, roleName }] }` |
+| **assignRole**         | Assign a global role to a user              | `assignRole({ userId, roleName })` | `{ success, roleName }`                             |
+| **getUserRole**        | Fetch a user's global role                  | `getUserRole({ userId })`          | `{ userId, roleName }`                              |
+| **deleteUser**         | Delete a user + profile image + memberships | `deleteUser({ userId })`           | `{ success: true }`                                 |
 
 #### Roles
 

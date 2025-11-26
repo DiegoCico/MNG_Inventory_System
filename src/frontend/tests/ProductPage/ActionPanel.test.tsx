@@ -14,7 +14,7 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-// Mock items API - note the correct path
+// Mock items API
 vi.mock('../../src/api/items', () => ({
   createItem: vi.fn(),
   updateItem: vi.fn(),
@@ -26,19 +26,6 @@ vi.mock('../../src/api/items', () => ({
 
 // Mock auth API
 vi.mock('../../src/api/auth', () => ({
-  me: vi.fn(() => Promise.reject(new Error('Auth disabled'))),
-}));
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-
-vi.mock('../src/api/items');
-vi.mock('../src/api/auth', () => ({
   me: vi.fn(() => Promise.reject(new Error('Auth disabled'))),
 }));
 
@@ -569,7 +556,8 @@ describe('ActionPanel', () => {
         description: 'Updated desc',
         notes: 'New notes',
         status: 'Found',
-        parent: { itemId: 'kit-123' },
+        parent: 'kit-123', // Changed to string ID
+        isKit: false,
       };
 
       const propsFullProduct = {
@@ -592,6 +580,7 @@ describe('ActionPanel', () => {
             name: 'M4A1',
             actualName: 'Rifle #2',
             serialNumber: 'W999',
+            nsn: 'W999',
             authQuantity: 3,
             ohQuantity: 2,
             description: 'Updated desc',
@@ -599,6 +588,8 @@ describe('ActionPanel', () => {
             status: 'Found',
             parent: 'kit-123',
             damageReports: ['Test damage'],
+            liin: '',
+            endItemNiin: '',
           }),
         );
       });

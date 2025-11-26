@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import {
   Button,
-  Box,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -75,12 +74,11 @@ export default function ActionPanel({
 
   const handleSave = async (isQuickUpdate = false) => {
     try {
+      // Require image for both items and kits
       if (isCreateMode && !imagePreview) {
         alert('Please add an image before creating the item');
         return;
       }
-
-      const userId = await getUserId();
 
       // Convert new image → base64 if selected
       let imageBase64: string | undefined = undefined;
@@ -98,41 +96,47 @@ export default function ActionPanel({
         `Item-${editedProduct.serialNumber || 'Unknown'}`;
 
       if (isCreateMode) {
+        // For kits: use endItemNiin as NSN, use liin as serialNumber
+        // For items: use nsn and serialNumber as normal
         const res = await createItem(
           teamId,
           nameValue,
           editedProduct.actualName || nameValue,
           imageBase64,
           editedProduct.description || '',
-          editedProduct.parent?.itemId || editedProduct.parent || null,
+          editedProduct.parent || null,
           editedProduct.isKit || false,
-          editedProduct.nsn || '',
-          editedProduct.serialNumber || '',
-          editedProduct.authQuantity || 1,
-          editedProduct.ohQuantity || 1,
-          editedProduct.liin || '',
-          editedProduct.endItemNiin || '',
+          editedProduct.isKit ? (editedProduct.endItemNiin || '') : (editedProduct.nsn || ''),
+          editedProduct.isKit ? (editedProduct.liin || '') : (editedProduct.serialNumber || ''),
+          editedProduct.isKit ? 0 : (editedProduct.authQuantity || 1),
+          editedProduct.isKit ? 0 : (editedProduct.ohQuantity || 1),
+          editedProduct.isKit ? (editedProduct.liin || '') : '',
+          editedProduct.isKit ? (editedProduct.endItemNiin || '') : '',
         );
 
         if (res.success) {
           setShowSuccess(true);
           navigate(`/teams/to-review/${teamId}`, { replace: true });
+        } else {
+          alert(res.error || 'Failed to create item');
         }
       } else {
         // UPDATE MODE
         const res = await updateItem(teamId, itemId, {
           name: nameValue,
           actualName: editedProduct.actualName || nameValue,
-          nsn: editedProduct.nsn || editedProduct.serialNumber || '',
-          serialNumber: editedProduct.serialNumber || '',
+          nsn: editedProduct.isKit ? (editedProduct.endItemNiin || '') : (editedProduct.nsn || editedProduct.serialNumber || ''),
+          serialNumber: editedProduct.isKit ? (editedProduct.liin || '') : (editedProduct.serialNumber || ''),
           authQuantity: editedProduct.authQuantity || 1,
           ohQuantity: editedProduct.ohQuantity || 1,
           description: editedProduct.description || '',
           imageBase64,
           status: editedProduct.status || 'To Review',
           notes: editedProduct.notes || '',
-          parent: editedProduct.parent?.itemId || editedProduct.parent || null,
+          parent: editedProduct.parent || null,
           damageReports: damageReports || [],
+          liin: editedProduct.liin || '',
+          endItemNiin: editedProduct.endItemNiin || '',
         });
 
         if (res.success) {
@@ -143,6 +147,8 @@ export default function ActionPanel({
           if (!isQuickUpdate) setIsEditMode(false);
           setShowSuccess(true);
           navigate(`/teams/to-review/${teamId}`, { replace: true });
+        } else {
+          alert(res.error || 'Failed to update item');
         }
       }
     } catch (err) {

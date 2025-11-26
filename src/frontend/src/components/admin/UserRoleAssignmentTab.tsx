@@ -79,7 +79,7 @@ export default function UserRoleAssignmentTab() {
     <Box>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-          User Role Assignments
+          User Managment
         </Typography>
         <TextField
           fullWidth
@@ -113,6 +113,9 @@ export default function UserRoleAssignmentTab() {
             user={user}
             roles={roles}
             onRoleChange={handleRoleChange}
+            onUserDeleted={(id) =>
+              setUsers((prev) => prev.filter((u) => u.userId !== id))
+            }
           />
         ))}
       </Box>

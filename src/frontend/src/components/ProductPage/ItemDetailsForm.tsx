@@ -90,6 +90,23 @@ export default function ItemDetailsForm({
     }
   }, [isCreateMode, itemType, editedProduct.parent]);
 
+  // Find the parent object from itemsList if parent is just an ID
+  const getParentObject = () => {
+    if (!editedProduct.parent) return null;
+
+    // If parent is already an object with itemId, return it
+    if (typeof editedProduct.parent === 'object' && editedProduct.parent.itemId) {
+      return editedProduct.parent;
+    }
+
+    // If parent is a string (ID), find the full object
+    if (typeof editedProduct.parent === 'string') {
+      return itemsList.find((item: any) => item.itemId === editedProduct.parent) || null;
+    }
+
+    return null;
+  };
+
   return (
     <Stack spacing={2} sx={{ mb: 2, width: '100%' }}>
       {isCreateMode && isEditMode && (
@@ -339,14 +356,15 @@ export default function ItemDetailsForm({
         </>
       )}
 
-      {itemType === 'item' && isEditMode && (
+      {/* Kit From field - shown for both items and kits in edit mode */}
+      {isEditMode && (
         <Box>
           <Autocomplete
             options={itemsList.filter((item: any) => item.isKit !== false)}
             getOptionLabel={(option: any) =>
               `${option.name || option.productName || ''} (${option.actualName || 'No name'})`
             }
-            value={editedProduct.parent || null}
+            value={getParentObject()}
             onChange={(_e, val) => {
               if (val) {
                 const cleanParent = typeof val === 'string' ? val : (val.itemId || val);
@@ -364,9 +382,10 @@ export default function ItemDetailsForm({
               <TextField
                 {...params}
                 label="Kit From"
-                placeholder="Select parent kit"
-                required
+                placeholder="Select parent kit (optional)"
+                required={itemType === 'item'}
                 error={parentError}
+                helperText={itemType === 'kit' ? 'Optional - leave empty if this is a top-level kit' : ''}
               />
             )}
           />

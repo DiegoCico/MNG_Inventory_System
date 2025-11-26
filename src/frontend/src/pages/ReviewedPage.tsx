@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Alert, Box, CircularProgress, Container, Tab, Tabs, Typography } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import ItemListComponent, { ItemListItem } from '../components/ProductPage/ItemListComponent';
 import NavBar from '../components/NavBar';
 import TopBar from '../components/TopBar';
 import Profile from '../components/Profile';
+import SearchBar from '../components/ProductPage/SearchBar';
 import { useTheme } from '@mui/material/styles';
 import { getItems } from '../api/items';
 
@@ -38,6 +39,7 @@ export default function ReviewedPage() {
   const [damagedItems, setDamagedItems] = useState<ItemListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileImage] = useState<string | null>(null);
@@ -80,6 +82,7 @@ export default function ReviewedPage() {
                 }),
                 parent: item.parent,
                 status: item.status,
+                isKit: item.isKit,
                 children: [],
               };
             });
@@ -132,6 +135,69 @@ export default function ReviewedPage() {
     };
     fetchReviewedItems();
   }, [teamId]);
+
+  // Filter function for search
+  const filterItemsBySearch = (items: ItemListItem[], query: string) => {
+    if (!query.trim()) {
+      return { filteredItems: items, itemsToExpand: new Set<string | number>() };
+    }
+
+    const lowerQuery = query.toLowerCase();
+    const expandSet = new Set<string | number>();
+
+    const matchesSearch = (item: ItemListItem): boolean => {
+      return (
+        item.productName.toLowerCase().includes(lowerQuery) ||
+        item.actualName.toLowerCase().includes(lowerQuery)
+      );
+    };
+
+    const filterTree = (item: ItemListItem): ItemListItem | null => {
+      const itemMatches = matchesSearch(item);
+      let filteredChildren: ItemListItem[] = [];
+
+      if (item.children) {
+        filteredChildren = item.children
+          .map((child) => filterTree(child))
+          .filter((child): child is ItemListItem => child !== null);
+      }
+
+      if (itemMatches || filteredChildren.length > 0) {
+        if (filteredChildren.length > 0) {
+          expandSet.add(item.id);
+        }
+
+        return {
+          ...item,
+          children: filteredChildren.length > 0 ? filteredChildren : item.children,
+        };
+      }
+
+      return null;
+    };
+
+    const filtered = items
+      .map((item) => filterTree(item))
+      .filter((item): item is ItemListItem => item !== null);
+
+    return { filteredItems: filtered, itemsToExpand: expandSet };
+  };
+
+  // Apply search to each category
+  const filteredCompleted = useMemo(
+    () => filterItemsBySearch(completedItems, searchQuery),
+    [completedItems, searchQuery]
+  );
+
+  const filteredShortages = useMemo(
+    () => filterItemsBySearch(shortagesItems, searchQuery),
+    [shortagesItems, searchQuery]
+  );
+
+  const filteredDamaged = useMemo(
+    () => filterItemsBySearch(damagedItems, searchQuery),
+    [damagedItems, searchQuery]
+  );
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setSelectedTab(newValue);
@@ -193,10 +259,24 @@ export default function ReviewedPage() {
               },
             }}
           >
-            <Tab label={`Completed (${completedItems.length})`} />
-            <Tab label={`Shortages (${shortagesItems.length})`} />
-            <Tab label={`Damaged (${damagedItems.length})`} />
+            <Tab label={`Completed`} />
+            <Tab label={`Shortages`} />
+            <Tab label={`Damaged`} />
           </Tabs>
+        </Box>
+
+        {/* Search Bar - Constrained Width */}
+        <Box
+          sx={{
+            bgcolor: theme.palette.background.paper,
+            borderBottom: 1,
+            borderColor: theme.palette.divider,
+            py: 1.5,
+          }}
+        >
+          <Container maxWidth="md">
+            <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          </Container>
         </Box>
 
         {/* Tab Panels - Constrained Width */}
@@ -209,31 +289,40 @@ export default function ReviewedPage() {
             )}
 
             <TabPanel value={selectedTab} index={0}>
-              {completedItems.length > 0 ? (
-                <ItemListComponent items={completedItems} />
+              {filteredCompleted.filteredItems.length > 0 ? (
+                <ItemListComponent
+                  items={filteredCompleted.filteredItems}
+                  initialExpandedItems={filteredCompleted.itemsToExpand}
+                />
               ) : (
                 <Typography sx={{ textAlign: 'center', color: theme.palette.text.disabled, py: 4 }}>
-                  No completed items
+                  {searchQuery.trim() ? 'No items match your search.' : 'No completed items'}
                 </Typography>
               )}
             </TabPanel>
 
             <TabPanel value={selectedTab} index={1}>
-              {shortagesItems.length > 0 ? (
-                <ItemListComponent items={shortagesItems} />
+              {filteredShortages.filteredItems.length > 0 ? (
+                <ItemListComponent
+                  items={filteredShortages.filteredItems}
+                  initialExpandedItems={filteredShortages.itemsToExpand}
+                />
               ) : (
                 <Typography sx={{ textAlign: 'center', color: theme.palette.text.disabled, py: 4 }}>
-                  No shortages reported
+                  {searchQuery.trim() ? 'No items match your search.' : 'No shortages reported'}
                 </Typography>
               )}
             </TabPanel>
 
             <TabPanel value={selectedTab} index={2}>
-              {damagedItems.length > 0 ? (
-                <ItemListComponent items={damagedItems} />
+              {filteredDamaged.filteredItems.length > 0 ? (
+                <ItemListComponent
+                  items={filteredDamaged.filteredItems}
+                  initialExpandedItems={filteredDamaged.itemsToExpand}
+                />
               ) : (
                 <Typography sx={{ textAlign: 'center', color: theme.palette.text.disabled, py: 4 }}>
-                  No damaged items
+                  {searchQuery.trim() ? 'No items match your search.' : 'No damaged items'}
                 </Typography>
               )}
             </TabPanel>
