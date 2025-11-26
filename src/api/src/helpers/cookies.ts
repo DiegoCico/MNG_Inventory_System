@@ -1,12 +1,3 @@
-/**
- * Cookie management for authentication tokens
- *
- * Handles:
- * - Setting/clearing auth cookies (access, ID, refresh tokens)
- * - Parsing cookies from Express requests or Lambda events
- * - Cross-environment support (dev vs prod, same-site vs cross-site)
- */
-
 import type { Response } from 'express';
 import * as cookie from 'cookie';
 
@@ -104,9 +95,6 @@ function buildAuthClearCookies(): string[] {
  * Generate the necessary `Set-Cookie` headers for authentication tokens
  * and append them to the existing `Set-Cookie` headers in the HTTP response, if provided.
  *
- * @param res - The HTTP response object where the cookies will be set. If undefined, the headers are not applied.
- * @param tokens - The authentication tokens used to generate the `Set-Cookie` headers.
- * @returns An array of strings representing the generated `Set-Cookie` headers.
  */
 export function setAuthCookies(res: Response | undefined, tokens: AuthTokens): string[] {
   const headers = buildAuthSetCookies(tokens);
@@ -121,9 +109,6 @@ export function setAuthCookies(res: Response | undefined, tokens: AuthTokens): s
 
 /**
  * Clear authentication cookies by setting them to expire immediately
- * 
- * @param res - Optional Express response object to apply cookies to
- * @returns Array of Set-Cookie header strings with expired cookies
  */
 export function clearAuthCookies(res?: Response): string[] {
   const headers = buildAuthClearCookies();
