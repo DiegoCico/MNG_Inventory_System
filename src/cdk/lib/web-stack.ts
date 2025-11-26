@@ -18,6 +18,7 @@ export interface WebStackProps extends cdk.StackProps {
 export class WebStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
   public readonly distribution: cloudfront.Distribution;
+  public readonly webUrl: string;
 
   constructor(scope: Construct, id: string, props: WebStackProps) {
     super(scope, id, props);
@@ -126,5 +127,7 @@ export class WebStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiDomainName', {
       value: apiDomainName ?? 'No API domain provided',
     });
+
+    this.webUrl = `https://${this.distribution.distributionDomainName}`;
   }
 }

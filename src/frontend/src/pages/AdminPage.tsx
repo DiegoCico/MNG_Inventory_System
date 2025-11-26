@@ -51,7 +51,7 @@ export default function AdminPage() {
             }}
           >
             <Tab label="Roles" />
-            <Tab label="User Assignments" />
+            <Tab label="User Managment" />
           </Tabs>
 
           <Box sx={{ p: 3 }}>

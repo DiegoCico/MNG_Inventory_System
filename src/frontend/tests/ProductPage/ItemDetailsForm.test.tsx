@@ -213,7 +213,7 @@ describe('ItemDetailsForm', () => {
       expect(autocomplete).toBeInTheDocument();
     });
 
-    it('does not show parent selector for kits', () => {
+    it('shows parent selector for kits too (optional)', () => {
       render(
         <ItemDetailsForm
           editedProduct={mockKit}
@@ -223,8 +223,10 @@ describe('ItemDetailsForm', () => {
         />,
       );
 
-      const autocomplete = screen.queryByRole('combobox');
-      expect(autocomplete).not.toBeInTheDocument();
+      // Now the parent selector shows for kits as well
+      const autocomplete = screen.getByRole('combobox');
+      expect(autocomplete).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Select parent kit (optional)')).toBeInTheDocument();
     });
   });
 

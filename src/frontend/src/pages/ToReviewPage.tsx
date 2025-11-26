@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, CircularProgress, Container, Typography } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import { useParams } from 'react-router-dom';
-import ItemListComponent, { ItemListItem } from '../components/ProductPage/ItemListComponent';
-import NavBar from '../components/NavBar';
+import { useTheme } from '@mui/material/styles';
 import TopBar from '../components/TopBar';
 import Profile from '../components/Profile';
+import NavBar from '../components/NavBar';
+import ItemListComponent, { ItemListItem } from '../components/ProductPage/ItemListComponent';
+import SearchBar from '../components/ProductPage/SearchBar';
 import { getItems } from '../api/items';
 
 export default function ToReviewPage() {
@@ -16,6 +17,7 @@ export default function ToReviewPage() {
   const [items, setItems] = useState<ItemListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileImage] = useState<string | null>(null);
@@ -54,11 +56,12 @@ export default function ToReviewPage() {
                 date: new Date(item.createdAt).toLocaleDateString('en-US', {
                   month: '2-digit',
                   day: '2-digit',
-                  year: '2-digit',
+                  year: '2-digit'
                 }),
                 parent: item.parent,
                 status: item.status,
-                children: [],
+                isKit: item.isKit,
+                children: []
               };
             });
 
@@ -89,7 +92,7 @@ export default function ToReviewPage() {
 
           // Filter to only roots that have "To Review" somewhere in their tree
           const incompleteItems = fullHierarchy.filter((item) =>
-            hasStatusInTree(item, 'To Review'),
+            hasStatusInTree(item, 'To Review')
           );
 
           setItems(incompleteItems);
@@ -104,6 +107,57 @@ export default function ToReviewPage() {
     };
     fetchIncompleteItems();
   }, [teamId]);
+
+  // Filter items based on search query
+  const { filteredItems, itemsToExpand } = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return { filteredItems: items, itemsToExpand: new Set<string | number>() };
+    }
+
+    const query = searchQuery.toLowerCase();
+    const expandSet = new Set<string | number>();
+
+    // Check if an item matches the search query
+    const matchesSearch = (item: ItemListItem): boolean => {
+      return (
+        item.productName.toLowerCase().includes(query) ||
+        item.actualName.toLowerCase().includes(query)
+      );
+    };
+
+    // Recursively filter and collect items to expand
+    const filterTree = (item: ItemListItem): ItemListItem | null => {
+      const itemMatches = matchesSearch(item);
+      let filteredChildren: ItemListItem[] = [];
+
+      if (item.children) {
+        filteredChildren = item.children
+          .map((child) => filterTree(child))
+          .filter((child): child is ItemListItem => child !== null);
+      }
+
+      // Include item if it matches or has matching children
+      if (itemMatches || filteredChildren.length > 0) {
+        // If there are matching children, mark this item for expansion
+        if (filteredChildren.length > 0) {
+          expandSet.add(item.id);
+        }
+
+        return {
+          ...item,
+          children: filteredChildren.length > 0 ? filteredChildren : item.children
+        };
+      }
+
+      return null;
+    };
+
+    const filtered = items
+      .map((item) => filterTree(item))
+      .filter((item): item is ItemListItem => item !== null);
+
+    return { filteredItems: filtered, itemsToExpand: expandSet };
+  }, [items, searchQuery]);
 
   if (loading) {
     return (
@@ -121,7 +175,7 @@ export default function ToReviewPage() {
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: theme.palette.background.default,
+        bgcolor: theme.palette.background.default
       }}
     >
       <TopBar
@@ -134,7 +188,7 @@ export default function ToReviewPage() {
         sx={{
           flex: 1,
           width: '100%',
-          bgcolor: theme.palette.background.default,
+          bgcolor: theme.palette.background.default
         }}
       >
         <Box
@@ -142,7 +196,7 @@ export default function ToReviewPage() {
             bgcolor: theme.palette.background.paper,
             borderBottom: 1,
             borderColor: theme.palette.divider,
-            py: 1.5,
+            py: 1.5
           }}
         >
           <Container maxWidth="md">
@@ -152,10 +206,16 @@ export default function ToReviewPage() {
                 fontWeight: 550,
                 color: theme.palette.text.primary,
                 fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                mb: 2
               }}
             >
-              Inventory To Review ({items.length})
+              Inventory To Review
             </Typography>
+
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+            />
           </Container>
         </Box>
 
@@ -165,10 +225,17 @@ export default function ToReviewPage() {
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
               </Alert>
-            ) : items.length === 0 ? (
-              <Alert severity="info">No items to review. All items are complete!</Alert>
+            ) : filteredItems.length === 0 ? (
+              <Alert severity="info">
+                {searchQuery.trim()
+                  ? 'No items match your search.'
+                  : 'No items to review. All items are complete!'}
+              </Alert>
             ) : (
-              <ItemListComponent items={items} />
+              <ItemListComponent
+                items={filteredItems}
+                initialExpandedItems={itemsToExpand}
+              />
             )}
           </Box>
         </Container>

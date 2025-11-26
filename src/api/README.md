@@ -25,67 +25,81 @@ Below are the current API methods and use cases. Methods are called using:
 
 #### Auth
 
-| Router name        | Use case                                                         | Params                                                                                                                                 |
-| ------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| inviteUser         | Invite a user via Cognito and send custom SES email with temp pw | inviteUser({ email: "user@example.com" })                                                                                              |
-| signIn             | Sign in with email/password, handle challenges, set auth cookies | signIn({ email: "user@example.com", password: "password123" })`                                                                        |
-| respondToChallenge | Complete NEW_PASSWORD_REQUIRED or MFA challenge and set cookies  | respondToChallenge({ challengeName: "NEW_PASSWORD_REQUIRED", session, newPassword: "betterpassword123!", email: "user@example.com" })` |
-| me                 | Inspect auth cookies and return current user/session info        | me()                                                                                                                                   |
-| refresh            | Refresh access/id tokens using refresh cookie                    | refresh()                                                                                                                              |
-| logout             | Clear auth cookies and end session                               | logout()                                                                                                                               |
+| Router name        | Use case                                                         | Params                                                                                    | Returns                                                                                           |                                    |          |
+| ------------------ | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------- | -------- |
+| inviteUser         | Invite a user via Cognito and send custom SES email with temp pw | inviteUser({ email: "[user@example.com](mailto:user@example.com)" })                      | `{ success: true, userEmail, message }`                                                           |                                    |          |
+| signIn             | Sign in with email/password, handle challenges, set cookies      | signIn({ email: "[user@example.com](mailto:user@example.com)", password: "password123" }) | Challenge → `{ success: false, challengeName, session }`<br>Success → `{ success: true, tokens }` |                                    |          |
+| respondToChallenge | Complete NEW_PASSWORD_REQUIRED or MFA challenge                  | respondToChallenge({ challengeName, session, newPassword?, mfaCode?, email })             | Challenge → `{ success: false, challengeName, session }`<br>Success → `{ success: true, tokens }` |                                    |          |
+| me                 | Inspect auth cookies and return current user info                | me()                                                                                      | `{ authenticated: false }` or `{ authenticated: true, userId, username, role, accountId }`        |                                    |          |
+| refresh            | Refresh access/id tokens using refresh cookie                    | refresh()                                                                                 | `{ refreshed: false }` or `{ refreshed: true, userId, username, accountId }`                      |                                    |          |
+| logout             | Clear auth cookies and end session                               | logout()                                                                                  | `{ success: true, message: "Signed out" }`                                                        | 
 
 #### S3
 
-| Router name  | Use case                                                             | Params                                                         |
-| ------------ | -------------------------------------------------------------------- | -------------------------------------------------------------- |
-| s3health     | Health-check for the S3 router                                       | s3health()                                                     |
-| uploadImage  | Upload an image from a data URL; backend derives teamId + builds key | uploadImage({ scope: "item", serialNumber: "1234", dataUrl })  |
-| getSignedUrl | Return presigned HEAD URL for an object                              | getSignedUrl({ key })                                          |
-| deleteObject | Delete an S3 object by key                                           | deleteObject({ key })                                          |
-| listImages   | List images under a computed prefix for the team/scope/item          | listImages({ scope: "item", serialNumber: "1234", limit: 50 }) |
+| Router name  | Use case                                                             | Params                                        | Returns                             |
+| ------------ | -------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------- |
+| s3health     | Health-check for the S3 router                                       | s3health()                                    | `{ ok: true }`                      |
+| uploadImage  | Upload an image from a data URL; backend derives teamId + builds key | uploadImage({ scope, serialNumber, dataUrl }) | `{ key, url }`                      |
+| getSignedUrl | Return presigned HEAD/GET URL for an object                          | getSignedUrl({ key })                         | `{ exists: boolean, url?: string }` |
+| deleteObject | Delete an S3 object by key                                           | deleteObject({ key })                         | `{ success: true }`                 |
+| listImages   | List images under a computed prefix for the team/scope/item          | listImages({ scope, serialNumber, limit })    | `{ images: string[] }`              |
 
-# Teamspace
+#### Teamspace 
 
-| Router name             | Use case                                             | Params                                                               |
-| ----------------------- | ---------------------------------------------------- | -------------------------------------------------------------------- |
-| **createTeamspace**     | Create a new teamspace and add caller as Owner       | `createTeamspace({ name, description, userId })`                     |
-| **getTeamspace**        | List all teamspaces the user belongs to              | `getTeamspace({ userId })`                                           |
-| **addUserTeamspace**    | Add a member to a teamspace using their **username** | `addUserTeamspace({ userId, memberUsername, inviteWorkspaceId })`    |
-| **removeUserTeamspace** | Remove a member from a teamspace (permissioned)      | `removeUserTeamspace({ userId, memberUsername, inviteWorkspaceId })` |
-| **deleteTeamspace**     | Delete an entire teamspace and all related records   | `deleteTeamspace({ userId, inviteWorkspaceId })`                     |
-| **getAllUsers**         | Fetch all users for dynamic username search          | `getAllUsers()`                                                      |
+| Router name             | Use case                                          | Params                                                               | Returns                               |
+| ----------------------- | ------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------- |
+| **createTeamspace**     | Create a new teamspace and add caller as Owner    | `createTeamspace({ name, description, uic, fe, userId })`            | `{ success, teamId?, name?, error? }` |
+| **getTeamspace**        | List all teamspaces the user belongs to           | `getTeamspace({ userId })`                                           | `{ success, teams?, error? }`         |
+| **getTeamById**         | Fetch a single team by id (must be a member)      | `getTeamById({ teamId, userId })`                                    | `{ success, team?, error? }`          |
+| **addUserTeamspace**    | Add a member to a teamspace by username           | `addUserTeamspace({ userId, memberUsername, inviteWorkspaceId })`    | `{ success, added?, error? }`         |
+| **removeUserTeamspace** | Remove a member from a teamspace                  | `removeUserTeamspace({ userId, memberUsername, inviteWorkspaceId })` | `{ success, removed?, error? }`       |
+| **deleteTeamspace**     | Delete a workspace and related records (DDB + S3) | `deleteTeamspace({ userId, inviteWorkspaceId })`                     | `{ success, deleted?, error? }`       |
+| **getAllUsers**         | Fetch all users + their team memberships          | `getAllUsers()`                                                      | `{ success, users?, error? }`         |
+| **getTeamMembers**      | Fetch all members of a specific teamspace         | `getTeamMembers({ teamId })`                                         | `{ success, members?, error? }`       |
+
+#### Users
+
+| Router name            | Use case                                    | Params                             | Returns                                             |
+| ---------------------- | ------------------------------------------- | ---------------------------------- | --------------------------------------------------- |
+| **listUsersWithRoles** | List all users with their global roles      | `listUsersWithRoles()`             | `{ users: [{ userId, username, name, roleName }] }` |
+| **assignRole**         | Assign a global role to a user              | `assignRole({ userId, roleName })` | `{ success, roleName }`                             |
+| **getUserRole**        | Fetch a user's global role                  | `getUserRole({ userId })`          | `{ userId, roleName }`                              |
+| **deleteUser**         | Delete a user + profile image + memberships | `deleteUser({ userId })`           | `{ success: true }`                                 |
 
 #### Roles
 
-| Router name | Use case                                           | Params                                                                                                         |
-| ----------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| createRole  | Create a new role with explicit permissions        | createRole({ name: "Manager", description: "Manages team", permissions: ["team.add_member", "team.create"] })` |
-| getRole     | Fetch a single role by `roleId` or by `name`       | getRole({ roleId: "abc123" })`or`getRole({ name: "Owner" })`                                                   |
-| updateRole  | Update role name, description, and/or permissions  | updateRole({ roleId: "abc123", name: "Lead", permissions: ["team.add_member"] })`                              |
-| deleteRole  | Delete a role by id (no-op if role does not exist) | deleteRole({ roleId: "abc123" })`                                                                              |
+| Router name     | Use case                            | Params                                             | Returns                                  |
+| --------------- | ----------------------------------- | -------------------------------------------------- | ---------------------------------------- |
+| **createRole**  | Create a new custom role            | `createRole({ name, description?, permissions })`  | `{ success: boolean, role?, error? }`    |
+| **getAllRoles** | Fetch all roles                     | `getAllRoles()`                                    | `{ roles: RoleEntity[] }`                |
+| **getRole**     | Fetch a single role by id or name   | `getRole({ roleId?, name? })`                      | `{ role }` or error                      |
+| **updateRole**  | Modify an existing non-default role | `updateRole({ name, description?, permissions? })` | `{ success: boolean, role?, error? }`    |
+| **deleteRole**  | Delete a non-default role           | `deleteRole({ name })`                             | `{ success: boolean, deleted: boolean }` |
 
 #### Items
 
-| Router name | Use case                                    | Params                                         |
-| ----------- | ------------------------------------------- | ---------------------------------------------- |
-| createItem  | Create a new item profile                   | createItem({ nsn, name, description, teamId }) |
-| getItem     | Retrieve a single item by ID                | getItem({ itemId })                            |
-| listItems   | List items for a team with optional filters | listItems({ teamId, limit })                   |
-| updateItem  | Update item profile fields                  | updateItem({ itemId, name, description })      |
-| deleteItem  | Soft-delete or hard-delete an item          | deleteItem({ itemId })                         |
+| Router name     | Use case                                 | Params                                           | Returns                               |
+| --------------- | ---------------------------------------- | ------------------------------------------------ | ------------------------------------- |
+| **createItem**  | Create a new item or kit                 | `createItem({ teamId, name, nsn, userId, ... })` | `{ success, itemId?, item?, error? }` |
+| **getItems**    | Fetch all items for a team               | `getItems({ teamId, userId })`                   | `{ success, items?, error? }`         |
+| **getItem**     | Fetch one item by ID                     | `getItem({ teamId, itemId, userId })`            | `{ success, item?, error? }`          |
+| **updateItem**  | Update fields, status, image, kit fields | `updateItem({ teamId, itemId, userId, ... })`    | `{ success, item?, error? }`          |
+| **deleteItem**  | Delete an item + its S3 image            | `deleteItem({ teamId, itemId, userId })`         | `{ success, message?, error? }`       |
+| **uploadImage** | Upload or replace an image for an item   | `uploadImage({ teamId, nsn, imageBase64 })`      | `{ success, imageKey?, error? }`      |
 
-#### Home
+#### Resets
 
-| Router name | Use case                                    | Params                |
-| ----------- | ------------------------------------------- | --------------------- |
-| hardReset   | Delete all items and all S3 images for team | hardReset({ teamId }) |
-| softReset   | Mark all items as "To Review" for the team  | softReset({ teamId }) |
+| Router name   | Use case                                 | Params                  | Returns                                               |
+| ------------- | ---------------------------------------- | ----------------------- | ----------------------------------------------------- |
+| **hardReset** | Delete all items + S3 images for a team  | `hardReset({ teamId })` | `{ success, message }` or `{ success: false, error }` |
+| **softReset** | Mark all items as `To Review` for a team | `softReset({ teamId })` | `{ success, message }` or `{ success: false, error }` |
 
 #### Export
 
-| Router name | Use case                                                                                            | Params                |
-| ----------- | --------------------------------------------------------------------------------------------------- | --------------------- |
-| getExport   | Run both Python export scripts and return **two CSV files** (one for DA2404 and one for Inventory). | getExport({ teamId }) |
+| Router name   | Use case                                                           | Params                  | Returns                                        |
+| ------------- | ------------------------------------------------------------------ | ----------------------- | ---------------------------------------------- |
+| **getExport** | Run Python export scripts (2404 + inventory) and return CSV output | `getExport({ teamId })` | `{ success, csv2404?, csvInventory?, error? }` |
+
 
 #### Process
 

@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { router, publicProcedure, permissionedProcedure } from './trpc';
 import { ScanCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { doc } from '../aws';
+import { DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { loadConfig } from '../process';
 
 const config = loadConfig();
@@ -89,4 +91,63 @@ export const usersRouter = router({
         roleName: user.role ?? 'No Role',
       };
     }),
+    deleteUser: permissionedProcedure('user.delete')
+    .input(z.object({ userId: z.string() }))
+    .mutation(async ({ input }) => {
+      const { userId } = input;
+
+      const s3Client = new S3Client({ region: config.REGION });
+      const exts = ['jpg', 'jpeg', 'png', 'webp', 'heic'];
+      const prefix = `Profile/${userId}`;
+
+      for (const ext of exts) {
+        const key = `${prefix}.${ext}`;
+        try {
+          await s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: config.BUCKET_NAME,
+              Key: key,
+            }),
+          );
+        } catch {
+          continue; 
+        }
+      }
+
+      await doc.send(
+        new DeleteCommand({
+          TableName: TABLE_NAME,
+          Key: {
+            PK: `USER#${userId}`,
+            SK: 'METADATA',
+          },
+        }),
+      );
+      console.log(`[DynamoDB] Deleted USER#${userId} METADATA`);
+
+      const userTeams = await doc.send(
+        new QueryCommand({
+          TableName: TABLE_NAME,
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: {
+            ':pk': `USER#${userId}`,
+          },
+        }),
+      );
+
+      for (const item of userTeams.Items ?? []) {
+        await doc.send(
+          new DeleteCommand({
+            TableName: TABLE_NAME,
+            Key: {
+              PK: item.PK,
+              SK: item.SK,
+            },
+          }),
+        );
+      }
+
+      return { success: true };
+    }),
+
 });

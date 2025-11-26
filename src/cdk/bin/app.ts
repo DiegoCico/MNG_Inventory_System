@@ -215,7 +215,7 @@ const web = new WebStack(app, `MngWeb-${cfg.name}`, {
 });
 
 // pass web URL to API for email links, etc.
-const webUrl = process.env.WEB_URL ?? 'https://d2cktegyq4qcfk.cloudfront.net';
+const webUrl = "https://d305dnjd1krpyr.cloudfront.net";
 api.apiFn.addEnvironment('WEB_URL', webUrl);
 
 // Create uploads bucket
