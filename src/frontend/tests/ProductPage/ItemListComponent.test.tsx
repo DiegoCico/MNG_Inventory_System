@@ -112,12 +112,14 @@ describe('ItemListComponent', () => {
   it('displays status badge with correct styling', () => {
     renderWithRouter(<ItemListComponent items={mockItems} />);
 
+    // Use getAllByText since status badges appear in both mobile and desktop layouts
     const completedBadges = screen.getAllByText('Completed');
     expect(completedBadges.length).toBeGreaterThan(0);
     expect(completedBadges[0]).toBeInTheDocument();
 
-    const damagedBadge = screen.getByText('Damaged');
-    expect(damagedBadge).toBeInTheDocument();
+    const damagedBadges = screen.getAllByText('Damaged');
+    expect(damagedBadges.length).toBeGreaterThan(0);
+    expect(damagedBadges[0]).toBeInTheDocument();
   });
 
   it('shows child count indicator for kits', () => {
@@ -139,7 +141,7 @@ describe('ItemListComponent', () => {
   it('shows expand button for all kits', () => {
     renderWithRouter(<ItemListComponent items={mockItems} />);
 
-    // Should have at least one expand button for the kit
+    // Should have expand buttons (multiple due to mobile + desktop layout)
     const expandButtons = screen.getAllByRole('button');
     expect(expandButtons.length).toBeGreaterThan(0);
   });
@@ -156,8 +158,9 @@ describe('ItemListComponent', () => {
   it('does not navigate when expand button clicked', () => {
     renderWithRouter(<ItemListComponent items={mockItems} />);
 
-    const expandButton = screen.getByRole('button');
-    fireEvent.click(expandButton);
+    // Get all expand buttons and click the first one
+    const expandButtons = screen.getAllByRole('button');
+    fireEvent.click(expandButtons[0]);
 
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -214,8 +217,9 @@ describe('ItemListComponent', () => {
   it('renders children with indentation and border', async () => {
     renderWithRouter(<ItemListComponent items={mockItems} />);
 
-    const expandButton = screen.getByRole('button');
-    fireEvent.click(expandButton);
+    // Get all expand buttons and click the first one
+    const expandButtons = screen.getAllByRole('button');
+    fireEvent.click(expandButtons[0]);
 
     await waitFor(() => {
       const childCard = screen.getByText('Bandages').closest('.MuiCard-root');
