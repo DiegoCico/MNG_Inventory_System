@@ -13,34 +13,25 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 import { createItem, deleteItem, updateItem } from '../../api/items';
-import { me } from '../../api/auth';
 import { useNavigate } from 'react-router-dom';
 
-async function getUserId(): Promise<string> {
-  try {
-    const user = await me();
-    return user.userId;
-  } catch {
-    return 'test-user';
-  }
-}
-
 export default function ActionPanel({
-                                      isCreateMode,
-                                      isEditMode,
-                                      setIsEditMode,
-                                      product,
-                                      editedProduct,
-                                      teamId,
-                                      itemId,
-                                      selectedImageFile,
-                                      imagePreview,
-                                      setShowSuccess,
-                                      damageReports,
-                                    }: any) {
+  isCreateMode,
+  isEditMode,
+  setIsEditMode,
+  product,
+  editedProduct,
+  teamId,
+  itemId,
+  selectedImageFile,
+  imagePreview,
+  setShowSuccess,
+  damageReports,
+}: any) {
   const navigate = useNavigate();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -106,12 +97,12 @@ export default function ActionPanel({
           editedProduct.description || '',
           editedProduct.parent || null,
           editedProduct.isKit || false,
-          editedProduct.isKit ? (editedProduct.endItemNiin || '') : (editedProduct.nsn || ''),
-          editedProduct.isKit ? (editedProduct.liin || '') : (editedProduct.serialNumber || ''),
-          editedProduct.isKit ? 0 : (editedProduct.authQuantity || 1),
-          editedProduct.isKit ? 0 : (editedProduct.ohQuantity || 1),
-          editedProduct.isKit ? (editedProduct.liin || '') : '',
-          editedProduct.isKit ? (editedProduct.endItemNiin || '') : '',
+          editedProduct.isKit ? editedProduct.endItemNiin || '' : editedProduct.nsn || '',
+          editedProduct.isKit ? editedProduct.liin || '' : editedProduct.serialNumber || '',
+          editedProduct.isKit ? 0 : editedProduct.authQuantity || 1,
+          editedProduct.isKit ? 0 : editedProduct.ohQuantity || 1,
+          editedProduct.isKit ? editedProduct.liin || '' : '',
+          editedProduct.isKit ? editedProduct.endItemNiin || '' : '',
         );
 
         if (res.success) {
@@ -125,8 +116,12 @@ export default function ActionPanel({
         const res = await updateItem(teamId, itemId, {
           name: nameValue,
           actualName: editedProduct.actualName || nameValue,
-          nsn: editedProduct.isKit ? (editedProduct.endItemNiin || '') : (editedProduct.nsn || editedProduct.serialNumber || ''),
-          serialNumber: editedProduct.isKit ? (editedProduct.liin || '') : (editedProduct.serialNumber || ''),
+          nsn: editedProduct.isKit
+            ? editedProduct.endItemNiin || ''
+            : editedProduct.nsn || editedProduct.serialNumber || '',
+          serialNumber: editedProduct.isKit
+            ? editedProduct.liin || ''
+            : editedProduct.serialNumber || '',
           authQuantity: editedProduct.authQuantity || 1,
           ohQuantity: editedProduct.ohQuantity || 1,
           description: editedProduct.description || '',
@@ -157,6 +152,33 @@ export default function ActionPanel({
     }
   };
 
+  // Determine if "DONE" button should be shown
+  const shouldShowDoneButton = () => {
+    if (isCreateMode || isEditMode) return false;
+
+    // Check if status has changed
+    const statusChanged = editedProduct?.status && editedProduct.status !== product?.status;
+
+    // Check if notes have changed
+    const notesChanged = editedProduct?.notes !== product?.notes;
+
+    // Must have changed either status or notes
+    if (!statusChanged && !notesChanged) return false;
+
+    // If status changed to "Damaged", must have at least one damage report
+    if (statusChanged && editedProduct.status === 'Damaged') {
+      return damageReports && damageReports.length > 0;
+    }
+
+    // If status changed to "Shortages", OH Quantity must be less than Authorized Quantity
+    if (statusChanged && editedProduct.status === 'Shortages') {
+      return (editedProduct.ohQuantity || 0) < (editedProduct.authQuantity || 0);
+    }
+
+    // For status change to "Completed" or "To Review", or just notes change, show DONE
+    return true;
+  };
+
   return (
     <>
       <Stack direction="row" spacing={1}>
@@ -169,12 +191,12 @@ export default function ActionPanel({
               onClick={() => handleSave()}
               size="small"
               sx={{
-                fontSize: { xs: '0.65rem', sm: '0.75rem' },
-                px: { xs: 1, sm: 1.5 },
-                py: { xs: 0.5, sm: 0.75 }
+                fontSize: { xs: isCreateMode ? '0.875rem' : '0.65rem', sm: '0.75rem' },
+                px: { xs: isCreateMode ? 3 : 1, sm: 1.5 },
+                py: { xs: isCreateMode ? 1.25 : 0.5, sm: 0.75 },
               }}
             >
-              {isCreateMode ? 'Create' : 'Save'}
+              {isCreateMode ? 'CREATE' : 'Save'}
             </Button>
 
             {!isCreateMode && (
@@ -187,7 +209,7 @@ export default function ActionPanel({
                 sx={{
                   fontSize: { xs: '0.65rem', sm: '0.75rem' },
                   px: { xs: 1, sm: 1.5 },
-                  py: { xs: 0.5, sm: 0.75 }
+                  py: { xs: 0.5, sm: 0.75 },
                 }}
               >
                 Cancel
@@ -198,20 +220,22 @@ export default function ActionPanel({
 
         {!isEditMode && !isCreateMode && (
           <>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<SaveIcon />}
-              onClick={() => handleSave(true)}
-              size="small"
-              sx={{
-                fontSize: { xs: '0.65rem', sm: '0.75rem' },
-                px: { xs: 1, sm: 1.5 },
-                py: { xs: 0.5, sm: 0.75 }
-              }}
-            >
-              Save
-            </Button>
+            {shouldShowDoneButton() && (
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<CheckCircleIcon />}
+                onClick={() => handleSave(true)}
+                size="small"
+                sx={{
+                  fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                  px: { xs: 1, sm: 1.5 },
+                  py: { xs: 0.5, sm: 0.75 },
+                }}
+              >
+                DONE
+              </Button>
+            )}
 
             <Button
               variant="contained"
@@ -222,7 +246,7 @@ export default function ActionPanel({
               sx={{
                 fontSize: { xs: '0.65rem', sm: '0.75rem' },
                 px: { xs: 1, sm: 1.5 },
-                py: { xs: 0.5, sm: 0.75 }
+                py: { xs: 0.5, sm: 0.75 },
               }}
             >
               Edit
@@ -237,7 +261,7 @@ export default function ActionPanel({
               sx={{
                 fontSize: { xs: '0.65rem', sm: '0.75rem' },
                 px: { xs: 1, sm: 1.5 },
-                py: { xs: 0.5, sm: 0.75 }
+                py: { xs: 0.5, sm: 0.75 },
               }}
             >
               Delete
@@ -257,7 +281,12 @@ export default function ActionPanel({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={deleting}>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={deleting}
+          >
             {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>

@@ -79,7 +79,7 @@ export default function UserRoleAssignmentTab() {
     <Box>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-          User Managment
+          User Management
         </Typography>
         <TextField
           fullWidth

@@ -7,7 +7,6 @@ import { useTheme } from '@mui/material/styles';
 import NavBar from '../components/NavBar';
 import ImagePanel from '../components/ProductPage/ImagePanel';
 import ItemDetailsForm from '../components/ProductPage/ItemDetailsForm';
-import DamageReportsSection from '../components/DamageReportsSection';
 import ActionPanel from '../components/ProductPage/ActionPanel';
 import { flattenTree } from '../components/Producthelpers';
 import { getItem, getItems } from '../api/items';
@@ -67,9 +66,9 @@ export default function ProductReviewPage() {
             liin: '',
             endItemNiin: '',
             status: 'To Review',
-            isKit: false,
+            isKit: true,
             parent: parentIdFromState || null,
-            notes: ''
+            notes: '',
           };
           setProduct(blank);
           setEditedProduct(blank);
@@ -88,7 +87,7 @@ export default function ProductReviewPage() {
         const mappedItem = {
           ...item,
           productName: item.name,
-          actualName: item.actualName
+          actualName: item.actualName,
         };
 
         // Manually find children from the full items list
@@ -123,7 +122,7 @@ export default function ProductReviewPage() {
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
-          bgcolor: theme.palette.background.default
+          bgcolor: theme.palette.background.default,
         }}
       >
         <TopBar
@@ -131,12 +130,7 @@ export default function ProductReviewPage() {
           profileImage={profileImage}
           onProfileClick={() => setProfileOpen(true)}
         />
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          flex={1}
-        >
+        <Box display="flex" justifyContent="center" alignItems="center" flex={1}>
           <CircularProgress />
         </Box>
         <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
@@ -153,7 +147,7 @@ export default function ProductReviewPage() {
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
-          bgcolor: theme.palette.background.default
+          bgcolor: theme.palette.background.default,
         }}
       >
         <TopBar
@@ -167,11 +161,11 @@ export default function ProductReviewPage() {
               xs: '100%',
               sm: '600px',
               md: '900px',
-              lg: '1100px'
+              lg: '1100px',
             },
             mx: 'auto',
             mt: 4,
-            px: 2
+            px: 2,
           }}
         >
           <Alert severity="error">{error}</Alert>
@@ -189,7 +183,7 @@ export default function ProductReviewPage() {
         minHeight: '100vh',
         bgcolor: theme.palette.background.default,
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
       }}
     >
       <TopBar
@@ -202,7 +196,7 @@ export default function ProductReviewPage() {
         sx={{
           flex: 1,
           bgcolor: theme.palette.background.default,
-          pb: 10
+          pb: 10,
         }}
       >
         <Box
@@ -211,7 +205,7 @@ export default function ProductReviewPage() {
               xs: '100%',
               sm: '600px',
               md: '900px',
-              lg: '1100px'
+              lg: '1100px',
             },
             mx: 'auto',
             pt: 3,
@@ -224,11 +218,18 @@ export default function ProductReviewPage() {
                 ? '0 4px 20px rgba(0,0,0,0.4)'
                 : '0 4px 16px rgba(0,0,0,0.05)',
             mt: 3,
-            minHeight: '900px'
+            minHeight: '900px',
           }}
         >
-          {/* Back button and Action Panel on same row */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          {/* Back button and Action Panel on same row (hidden on mobile in create mode) */}
+          <Box
+            sx={{
+              display: { xs: isCreateMode ? 'none' : 'flex', sm: 'flex' },
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 3,
+            }}
+          >
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={() => navigate(-1)}
@@ -237,8 +238,8 @@ export default function ProductReviewPage() {
                 color: theme.palette.text.secondary,
                 '&:hover': {
                   bgcolor:
-                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'
-                }
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                },
               }}
             >
               Back
@@ -259,8 +260,29 @@ export default function ProductReviewPage() {
             />
           </Box>
 
+          {/* Back button only on mobile in create mode */}
+          {isCreateMode && (
+            <Box sx={{ display: { xs: 'block', sm: 'none' }, mb: 3 }}>
+              <Button
+                startIcon={<ArrowBackIcon />}
+                onClick={() => navigate(-1)}
+                sx={{
+                  textTransform: 'none',
+                  color: theme.palette.text.secondary,
+                  '&:hover': {
+                    bgcolor:
+                      theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                  },
+                }}
+              >
+                Back
+              </Button>
+            </Box>
+          )}
+
           <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+            {/* Image Panel - Left Side (5/12 = ~42%) */}
+            <Grid size={{ xs: 12, md: 5 }}>
               <ImagePanel
                 imagePreview={imagePreview}
                 setImagePreview={setImagePreview}
@@ -270,29 +292,56 @@ export default function ProductReviewPage() {
               />
             </Grid>
 
-            <Grid item xs={12} md={8} sx={{ minWidth: 0 }}>
+            {/* Form Fields - Right Side (7/12 = ~58%) */}
+            <Grid size={{ xs: 12, md: 7 }} sx={{ minWidth: 0 }}>
               <ItemDetailsForm
                 editedProduct={editedProduct}
                 setEditedProduct={setEditedProduct}
                 itemsList={itemsList}
                 isEditMode={isEditMode}
                 isCreateMode={isCreateMode}
-                alwaysEditableFields={['status', 'description', 'notes', 'ohQuantity']}
+                alwaysEditableFields={['status', 'notes', 'ohQuantity']}
+                damageReports={damageReports}
+                setDamageReports={setDamageReports}
               />
 
-              {editedProduct?.status === 'Damaged' && (
-                <DamageReportsSection
-                  isEditMode={true}
+              {editedProduct && (
+                <ChildrenTree
                   editedProduct={editedProduct}
-                  damageReports={damageReports}
-                  setDamageReports={setDamageReports}
+                  teamId={teamId!}
+                  isCreateMode={isCreateMode}
+                  isEditMode={isEditMode}
                 />
               )}
-
-              {editedProduct &&
-                <ChildrenTree editedProduct={editedProduct} teamId={teamId!} isCreateMode={isCreateMode} />}
             </Grid>
           </Grid>
+
+          {/* Create button at bottom on mobile */}
+          {isCreateMode && (
+            <Box
+              sx={{
+                display: { xs: 'flex', sm: 'none' },
+                justifyContent: 'center',
+                mt: 4,
+                pt: 3,
+                borderTop: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <ActionPanel
+                isCreateMode={isCreateMode}
+                isEditMode={isEditMode}
+                setIsEditMode={setIsEditMode}
+                product={product}
+                editedProduct={editedProduct}
+                teamId={teamId!}
+                itemId={itemId!}
+                selectedImageFile={selectedImageFile}
+                imagePreview={imagePreview}
+                setShowSuccess={setShowSuccess}
+                damageReports={damageReports}
+              />
+            </Box>
+          )}
 
           <Snackbar
             open={showSuccess}
@@ -317,7 +366,7 @@ export default function ProductReviewPage() {
           boxShadow:
             theme.palette.mode === 'dark'
               ? '0 -2px 8px rgba(0,0,0,0.6)'
-              : '0 -2px 8px rgba(0,0,0,0.05)'
+              : '0 -2px 8px rgba(0,0,0,0.05)',
         }}
       >
         <NavBar />

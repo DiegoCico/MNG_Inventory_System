@@ -62,14 +62,13 @@ describe('ImagePanel', () => {
       expect(screen.queryByRole('button', { name: /Add Image/i })).not.toBeInTheDocument();
     });
 
-    it('shows warning icon in create mode without image', () => {
+    it('shows warning text in create mode without image', () => {
       render(<ImagePanel {...baseProps} isEditMode={true} isCreateMode={true} />);
 
-      const warningIcon = screen.getByLabelText(/Image required for new items/i);
-      expect(warningIcon).toBeInTheDocument();
+      expect(screen.getByText(/Image required/i)).toBeInTheDocument();
     });
 
-    it('hides warning icon when image is present in create mode', () => {
+    it('hides warning when image is present in create mode', () => {
       render(
         <ImagePanel
           {...baseProps}
@@ -79,7 +78,7 @@ describe('ImagePanel', () => {
         />,
       );
 
-      expect(screen.queryByLabelText(/Image required for new items/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Image required/i)).not.toBeInTheDocument();
     });
   });
 
@@ -192,8 +191,7 @@ describe('ImagePanel', () => {
       render(<ImagePanel {...baseProps} isEditMode={true} isCreateMode={true} />);
 
       expect(screen.getByRole('button', { name: /Add Image/i })).toBeInTheDocument();
-      const warningIcon = screen.getByLabelText(/Image required for new items/i);
-      expect(warningIcon).toBeInTheDocument();
+      expect(screen.getByText(/Image required/i)).toBeInTheDocument();
     });
 
     it('renders correctly in dark mode', () => {

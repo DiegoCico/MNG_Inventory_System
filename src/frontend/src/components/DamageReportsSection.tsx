@@ -20,10 +20,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export default function DamageReportsSection({
-                                               damageReports,
-                                               setDamageReports,
-                                               isEditMode,
-                                             }: {
+  damageReports,
+  setDamageReports,
+  isEditMode,
+}: {
   damageReports: string[];
   setDamageReports: (r: string[]) => void;
   isEditMode?: boolean;
@@ -101,7 +101,7 @@ export default function DamageReportsSection({
                 <ListItemText
                   primary={report}
                   primaryTypographyProps={{
-                    sx: { wordBreak: 'break-word', pr: 5 }
+                    sx: { wordBreak: 'break-word', pr: 5 },
                   }}
                 />
                 <ListItemSecondaryAction>

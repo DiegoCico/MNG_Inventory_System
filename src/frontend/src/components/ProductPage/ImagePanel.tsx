@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Avatar, Box, Button, CardMedia, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Button, CardMedia, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -56,17 +56,17 @@ export default function ImagePanel({
               ? alpha(theme.palette.background.paper, 0.6)
               : alpha(theme.palette.background.default, 0.6),
           borderRadius: 3,
-          border: `1px dashed ${alpha(theme.palette.text.primary, 0.2)}`,
+          border: `2px dashed ${alpha(theme.palette.text.primary, isCreateMode && !imagePreview ? 0.3 : 0.2)}`,
           overflow: 'hidden',
           mb: 1,
           aspectRatio: '1 / 1',
           width: '100%',
-          maxWidth: 500,
+          maxWidth: { xs: 280, sm: 400, md: 500 },
           mx: 'auto',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: 300, // make the box taller for placeholder
+          minHeight: { xs: 200, sm: 250, md: 300 },
         }}
       >
         {imagePreview ? (
@@ -81,23 +81,66 @@ export default function ImagePanel({
             }}
           />
         ) : (
-          <Box display="flex" alignItems="center" justifyContent="center" height="100%">
-            <Stack alignItems="center" spacing={1}>
+          <Box display="flex" alignItems="center" justifyContent="center" height="100%" width="100%" p={3}>
+            <Stack alignItems="center" spacing={2}>
               <ImageNotSupportedIcon
                 sx={{
-                  fontSize: 96, // bigger placeholder
+                  fontSize: { xs: 64, sm: 80, md: 96 },
                   color: theme.palette.text.disabled,
                 }}
               />
-              <Typography variant="h6" color="text.secondary">
+              <Typography 
+                variant="h6" 
+                color="text.secondary" 
+                sx={{ fontSize: { xs: '0.9rem', sm: '1.1rem' }, fontWeight: 600 }}
+              >
                 No image available
               </Typography>
+              {isEditMode && (
+                <>
+                  <Button
+                    onClick={handlePick}
+                    variant="contained"
+                    size="medium"
+                    startIcon={<AddPhotoAlternateIcon />}
+                    sx={{
+                      mt: 1,
+                      px: 3,
+                      py: 1.5,
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                      fontWeight: 600,
+                    }}
+                  >
+                    ADD IMAGE
+                  </Button>
+                  {isCreateMode && (
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                      <WarningAmberIcon 
+                        sx={{ 
+                          fontSize: 20, 
+                          color: theme.palette.error.main 
+                        }} 
+                      />
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: theme.palette.error.main,
+                          fontWeight: 600,
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                        }}
+                      >
+                        Image required
+                      </Typography>
+                    </Stack>
+                  )}
+                </>
+              )}
             </Stack>
           </Box>
         )}
       </Box>
 
-      {isEditMode && (
+      {isEditMode && imagePreview && (
         <Stack direction="row" spacing={1}>
           <input
             ref={fileRef}
@@ -112,23 +155,18 @@ export default function ImagePanel({
             size="small"
             startIcon={<AddPhotoAlternateIcon />}
           >
-            {imagePreview ? 'Change Image' : 'Add Image'}
+            Change Image
           </Button>
-          {isCreateMode && !imagePreview && (
-            <Tooltip title="Image required for new items">
-              <Avatar
-                sx={{
-                  width: 28,
-                  height: 28,
-                  bgcolor: theme.palette.warning.main,
-                }}
-              >
-                <WarningAmberIcon fontSize="small" />
-              </Avatar>
-            </Tooltip>
-          )}
         </Stack>
       )}
+      
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleFile}
+      />
     </Stack>
   );
 }

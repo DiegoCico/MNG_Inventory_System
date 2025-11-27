@@ -11,9 +11,10 @@ interface ChildrenTreeProps {
   editedProduct: any;
   teamId: string;
   isCreateMode?: boolean;
+  isEditMode?: boolean;
 }
 
-export default function ChildrenTree({ editedProduct, teamId, isCreateMode = false }: ChildrenTreeProps) {
+export default function ChildrenTree({ editedProduct, teamId, isCreateMode = false, isEditMode = false }: ChildrenTreeProps) {
   const navigate = useNavigate();
   const theme = useTheme();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -137,8 +138,8 @@ export default function ChildrenTree({ editedProduct, teamId, isCreateMode = fal
           <Collapse in={isExpanded} timeout="auto">
             <Box sx={{ mt: 0.5 }}>
               {child.children.map((subChild: any) => renderChild(subChild, level + 1))}
-              {/* Add button for kits */}
-              {child.isKit && (
+              {/* Add button for kits - only show in edit mode */}
+              {child.isKit && isEditMode && (
                 <Box sx={{ ml: (level + 1) * 2 }}>
                   <AddItemButton parentId={child.itemId} level={0} teamId={teamId} />
                 </Box>
@@ -152,8 +153,8 @@ export default function ChildrenTree({ editedProduct, teamId, isCreateMode = fal
 
   // Don't show the entire section if no children and not a kit
   if (!editedProduct?.children || editedProduct.children.length === 0) {
-    // Show only the Add button if this is a kit with no children yet
-    if (editedProduct?.isKit) {
+    // Show only the Add button if this is a kit with no children yet AND in edit mode
+    if (editedProduct?.isKit && isEditMode) {
       return (
         <Box
           sx={{
@@ -170,6 +171,26 @@ export default function ChildrenTree({ editedProduct, teamId, isCreateMode = fal
             📦 Kit Contents (0 items)
           </Typography>
           <AddItemButton parentId={editedProduct.itemId} level={0} teamId={teamId} />
+        </Box>
+      );
+    }
+    // If not in edit mode or not a kit, show just the count without Add button
+    if (editedProduct?.isKit) {
+      return (
+        <Box
+          sx={{
+            mt: 3,
+            p: 2,
+            borderRadius: 2,
+            bgcolor:
+              theme.palette.mode === 'dark'
+                ? theme.palette.background.default
+                : theme.palette.grey[100],
+          }}
+        >
+          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            📦 Kit Contents (0 items)
+          </Typography>
         </Box>
       );
     }
@@ -195,8 +216,8 @@ export default function ChildrenTree({ editedProduct, teamId, isCreateMode = fal
 
       <Stack spacing={0.5}>
         {editedProduct.children.map((child: any) => renderChild(child, 0))}
-        {/* Add button at the end if this is a kit */}
-        {editedProduct.isKit && <AddItemButton parentId={editedProduct.itemId} level={0} teamId={teamId} />}
+        {/* Add button at the end if this is a kit AND in edit mode */}
+        {editedProduct.isKit && isEditMode && <AddItemButton parentId={editedProduct.itemId} level={0} teamId={teamId} />}
       </Stack>
     </Box>
   );

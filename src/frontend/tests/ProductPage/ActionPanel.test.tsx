@@ -49,6 +49,8 @@ describe('ActionPanel', () => {
       serialNumber: 'W123',
       quantity: 1,
       status: 'Incomplete',
+      description: 'Test description',
+      notes: 'Test notes',
     },
     editedProduct: {
       productName: 'M4 Carbine',
@@ -81,12 +83,41 @@ describe('ActionPanel', () => {
   });
 
   describe('View Mode (not editing)', () => {
-    it('renders Save, Edit, and Delete buttons in view mode', () => {
+    it('renders Edit and Delete buttons in view mode', () => {
       renderWithRouter(<ActionPanel {...baseProps} />);
 
-      expect(screen.getByRole('button', { name: /^Save$/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Edit/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Delete/i })).toBeInTheDocument();
+    });
+
+    it('does not show DONE button when no changes made', () => {
+      renderWithRouter(<ActionPanel {...baseProps} />);
+
+      expect(screen.queryByRole('button', { name: /DONE/i })).not.toBeInTheDocument();
+    });
+
+    it('shows DONE button when status changes', () => {
+      const changedStatusProps = {
+        ...baseProps,
+        product: { ...baseProps.product, status: 'To Review' },
+        editedProduct: { ...baseProps.editedProduct, status: 'Completed' },
+      };
+
+      renderWithRouter(<ActionPanel {...changedStatusProps} />);
+
+      expect(screen.getByRole('button', { name: /DONE/i })).toBeInTheDocument();
+    });
+
+    it('shows DONE button when notes change', () => {
+      const changedNotesProps = {
+        ...baseProps,
+        product: { ...baseProps.product, notes: 'old notes' },
+        editedProduct: { ...baseProps.editedProduct, notes: 'new notes' },
+      };
+
+      renderWithRouter(<ActionPanel {...changedNotesProps} />);
+
+      expect(screen.getByRole('button', { name: /DONE/i })).toBeInTheDocument();
     });
 
     it('switches to edit mode when Edit button clicked', () => {
@@ -108,11 +139,17 @@ describe('ActionPanel', () => {
       expect(screen.getByText(/Are you sure you want to permanently delete/i)).toBeInTheDocument();
     });
 
-    it('saves notes when Save button clicked in view mode', async () => {
-      renderWithRouter(<ActionPanel {...baseProps} />);
+    it('saves changes when DONE button clicked', async () => {
+      const changedStatusProps = {
+        ...baseProps,
+        product: { ...baseProps.product, status: 'To Review' },
+        editedProduct: { ...baseProps.editedProduct, status: 'Completed' },
+      };
 
-      const saveButton = screen.getByRole('button', { name: /^Save$/i });
-      fireEvent.click(saveButton);
+      renderWithRouter(<ActionPanel {...changedStatusProps} />);
+
+      const doneButton = screen.getByRole('button', { name: /DONE/i });
+      fireEvent.click(doneButton);
 
       await waitFor(() => {
         expect(vi.mocked(itemsAPI.updateItem)).toHaveBeenCalledWith(
@@ -162,10 +199,17 @@ describe('ActionPanel', () => {
   describe('Create Mode', () => {
     const createModeProps = { ...baseProps, isCreateMode: true, isEditMode: true, itemId: 'new' };
 
-    it('renders Create Item button in create mode', () => {
+    it('renders Create button in create mode', () => {
       renderWithRouter(<ActionPanel {...createModeProps} />);
 
-      expect(screen.getByRole('button', { name: /^Create$/i })).toBeInTheDocument();
+      // There may be multiple CREATE buttons (desktop and mobile)
+      const createButtons = screen.getAllByRole('button', { name: /^CREATE$/i });
+      expect(createButtons.length).toBeGreaterThan(0);
+    });
+
+    it('does not show Cancel button in create mode', () => {
+      renderWithRouter(<ActionPanel {...createModeProps} />);
+
       expect(screen.queryByRole('button', { name: /Cancel/i })).not.toBeInTheDocument();
     });
 
@@ -174,8 +218,8 @@ describe('ActionPanel', () => {
 
       renderWithRouter(<ActionPanel {...propsNoImage} />);
 
-      const createButton = screen.getByRole('button', { name: /^Create$/i });
-      fireEvent.click(createButton);
+      const createButtons = screen.getAllByRole('button', { name: /^CREATE$/i });
+      fireEvent.click(createButtons[0]);
 
       await waitFor(() => {
         expect(global.alert).toHaveBeenCalledWith('Please add an image before creating the item');
@@ -187,8 +231,8 @@ describe('ActionPanel', () => {
     it('creates item and navigates when Create clicked with image', async () => {
       renderWithRouter(<ActionPanel {...createModeProps} />);
 
-      const createButton = screen.getByRole('button', { name: /^Create$/i });
-      fireEvent.click(createButton);
+      const createButtons = screen.getAllByRole('button', { name: /^CREATE$/i });
+      fireEvent.click(createButtons[0]);
 
       await waitFor(() => {
         expect(vi.mocked(itemsAPI.createItem)).toHaveBeenCalled();
@@ -208,8 +252,8 @@ describe('ActionPanel', () => {
 
       renderWithRouter(<ActionPanel {...propsWithFile} />);
 
-      const createButton = screen.getByRole('button', { name: /^Create$/i });
-      fireEvent.click(createButton);
+      const createButtons = screen.getAllByRole('button', { name: /^CREATE$/i });
+      fireEvent.click(createButtons[0]);
 
       await waitFor(() => {
         expect(vi.mocked(itemsAPI.createItem)).toHaveBeenCalled();
@@ -420,8 +464,8 @@ describe('ActionPanel', () => {
 
       renderWithRouter(<ActionPanel {...createProps} />);
 
-      const createButton = screen.getByRole('button', { name: /^Create$/i });
-      fireEvent.click(createButton);
+      const createButtons = screen.getAllByRole('button', { name: /^CREATE$/i });
+      fireEvent.click(createButtons[0]);
 
       await waitFor(() => {
         expect(global.alert).toHaveBeenCalledWith('Please add an image before creating the item');
@@ -502,8 +546,8 @@ describe('ActionPanel', () => {
 
       renderWithRouter(<ActionPanel {...createProps} />);
 
-      const createButton = screen.getByRole('button', { name: /^Create$/i });
-      fireEvent.click(createButton);
+      const createButtons = screen.getAllByRole('button', { name: /^CREATE$/i });
+      fireEvent.click(createButtons[0]);
 
       await waitFor(() => {
         expect(mockNavigate).toHaveBeenCalledWith('/teams/to-review/test-team-123', {
@@ -556,7 +600,7 @@ describe('ActionPanel', () => {
         description: 'Updated desc',
         notes: 'New notes',
         status: 'Found',
-        parent: 'kit-123', // Changed to string ID
+        parent: 'kit-123',
         isKit: false,
       };
 
