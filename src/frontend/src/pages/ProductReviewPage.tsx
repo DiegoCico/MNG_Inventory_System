@@ -35,6 +35,7 @@ export default function ProductReviewPage() {
 
   const [isEditMode, setIsEditMode] = useState(isCreateMode);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileImage] = useState<string | null>(null);
@@ -55,6 +56,9 @@ export default function ProductReviewPage() {
         }
 
         if (isCreateMode) {
+          // Explicitly set edit mode to true when entering create mode
+          setIsEditMode(true);
+
           const blank = {
             productName: '',
             actualName: '',
@@ -66,7 +70,7 @@ export default function ProductReviewPage() {
             liin: '',
             endItemNiin: '',
             status: 'To Review',
-            isKit: true,
+            isKit: false,
             parent: parentIdFromState || null,
             notes: '',
           };
@@ -257,6 +261,7 @@ export default function ProductReviewPage() {
               imagePreview={imagePreview}
               setShowSuccess={setShowSuccess}
               damageReports={damageReports}
+              setFieldErrors={setFieldErrors}
             />
           </Box>
 
@@ -303,6 +308,7 @@ export default function ProductReviewPage() {
                 alwaysEditableFields={['status', 'notes', 'ohQuantity']}
                 damageReports={damageReports}
                 setDamageReports={setDamageReports}
+                errors={fieldErrors}
               />
 
               {editedProduct && (
@@ -339,6 +345,7 @@ export default function ProductReviewPage() {
                 imagePreview={imagePreview}
                 setShowSuccess={setShowSuccess}
                 damageReports={damageReports}
+                setFieldErrors={setFieldErrors}
               />
             </Box>
           )}

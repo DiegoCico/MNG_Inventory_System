@@ -101,10 +101,10 @@ describe('ItemDetailsForm', () => {
       expect(displayNameInputs.length).toBe(0);
     });
 
-    it('shows parent kit info when item has parent', () => {
+    it('shows kit from field when item has parent', () => {
       const productWithParent = {
         ...mockProduct,
-        parent: { itemId: 'kit-1', name: 'First Aid Kit' },
+        parent: 'kit-1',
       };
 
       render(
@@ -116,21 +116,28 @@ describe('ItemDetailsForm', () => {
         />,
       );
 
-      // This test now passes because we removed the "Part of Kit" display in view mode
-      expect(screen.queryByText('Part of Kit')).not.toBeInTheDocument();
+      expect(screen.getByText('Kit From')).toBeInTheDocument();
+      expect(screen.getByText('First Aid Kit')).toBeInTheDocument();
     });
 
-    it('does not show parent section when no parent', () => {
+    it('shows Kit From as N/A when no parent in view mode', () => {
+      const productNoParent = {
+        ...mockProduct,
+        parent: null,
+      };
+
       render(
         <ItemDetailsForm
-          editedProduct={mockProduct}
+          editedProduct={productNoParent}
           setEditedProduct={mockSetEditedProduct}
           itemsList={mockItemsList}
           isEditMode={false}
         />,
       );
 
-      expect(screen.queryByText('Part of Kit')).not.toBeInTheDocument();
+      // Kit From field shows in view mode, but displays 'N/A' when no parent
+      expect(screen.getByText('Kit From')).toBeInTheDocument();
+      expect(screen.getByText('N/A')).toBeInTheDocument();
     });
   });
 
@@ -180,7 +187,7 @@ describe('ItemDetailsForm', () => {
       });
     });
 
-    it('updates authQuantity as number when changed', () => {
+    it('updates authQuantity as string when changed', () => {
       render(
         <ItemDetailsForm
           editedProduct={mockProduct}
@@ -195,11 +202,11 @@ describe('ItemDetailsForm', () => {
 
       expect(mockSetEditedProduct).toHaveBeenCalledWith({
         ...mockProduct,
-        authQuantity: 10,
+        authQuantity: '10',
       });
     });
 
-    it('shows parent item selector dropdown for items only', () => {
+    it('shows parent item selector dropdown for items', () => {
       render(
         <ItemDetailsForm
           editedProduct={mockProduct}
@@ -223,7 +230,6 @@ describe('ItemDetailsForm', () => {
         />,
       );
 
-      // Now the parent selector shows for kits as well
       const autocomplete = screen.getByRole('combobox');
       expect(autocomplete).toBeInTheDocument();
       expect(screen.getByPlaceholderText('Select parent kit (optional)')).toBeInTheDocument();
@@ -284,6 +290,46 @@ describe('ItemDetailsForm', () => {
         status: 'Damaged',
       });
     });
+
+    it('shows OH Quantity field when Shortages status selected for items', () => {
+      const shortagesProduct = {
+        ...mockProduct,
+        status: 'Shortages',
+      };
+
+      render(
+        <ItemDetailsForm
+          editedProduct={shortagesProduct}
+          setEditedProduct={mockSetEditedProduct}
+          itemsList={mockItemsList}
+          isEditMode={false}
+          alwaysEditableFields={['status', 'ohQuantity']}
+        />,
+      );
+
+      // Check for the input field or the label
+      const ohQuantityElements = screen.getAllByText(/OH Quantity/i);
+      expect(ohQuantityElements.length).toBeGreaterThan(0);
+    });
+
+    it('does not show OH Quantity for kits even with Shortages status', () => {
+      const shortagesKit = {
+        ...mockKit,
+        status: 'Shortages',
+      };
+
+      render(
+        <ItemDetailsForm
+          editedProduct={shortagesKit}
+          setEditedProduct={mockSetEditedProduct}
+          itemsList={mockItemsList}
+          isEditMode={false}
+          alwaysEditableFields={['status']}
+        />,
+      );
+
+      expect(screen.queryByText('OH Quantity')).not.toBeInTheDocument();
+    });
   });
 
   describe('Always Editable Fields', () => {
@@ -317,21 +363,6 @@ describe('ItemDetailsForm', () => {
 
       const notesInput = screen.getByDisplayValue('Test notes');
       expect(notesInput).toBeInTheDocument();
-    });
-
-    it('shows description field in view mode when description is always editable', () => {
-      render(
-        <ItemDetailsForm
-          editedProduct={mockProduct}
-          setEditedProduct={mockSetEditedProduct}
-          itemsList={mockItemsList}
-          isEditMode={false}
-          alwaysEditableFields={['description']}
-        />,
-      );
-
-      const descInput = screen.getByDisplayValue('Standard issue rifle');
-      expect(descInput).toBeInTheDocument();
     });
   });
 
@@ -368,6 +399,49 @@ describe('ItemDetailsForm', () => {
     });
   });
 
+  describe('Damage Reports Integration', () => {
+    it('shows DamageReportsSection when status is Damaged', () => {
+      const mockSetDamageReports = vi.fn();
+      const damagedProduct = {
+        ...mockProduct,
+        status: 'Damaged',
+      };
+
+      render(
+        <ItemDetailsForm
+          editedProduct={damagedProduct}
+          setEditedProduct={mockSetEditedProduct}
+          itemsList={mockItemsList}
+          isEditMode={false}
+          isCreateMode={false}
+          alwaysEditableFields={['status']}
+          damageReports={['Test damage']}
+          setDamageReports={mockSetDamageReports}
+        />,
+      );
+
+      expect(screen.getByText('Damage Reports')).toBeInTheDocument();
+    });
+
+    it('does not show DamageReportsSection when status is not Damaged', () => {
+      const mockSetDamageReports = vi.fn();
+
+      render(
+        <ItemDetailsForm
+          editedProduct={mockProduct}
+          setEditedProduct={mockSetEditedProduct}
+          itemsList={mockItemsList}
+          isEditMode={false}
+          alwaysEditableFields={['status']}
+          damageReports={[]}
+          setDamageReports={mockSetDamageReports}
+        />,
+      );
+
+      expect(screen.queryByText('Damage Reports')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Edge Cases', () => {
     it('handles undefined/null values gracefully', () => {
       const emptyProduct = {
@@ -396,7 +470,7 @@ describe('ItemDetailsForm', () => {
       expect(screen.getByText('No description')).toBeInTheDocument();
     });
 
-    it('handles invalid quantity input by defaulting to 1', () => {
+    it('stores quantity values as strings (validated on save)', () => {
       render(
         <ItemDetailsForm
           editedProduct={mockProduct}
@@ -411,7 +485,7 @@ describe('ItemDetailsForm', () => {
 
       expect(mockSetEditedProduct).toHaveBeenCalledWith({
         ...mockProduct,
-        authQuantity: 1,
+        authQuantity: 'invalid',
       });
     });
 
@@ -462,6 +536,30 @@ describe('ItemDetailsForm', () => {
       );
 
       expect(screen.queryByText('Type')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Error States', () => {
+    it('displays error state on fields when errors prop provided', () => {
+      const errors = {
+        productName: true,
+        nsn: true,
+        authQuantity: true,
+      };
+
+      render(
+        <ItemDetailsForm
+          editedProduct={mockProduct}
+          setEditedProduct={mockSetEditedProduct}
+          itemsList={mockItemsList}
+          isEditMode={true}
+          errors={errors}
+        />,
+      );
+
+      expect(screen.getByText('Display Name is required')).toBeInTheDocument();
+      expect(screen.getByText('NSN is required and must be unique')).toBeInTheDocument();
+      expect(screen.getByText('Must be a number ≥ 0')).toBeInTheDocument();
     });
   });
 });

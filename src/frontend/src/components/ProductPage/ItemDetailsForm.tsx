@@ -32,6 +32,7 @@ interface ItemDetailsFormProps {
   alwaysEditableFields?: string[];
   damageReports?: string[];
   setDamageReports?: (r: string[]) => void;
+  errors?: Record<string, boolean>;
 }
 
 export default function ItemDetailsForm({
@@ -43,9 +44,10 @@ export default function ItemDetailsForm({
   alwaysEditableFields = [],
   damageReports = [],
   setDamageReports,
+  errors = {},
 }: ItemDetailsFormProps) {
   const [itemType, setItemType] = React.useState<'item' | 'kit'>(
-    editedProduct?.isKit !== undefined ? (editedProduct.isKit ? 'kit' : 'item') : 'kit',
+    editedProduct?.isKit ? 'kit' : 'item',
   );
   const [parentError, setParentError] = React.useState(false);
 
@@ -128,13 +130,13 @@ export default function ItemDetailsForm({
             fullWidth
             color="primary"
           >
-            <ToggleButton value="kit" sx={{ textTransform: 'none', py: 1.5 }}>
-              <InventoryIcon sx={{ mr: 1 }} />
-              Kit
-            </ToggleButton>
             <ToggleButton value="item" sx={{ textTransform: 'none', py: 1.5 }}>
               <CategoryIcon sx={{ mr: 1 }} />
               Item
+            </ToggleButton>
+            <ToggleButton value="kit" sx={{ textTransform: 'none', py: 1.5 }}>
+              <InventoryIcon sx={{ mr: 1 }} />
+              Kit
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
@@ -149,6 +151,8 @@ export default function ItemDetailsForm({
           value={editedProduct.productName || ''}
           onChange={(e) => handleChange('productName', e.target.value)}
           required
+          error={errors.productName}
+          helperText={errors.productName ? 'Display Name is required' : ''}
         />
       ) : (
         <Box>
@@ -168,12 +172,14 @@ export default function ItemDetailsForm({
             {isEditMode ? (
               <TextField
                 label="Authorized Quantity"
-                type="number"
+                type="text"
                 size="small"
                 fullWidth
-                value={editedProduct.authQuantity || 1}
-                onChange={(e) => handleChange('authQuantity', parseInt(e.target.value) || 1)}
+                value={editedProduct.authQuantity || ''}
+                onChange={(e) => handleChange('authQuantity', e.target.value)}
                 required
+                error={errors.authQuantity}
+                helperText={errors.authQuantity ? 'Must be a number ≥ 0' : ''}
               />
             ) : !isCreateMode ? (
               <Box>
@@ -228,7 +234,7 @@ export default function ItemDetailsForm({
                   Kit From
                 </Typography>
                 <Typography sx={{ wordBreak: 'break-word' }}>
-                  {getParentObject()?.name || getParentObject()?.productName || '-'}
+                  {getParentObject()?.name || getParentObject()?.productName || 'N/A'}
                 </Typography>
               </Box>
             )}
@@ -285,19 +291,18 @@ export default function ItemDetailsForm({
         />
       )}
 
-      {/* 4. OH Quantity (only shown when status is "Shortages") */}
+      {/* 4. OH Quantity (only shown when status is "Shortages" for items) */}
       {!isCreateMode &&
         itemType === 'item' &&
         editedProduct.status === 'Shortages' &&
         (isEditMode || alwaysEditable('ohQuantity') ? (
           <TextField
             label="OH Quantity"
-            type="number"
+            type="text"
             size="small"
             fullWidth
-            value={editedProduct.ohQuantity || 0}
-            onChange={(e) => handleChange('ohQuantity', parseInt(e.target.value) || 0)}
-            inputProps={{ min: 0 }}
+            value={editedProduct.ohQuantity || ''}
+            onChange={(e) => handleChange('ohQuantity', e.target.value)}
           />
         ) : (
           <Box>
@@ -333,6 +338,8 @@ export default function ItemDetailsForm({
           value={editedProduct.actualName || ''}
           onChange={(e) => handleChange('actualName', e.target.value)}
           required
+          error={errors.actualName}
+          helperText={errors.actualName ? 'Army Nomenclature is required' : ''}
         />
       ) : (
         <Box>
@@ -358,6 +365,8 @@ export default function ItemDetailsForm({
                   value={editedProduct.nsn || ''}
                   onChange={(e) => handleChange('nsn', e.target.value)}
                   required
+                  error={errors.nsn}
+                  helperText={errors.nsn ? 'NSN is required and must be unique' : ''}
                 />
               ) : (
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -389,6 +398,10 @@ export default function ItemDetailsForm({
                   value={editedProduct.serialNumber || ''}
                   onChange={(e) => handleChange('serialNumber', e.target.value)}
                   required
+                  error={errors.serialNumber}
+                  helperText={
+                    errors.serialNumber ? 'Serial Number is required and must be unique' : ''
+                  }
                 />
               ) : (
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -428,6 +441,8 @@ export default function ItemDetailsForm({
                   value={editedProduct.liin || ''}
                   onChange={(e) => handleChange('liin', e.target.value)}
                   required
+                  error={errors.liin}
+                  helperText={errors.liin ? 'LIIN is required and must be unique' : ''}
                 />
               ) : (
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -459,6 +474,10 @@ export default function ItemDetailsForm({
                   value={editedProduct.endItemNiin || ''}
                   onChange={(e) => handleChange('endItemNiin', e.target.value)}
                   required
+                  error={errors.endItemNiin}
+                  helperText={
+                    errors.endItemNiin ? 'End Item NIIN is required and must be unique' : ''
+                  }
                 />
               ) : (
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -497,6 +516,8 @@ export default function ItemDetailsForm({
             value={editedProduct.description || ''}
             onChange={(e) => handleChange('description', e.target.value)}
             required={isEditMode}
+            error={errors.description}
+            helperText={errors.description ? 'Description is required' : ''}
           />
         ) : (
           <Box>

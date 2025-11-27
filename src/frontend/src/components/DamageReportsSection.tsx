@@ -5,19 +5,13 @@ import {
   Typography,
   TextField,
   IconButton,
-  Tooltip,
-  Alert,
-  Fade,
+  Button,
   useTheme,
   alpha,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
 } from '@mui/material';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
-import DeleteIcon from '@mui/icons-material/Delete';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 export default function DamageReportsSection({
   damageReports,
@@ -44,119 +38,112 @@ export default function DamageReportsSection({
   };
 
   return (
-    <Fade in>
-      <Box
-        sx={{
-          mt: 2,
-          p: 2,
-          bgcolor:
-            theme.palette.mode === 'light'
-              ? alpha(theme.palette.warning.light, 0.5)
-              : alpha(theme.palette.warning.dark, 0.3),
-          borderRadius: 2,
-          border: `1px solid ${
-            theme.palette.mode === 'light'
-              ? theme.palette.warning.main
-              : alpha(theme.palette.warning.main, 0.5)
-          }`,
-          width: '100%',
-        }}
-      >
-        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+    <Box sx={{ mt: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <WarningAmberIcon sx={{ color: theme.palette.error.main, fontSize: 20 }} />
+        <Typography variant="subtitle2" fontWeight="bold">
           Damage Reports
         </Typography>
-
-        {damageReports.length === 0 ? (
-          <Alert
-            icon={<InfoOutlinedIcon fontSize="small" />}
-            severity="info"
-            sx={{
-              bgcolor:
-                theme.palette.mode === 'light'
-                  ? alpha(theme.palette.info.light, 0.3)
-                  : alpha(theme.palette.info.dark, 0.3),
-              color: theme.palette.info.main,
-              borderRadius: 2,
-              mb: 1.5,
-            }}
-          >
-            No damage reports yet.
-          </Alert>
-        ) : (
-          <List dense sx={{ mb: 1.5, py: 0 }}>
-            {damageReports.map((report, i) => (
-              <ListItem
-                key={i}
-                sx={{
-                  bgcolor:
-                    theme.palette.mode === 'light'
-                      ? alpha(theme.palette.warning.light, 0.3)
-                      : alpha(theme.palette.warning.dark, 0.3),
-                  border: `1px solid ${theme.palette.warning.main}`,
-                  borderRadius: 1,
-                  mb: 1,
-                  '&:last-child': { mb: 0 },
-                }}
-              >
-                <ListItemText
-                  primary={report}
-                  primaryTypographyProps={{
-                    sx: { wordBreak: 'break-word', pr: 5 },
-                  }}
-                />
-                <ListItemSecondaryAction>
-                  <IconButton
-                    edge="end"
-                    size="small"
-                    onClick={() => handleDelete(i)}
-                    sx={{ color: theme.palette.warning.dark }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        )}
-
-        {isEditMode && (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Describe damage..."
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAdd();
-                }
-              }}
-              sx={{
-                bgcolor:
-                  theme.palette.mode === 'light'
-                    ? theme.palette.background.paper
-                    : theme.palette.background.default,
-              }}
-            />
-            <Tooltip title="Add Report">
-              <IconButton
-                color="primary"
-                onClick={handleAdd}
-                sx={{
-                  bgcolor: theme.palette.primary.main,
-                  color: theme.palette.getContrastText(theme.palette.primary.main),
-                  '&:hover': { bgcolor: theme.palette.primary.dark },
-                  flexShrink: 0,
-                }}
-              >
-                <AddCircleIcon />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        )}
       </Box>
-    </Fade>
+
+      {damageReports.length === 0 ? (
+        <Box
+          sx={{
+            p: 2,
+            bgcolor: alpha(theme.palette.error.main, 0.05),
+            border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
+            borderRadius: 2,
+            mb: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            No damage reports yet
+          </Typography>
+        </Box>
+      ) : (
+        <Stack spacing={1} sx={{ mb: 2 }}>
+          {damageReports.map((report, i) => (
+            <Box
+              key={i}
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1,
+                p: 1.5,
+                bgcolor: alpha(theme.palette.error.main, 0.05),
+                border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
+                borderRadius: 2,
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.error.main, 0.08),
+                },
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  flex: 1,
+                  wordBreak: 'break-word',
+                  color: theme.palette.text.primary,
+                }}
+              >
+                {report}
+              </Typography>
+              {isEditMode && (
+                <IconButton
+                  size="small"
+                  onClick={() => handleDelete(i)}
+                  sx={{
+                    color: theme.palette.error.main,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.error.main, 0.1),
+                    },
+                  }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
+          ))}
+        </Stack>
+      )}
+
+      {isEditMode && (
+        <Stack direction="row" spacing={1} alignItems="flex-start">
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Describe damage..."
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAdd();
+              }
+            }}
+            multiline
+            maxRows={3}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                bgcolor: theme.palette.background.paper,
+              },
+            }}
+          />
+          <Button
+            variant="contained"
+            onClick={handleAdd}
+            disabled={!current.trim()}
+            sx={{
+              minWidth: 'auto',
+              px: 2,
+              flexShrink: 0,
+            }}
+            startIcon={<AddIcon />}
+          >
+            Add
+          </Button>
+        </Stack>
+      )}
+    </Box>
   );
 }
