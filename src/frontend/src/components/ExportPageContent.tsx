@@ -10,10 +10,10 @@ import {
   Divider,
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import BlockIcon from '@mui/icons-material/Block';
 import { useTheme } from '@mui/material/styles';
 
 // Define the core types used by the page component (normally imported from a shared file)
-
 interface InventoryItem {
   itemId?: string;
   name?: string;
@@ -53,6 +53,7 @@ const ExportPageContent: React.FC<ExportPageContentProps> = ({
   const fileName = `${activeCategory}_inventory_report_${new Date().toLocaleDateString()}.csv`;
   const totalItems = items.length;
   const filteredCount = csvData.length;
+  const hasData = filteredCount > 0;
 
   const downloadCsv = () => {
     if (csvData.length === 0) {
@@ -85,83 +86,89 @@ const ExportPageContent: React.FC<ExportPageContentProps> = ({
     document.body.removeChild(link);
   };
 
+  // Capitalize first letter for button text
+  const categoryDisplay = activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1);
+
   return (
-    <Paper
-      elevation={4}
+    <Box
       sx={{
-        p: { xs: 3, md: 6 },
-        maxWidth: 800,
-        mx: 'auto',
-        mt: 4,
-        borderRadius: 4,
-        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 3,
+        p: 3,
       }}
     >
-      <FileDownloadIcon sx={{ fontSize: 70, color: theme.palette.success.main, mb: 2 }} />
-      <Typography variant="h4" fontWeight={800} gutterBottom>
+      <Typography variant="h4" fontWeight={700} textAlign="center">
         Documents Ready
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Your report for the **{activeCategory.toUpperCase()}** inventory is generated and ready for
-        download.
+
+      <Typography variant="body1" textAlign="center" color="text.secondary">
+        Your report for the <strong>{activeCategory.toUpperCase()}</strong> inventory is
+        generated and ready for download.
       </Typography>
 
-      <List
-        sx={{
-          maxWidth: 400,
-          mx: 'auto',
-          bgcolor: theme.palette.background.default,
-          borderRadius: 2,
-          mb: 4,
-          p: 1,
-          border: `1px solid ${theme.palette.divider}`,
-        }}
-      >
-        <ListItem>
-          <ListItemText
-            primary="Report Type"
-            secondary={
-              activeCategory === 'completed' ? 'Completed/Found Items' : 'Damaged/Missing Items'
-            }
-          />
-        </ListItem>
-        <Divider />
-        <ListItem>
-          <ListItemText
-            primary="Total Items Reviewed"
-            secondary={`${percentReviewed}% (${totalItems - items.filter((i) => (i.status ?? '').toLowerCase() === 'to review').length}/${totalItems})`}
-          />
-        </ListItem>
-        <Divider />
-        <ListItem>
-          <ListItemText primary="Items in Report" secondary={`${filteredCount} items`} />
-        </ListItem>
-      </List>
+      <Paper elevation={3} sx={{ width: '100%', maxWidth: 500, p: 3 }}>
+        <List>
+          <ListItem>
+            <ListItemText
+              primary="Total Items"
+              secondary={totalItems}
+              primaryTypographyProps={{ fontWeight: 600 }}
+            />
+          </ListItem>
+          <Divider />
+          <ListItem>
+            <ListItemText
+              primary="Filtered Items"
+              secondary={filteredCount}
+              primaryTypographyProps={{ fontWeight: 600 }}
+            />
+          </ListItem>
+          <Divider />
+          <ListItem>
+            <ListItemText
+              primary="Review Progress"
+              secondary={`${percentReviewed}% (${items.filter((i) => (i.status ?? '').toLowerCase() === 'to review').length}/${totalItems})`}
+              primaryTypographyProps={{ fontWeight: 600 }}
+            />
+          </ListItem>
+        </List>
+      </Paper>
 
       <Button
-        onClick={downloadCsv}
-        variant="contained"
-        size="large"
-        startIcon={<FileDownloadIcon />}
+        variant={hasData ? 'contained' : 'outlined'}
+        startIcon={hasData ? <FileDownloadIcon /> : <BlockIcon />}
+        onClick={hasData ? downloadCsv : undefined}
+        disabled={!hasData}
+        fullWidth
         sx={{
           borderRadius: 2,
-          px: 5,
+          px: 3,
           py: 1.5,
           fontWeight: 700,
-          bgcolor: theme.palette.success.main,
-          color: theme.palette.getContrastText(theme.palette.success.main),
-          '&:hover': { bgcolor: theme.palette.success.dark },
+          ...(hasData
+            ? {
+                bgcolor: theme.palette.success.main,
+                color: theme.palette.getContrastText(theme.palette.success.main),
+                '&:hover': {
+                  bgcolor: theme.palette.success.dark,
+                },
+              }
+            : {
+                borderColor: theme.palette.divider,
+                color: theme.palette.text.disabled,
+              }),
+          maxWidth: { xs: '100%', sm: 400 },
         }}
       >
-        Download {fileName.replace('.csv', '.CSV')}
+        {hasData ? `Download ${categoryDisplay} Report CSV` : 'No Items to Download'}
       </Button>
 
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="caption" color="text.disabled">
-          File Name: {fileName}
-        </Typography>
-      </Box>
-    </Paper>
+      <Typography variant="caption" color="text.secondary">
+        File Name: {fileName}
+      </Typography>
+    </Box>
   );
 };
 
