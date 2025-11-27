@@ -166,7 +166,8 @@ getTeamspace: permissionedProcedure('team.view')
           const total = items.length || 1;
 
           // percent done = Completed / total
-          const percent = Math.round((completed / total) * 100);
+          const reviewed = completed + shortages + damaged;
+          const percent = Math.round((reviewed / total) * 100);
 
           return {
             ...team,
