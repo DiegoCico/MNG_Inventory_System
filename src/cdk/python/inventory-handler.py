@@ -12,7 +12,8 @@ _ddb = None
 def s3():
     global _s3
     if _s3 is None:
-        _s3 = boto3.client("s3")
+        from botocore.config import Config
+        _s3 = boto3.client("s3", config=Config(signature_version='s3v4'))
     return _s3
 
 def ddb():
@@ -218,18 +219,20 @@ def render_inventory_csv(data):
 def lambda_handler(event, context):
     method = _get_http_method(event)
 
-    if method == "OPTIONS":
+    # Allow direct Lambda invocation (no httpMethod field)
+    if not method:
+        # Direct invocation from another Lambda - treat as POST
+        pass
+    elif method == "OPTIONS":
         return _resp(200, "")
-
-    if method == "GET":
+    elif method == "GET":
         return _resp(200, {
             "ok": True,
             "service": "inventory-csv",
             "ddbConfigured": bool(TABLE_NAME),
             "uploadsBucket": bool(UPLOADS_BUCKET)
         })
-
-    if method != "POST":
+    elif method != "POST":
         return _resp(405, {"error": "Method not allowed"})
 
     payload = _get_body_json(event)
@@ -252,29 +255,48 @@ def lambda_handler(event, context):
     except Exception as e:
         return _resp(500, {"error": f"CSV build failed: {e}"})
 
-    filename = "inventory.csv"
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"inventory_{timestamp}.csv"
     key = f"Documents/{team_id}/inventory/{filename}"
 
     if save_to_s3:
         if not UPLOADS_BUCKET:
             return _resp(500, {"error": "UPLOADS_BUCKET env var is not set"})
         try:
-            s3().put_object(
-                Bucket=UPLOADS_BUCKET,
-                Key=key,
-                Body=csv_bytes,
-                ContentType="text/csv",
-                ACL="private"
+            # Get KMS key ARN from environment (set by CDK)
+            kms_key_arn = os.environ.get('KMS_KEY_ARN', '').strip()
+            
+            put_params = {
+                'Bucket': UPLOADS_BUCKET,
+                'Key': key,
+                'Body': csv_bytes,
+                'ContentType': 'text/csv',
+            }
+            
+            # Add KMS encryption if key is provided
+            if kms_key_arn:
+                put_params['ServerSideEncryption'] = 'aws:kms'
+                put_params['SSEKMSKeyId'] = kms_key_arn
+            
+            s3().put_object(**put_params)
+            
+            # Generate presigned URL for download (valid for 1 hour)
+            url = s3().generate_presigned_url(
+                'get_object',
+                Params={'Bucket': UPLOADS_BUCKET, 'Key': key},
+                ExpiresIn=3600
             )
+            
+            return _resp(200, {
+                "ok": True,
+                "s3Key": key,
+                "bucket": UPLOADS_BUCKET,
+                "url": url,
+                "contentType": "text/csv"
+            })
         except Exception as e:
             return _resp(500, {"error": f"S3 put failed: {e}"})
-
-        return _resp(200, {
-            "ok": True,
-            "s3Key": key,
-            "bucket": UPLOADS_BUCKET,
-            "contentType": "text/csv"
-        })
 
     b64 = base64.b64encode(csv_bytes).decode("utf-8")
     return _resp(

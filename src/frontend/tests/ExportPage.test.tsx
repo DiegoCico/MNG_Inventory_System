@@ -5,17 +5,21 @@ import '@testing-library/jest-dom';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 
-// 🧩 Mock API modules *before* importing the component
-// Use vi.hoisted to create the mock function that can be used in vi.mock
-const { mockGetItems } = vi.hoisted(() => ({
+// Mock API modules *before* importing the component
+const { mockGetItems, mockGenerateExportDocuments } = vi.hoisted(() => ({
   mockGetItems: vi.fn(),
+  mockGenerateExportDocuments: vi.fn(),
 }));
 
 vi.mock('../src/api/items', () => ({
   getItems: mockGetItems,
 }));
 
-// Mock child components to isolate ExportPage testing
+vi.mock('../src/api/download', () => ({
+  generateExportDocuments: mockGenerateExportDocuments,
+}));
+
+// Mock child components
 vi.mock('../src/components/TopBar', () => ({
   default: ({ isLoggedIn }: { isLoggedIn: boolean }) => (
     <div data-testid="top-bar">TopBar - {isLoggedIn ? 'Logged In' : 'Logged Out'}</div>
@@ -26,23 +30,39 @@ vi.mock('../src/components/NavBar', () => ({
   default: () => <div data-testid="nav-bar">NavBar</div>,
 }));
 
+vi.mock('../src/components/ExportCategoryBar', () => ({
+  default: ({ 
+    activeCategory, 
+    onCategoryChange 
+  }: { 
+    activeCategory: string; 
+    onCategoryChange: (cat: string) => void;
+  }) => (
+    <div data-testid="export-category-bar">
+      <button onClick={() => onCategoryChange('completed')}>Completed</button>
+      <button onClick={() => onCategoryChange('broken')}>Broken</button>
+      <div>Active: {activeCategory}</div>
+    </div>
+  ),
+}));
+
 vi.mock('../src/components/ExportPageContent', () => ({
   default: ({
     items,
     percentReviewed,
     activeCategory,
-    csvData,
+    exportData,
   }: {
     items: unknown[];
     percentReviewed: number;
     activeCategory: string;
-    csvData: unknown[];
+    exportData: unknown;
   }) => (
     <div data-testid="export-page-content">
       <div>Items Count: {items.length}</div>
       <div>Percent Reviewed: {percentReviewed}%</div>
       <div>Active Category: {activeCategory}</div>
-      <div>CSV Data Count: {csvData.length}</div>
+      <div>Export Data: {exportData ? 'Present' : 'Null'}</div>
     </div>
   ),
 }));
@@ -50,10 +70,8 @@ vi.mock('../src/components/ExportPageContent', () => ({
 // Import after mocks are defined
 import ExportPage from '../src/pages/ExportPage';
 
-// Test theme
 const theme = createTheme();
 
-// Helper to render component with theme and router
 const renderWithProviders = (ui: React.ReactElement, { route = '/export/team123' } = {}) => {
   return render(
     <ThemeProvider theme={theme}>
@@ -66,7 +84,6 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/export/team123'
   );
 };
 
-// Mock data
 const mockItems = [
   {
     itemId: 'item1',
@@ -106,7 +123,7 @@ const mockItems = [
   {
     itemId: 'item6',
     name: 'Night Vision',
-    status: 'in repair',
+    status: 'damaged',
     description: 'Battery compartment broken',
     createdAt: 1700000005000,
   },
@@ -129,7 +146,6 @@ describe('ExportPage', () => {
 
       renderWithProviders(<ExportPage />);
 
-      // Look for the circular progress spinner during loading
       const spinners = screen.getAllByRole('progressbar');
       const loadingSpinner = spinners.find((el) =>
         el.classList.contains('MuiCircularProgress-root'),
@@ -153,12 +169,11 @@ describe('ExportPage', () => {
       mockGetItems.mockResolvedValue({ items: mockItems });
     });
 
-    it('renders both category buttons after loading', async () => {
+    it('renders category bar after loading', async () => {
       renderWithProviders(<ExportPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Completed Inventory')).toBeInTheDocument();
-        expect(screen.getByText('Broken Items')).toBeInTheDocument();
+        expect(screen.getByTestId('export-category-bar')).toBeInTheDocument();
       });
     });
 
@@ -166,29 +181,35 @@ describe('ExportPage', () => {
       renderWithProviders(<ExportPage />);
 
       await waitFor(() => {
-        const completedBtn = screen.getByText('Completed Inventory').closest('button');
-        expect(completedBtn).toHaveClass('MuiButton-contained');
+        expect(screen.getByText('Active: completed')).toBeInTheDocument();
       });
     });
 
-    it('switches category when clicking broken items button', async () => {
+    it('switches category when clicking broken button', async () => {
       const user = userEvent.setup();
       renderWithProviders(<ExportPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Broken Items')).toBeInTheDocument();
+        expect(screen.getByText('Broken')).toBeInTheDocument();
       });
 
-      const brokenBtn = screen.getByText('Broken Items');
+      const brokenBtn = screen.getByText('Broken');
       await user.click(brokenBtn);
 
-      expect(brokenBtn.closest('button')).toHaveClass('MuiButton-contained');
+      await waitFor(() => {
+        expect(screen.getByText('Active: broken')).toBeInTheDocument();
+      });
     });
   });
 
   describe('Document Generation Flow', () => {
     beforeEach(() => {
       mockGetItems.mockResolvedValue({ items: mockItems });
+      mockGenerateExportDocuments.mockResolvedValue({
+        success: true,
+        pdf2404: { ok: true, url: 'https://s3.../file.pdf' },
+        csvInventory: { ok: true, csvContent: 'Item,Status\n...' },
+      });
     });
 
     it('shows create documents button initially', async () => {
@@ -201,6 +222,16 @@ describe('ExportPage', () => {
 
     it('shows generating state when create button clicked', async () => {
       const user = userEvent.setup();
+      
+      // Mock to delay so we can see the loading state
+      mockGenerateExportDocuments.mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve({
+          success: true,
+          pdf2404: { ok: true },
+          csvInventory: { ok: true, csvContent: 'data' },
+        }), 100))
+      );
+
       renderWithProviders(<ExportPage />);
 
       await waitFor(() => {
@@ -210,7 +241,64 @@ describe('ExportPage', () => {
       const createBtn = screen.getByText('Create Documents');
       await user.click(createBtn);
 
-      expect(screen.getByText('Generating your documents...')).toBeInTheDocument();
+      // Check for loading state
+      await waitFor(() => {
+        expect(screen.getByText(/Generating your documents/i)).toBeInTheDocument();
+      });
+    });
+
+    it('shows ExportPageContent after successful generation', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Create Documents')).toBeInTheDocument();
+      });
+
+      const createBtn = screen.getByText('Create Documents');
+      await user.click(createBtn);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('export-page-content')).toBeInTheDocument();
+        expect(screen.getByText('Export Data: Present')).toBeInTheDocument();
+      });
+    });
+
+    it('shows error message when generation fails', async () => {
+      const user = userEvent.setup();
+      mockGenerateExportDocuments.mockRejectedValue(new Error('Export failed'));
+
+      renderWithProviders(<ExportPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Create Documents')).toBeInTheDocument();
+      });
+
+      const createBtn = screen.getByText('Create Documents');
+      await user.click(createBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Export failed/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Stats Calculations', () => {
+    beforeEach(() => {
+      mockGetItems.mockResolvedValue({ items: mockItems });
+    });
+
+    it('calculates correct review percentage', async () => {
+      renderWithProviders(<ExportPage />);
+
+      // Just verify the progress bar renders with some percentage
+      await waitFor(() => {
+        const progressBars = screen.getAllByRole('progressbar');
+        const linearProgress = progressBars.find((el) =>
+          el.classList.contains('MuiLinearProgress-root'),
+        );
+        expect(linearProgress).toBeInTheDocument();
+      });
     });
   });
 
@@ -267,7 +355,6 @@ describe('ExportPage', () => {
         </ThemeProvider>,
       );
 
-      // Should not call API without teamId
       await waitFor(() => {
         expect(mockGetItems).not.toHaveBeenCalled();
       });

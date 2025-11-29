@@ -1,96 +1,110 @@
 import { z } from 'zod';
 import { router, permissionedProcedure } from './trpc';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { loadConfig } from '../process';
-import { spawn } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
 
 const config = loadConfig();
-const BUCKET = config.BUCKET_NAME;
 const REGION = config.REGION;
 
-const s3 = new S3Client({ region: REGION });
+const lambda = new LambdaClient({ region: REGION });
 
-export type PythonResult = {
-  stdout: string;
-};
-
-// Helpers
-export async function downloadScript(key: string, outPath: string): Promise<void> {
-  const res = await s3.send(
-    new GetObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-    }),
-  );
-
-  const bodyStream = res.Body as any;
-
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(outPath);
-    bodyStream.pipe(file);
-    bodyStream.on('error', reject);
-    file.on('finish', resolve);
-    file.on('error', reject);
-  });
-}
-
-export async function runPython(scriptPath: string, teamId: string): Promise<PythonResult> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('python3', [scriptPath, teamId]);
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (d) => (stdout += d.toString()));
-    proc.stderr.on('data', (d) => (stderr += d.toString()));
-
-    proc.on('close', (code) => {
-      if (code === 0) resolve({ stdout });
-      else reject(new Error(stderr || `Python exited with ${code}`));
-    });
-  });
-}
-
-
-// Main Export
-export async function runExport(teamId: string) {
-  const tmp = '/tmp';
-
-  const paths = {
-    p2404: path.join(tmp, '2404-handler.py'),
-    pinv: path.join(tmp, 'inventory-handler.py'),
-  };
-
-  await downloadScript('scripts/2404-handler.py', paths.p2404);
-  await downloadScript('scripts/inventory-handler.py', paths.pinv);
-
-  fs.chmodSync(paths.p2404, 0o755);
-  fs.chmodSync(paths.pinv, 0o755);
-
- const r2404 = await runPython(paths.p2404, teamId);
- const rInv = await runPython(paths.pinv, teamId);
-
-  // 2404 script: stdout is JSON (metadata about PDF location)
-  let pdf2404: any;
+/**
+ * Invoke a Python Lambda function
+ */
+async function invokePythonLambda(functionName: string, teamId: string) {
+  console.log(`[invokePythonLambda] Invoking ${functionName} for teamId: ${teamId}`);
+  
   try {
-    pdf2404 = JSON.parse(r2404.stdout || '{}');
-  } catch {
-    pdf2404 = {
-      ok: false,
-      error: 'Invalid JSON from 2404 script',
-      raw: r2404.stdout,
-    };
+    const command = new InvokeCommand({
+      FunctionName: functionName,
+      Payload: JSON.stringify({ teamId }),
+    });
+    
+    const response = await lambda.send(command);
+    
+    if (!response.Payload) {
+      throw new Error(`No payload returned from ${functionName}`);
+    }
+    
+    const payloadString = new TextDecoder().decode(response.Payload);
+    console.log(`[invokePythonLambda] ${functionName} response preview:`, payloadString.substring(0, 200));
+    
+    const result = JSON.parse(payloadString);
+    
+    // Check for Lambda execution errors
+    if (response.FunctionError) {
+      console.error(`[invokePythonLambda] ${functionName} function error:`, result);
+      throw new Error(`Lambda error in ${functionName}: ${result.errorMessage || 'Unknown error'}`);
+    }
+    
+    // Parse the body if it's wrapped in statusCode/body format
+    if (result.statusCode && result.body) {
+      const body = typeof result.body === 'string' ? JSON.parse(result.body) : result.body;
+      console.log(`[invokePythonLambda] ${functionName} body.ok=${body.ok}`);
+      return body;
+    }
+    
+    // Direct return (for testing)
+    console.log(`[invokePythonLambda] ${functionName} direct result.ok=${result.ok}`);
+    return result;
+    
+  } catch (err: any) {
+    console.error(`[invokePythonLambda] ${functionName} error:`, err);
+    throw new Error(`Failed to invoke ${functionName}: ${err.message}`);
   }
+}
 
-  const csvInventory = rInv.stdout || '';
-
-  return {
-    success: true,
-    pdf2404,
-    csvInventory,
-  };
+/**
+ * Main export function - invokes both Python Lambdas
+ */
+export async function runExport(teamId: string) {
+  console.log('[runExport] Starting export for teamId:', teamId);
+  
+  // Get function names from environment variables (set by CDK)
+  const pdf2404FunctionName = process.env.EXPORT_2404_FUNCTION_NAME;
+  const inventoryFunctionName = process.env.EXPORT_INVENTORY_FUNCTION_NAME;
+  
+  if (!pdf2404FunctionName || !inventoryFunctionName) {
+    const error = 'Export function names not configured. Check CDK deployment.';
+    console.error('[runExport]', error);
+    throw new Error(error);
+  }
+  
+  console.log('[runExport] Using functions:', {
+    pdf2404: pdf2404FunctionName,
+    inventory: inventoryFunctionName
+  });
+  
+  try {
+    // Invoke both Lambda functions in parallel
+    console.log('[runExport] Invoking Lambda functions in parallel...');
+    const [pdf2404Response, csvResponse] = await Promise.all([
+      invokePythonLambda(pdf2404FunctionName, teamId),
+      invokePythonLambda(inventoryFunctionName, teamId),
+    ]);
+    
+    console.log('[runExport] PDF response ok:', pdf2404Response?.ok);
+    console.log('[runExport] CSV response ok:', csvResponse?.ok);
+    console.log('[runExport] PDF has URL:', !!pdf2404Response?.url);
+    console.log('[runExport] CSV has URL:', !!csvResponse?.url);
+    
+    // At least ONE export must succeed (not both required)
+    if (!pdf2404Response?.ok && !csvResponse?.ok) {
+      throw new Error('Both export operations failed');
+    }
+    
+    console.log('[runExport] Export completed successfully');
+    
+    return {
+      success: true,
+      pdf2404: pdf2404Response,
+      csvInventory: csvResponse,
+    };
+    
+  } catch (err: any) {
+    console.error('[runExport] Export failed:', err);
+    throw err;
+  }
 }
 
 // TRPC Router
@@ -99,11 +113,16 @@ export const exportRouter = router({
     .input(z.object({ teamId: z.string().min(1) }))
     .mutation(async ({ input }) => {
       try {
-        return await runExport(input.teamId);
+        console.log('[getExport] Starting export for teamId:', input.teamId);
+        const result = await runExport(input.teamId);
+        console.log('[getExport] Export completed successfully');
+        return result;
       } catch (err: any) {
+        console.error('[getExport] Export failed:', err);
         return {
           success: false,
           error: err.message || 'Failed to run export.',
+          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
         };
       }
     }),

@@ -8,85 +8,45 @@ import {
   LinearProgress,
   Fade,
   useTheme,
+  Alert,
 } from '@mui/material';
 import { useParams } from 'react-router-dom';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import BuildIcon from '@mui/icons-material/Build';
 import TopBar from '../components/TopBar';
 import NavBar from '../components/NavBar';
 import ExportPageContent from '../components/ExportPageContent';
+import ExportCategoryBar from '../components/ExportCategoryBar';
 import { getItems } from '../api/items';
+import { generateExportDocuments } from '../api/download';
 
-// 1. Define the interface for the raw item object received from the API
+// Define the interface for the raw item object received from the API
 interface InventoryItem {
   itemId?: string;
   name?: string;
   status?: string;
   description?: string;
   createdAt: number;
-  // Allows for other properties that are not explicitly typed, safely avoiding 'any'
   [key: string]: unknown;
 }
 
-// 2. Define the expected shape of a CSV row (flat object)
-// The interface now explicitly includes the keys created in itemsToCsvData
-interface CsvItem {
-  'Item ID': string;
-  'Product Name': string;
-  Status: string;
-  Description: string;
-  'Date Added': string;
-  'Team ID': string;
-  // Use Record<string, unknown> for flexible keys, safer than Record<string, any>
+interface ExportDataResponse {
+  ok?: boolean;
+  url?: string;
+  s3Url?: string;
+  downloadBase64?: string;
+  csvContent?: string;
+  message?: string;
+  filename?: string;
   [key: string]: unknown;
 }
-
-/**
- * Converts the raw nested item array into a flattened, report-ready CSV data format,
- * filtered by the active category.
- */
-// FIX: Replaced 'any[]' with 'InventoryItem[]' and 'CsvItem[]'
-const itemsToCsvData = (
-  rawItems: InventoryItem[],
-  category: 'completed' | 'broken',
-  currentTeamId: string,
-): CsvItem[] => {
-  // Define which statuses map to the active category
-  const validStatuses =
-    category === 'completed'
-      ? ['completed', 'complete', 'found']
-      : ['damaged', 'shortages', 'shortage', 'missing', 'in repair'];
-
-  // 1. Filter the items based on the active category
-  const filteredItems = rawItems.filter((item) => {
-    const status = (item.status ?? 'to review').toLowerCase();
-    return validStatuses.includes(status);
-  });
-
-  // 2. Map the filtered items to a flattened, structured format for the CSV table
-  return filteredItems.map((item) => ({
-    'Item ID': item.itemId || 'N/A',
-    'Product Name': item.name || 'N/A',
-    Status: item.status || 'To Review',
-    Description: item.description || 'No description',
-    'Date Added': new Date(item.createdAt).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }),
-    'Team ID': currentTeamId,
-    // You can add more fields here if they exist on the raw item object
-  })) as CsvItem[]; // Assert the shape back to CsvItem[]
-};
 
 export default function ExportPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const theme = useTheme();
 
-  // FIX: Replaced 'any[]' with 'InventoryItem[]'
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<'completed' | 'broken'>('completed');
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch items on mount
   useEffect(() => {
@@ -95,10 +55,10 @@ export default function ExportPage() {
 
       try {
         const result = await getItems(teamId);
-        // Ensure result.items is treated as the correct type when setting state
         setItems(Array.isArray(result.items) ? (result.items as InventoryItem[]) : []);
       } catch (err) {
         console.error('Failed to load items:', err);
+        setError('Failed to load inventory items');
       } finally {
         setLoading(false);
       }
@@ -111,7 +71,6 @@ export default function ExportPage() {
   const totals = { toReview: 0, completed: 0, shortages: 0, damaged: 0 };
 
   for (const item of items) {
-    // item is now InventoryItem, status is safely accessed
     const status = (item.status ?? 'to review').toLowerCase();
 
     switch (status) {
@@ -134,100 +93,76 @@ export default function ExportPage() {
 
   const totalReviewed = totals.completed + totals.shortages + totals.damaged;
   const totalCount = totalReviewed + totals.toReview;
-
   const percentReviewed = totalCount > 0 ? Math.round((totalReviewed / totalCount) * 100) : 0;
 
   // UI state for document generation
   const [isGenerating, setIsGenerating] = useState(false);
   const [documentsCreated, setDocumentsCreated] = useState(false);
+  const [exportData, setExportData] = useState<{
+    pdf2404: ExportDataResponse;
+    csvInventory: ExportDataResponse;
+  } | null>(null);
 
+  // Generate documents and pass data to ExportPageContent
   const handleCreateDocuments = async () => {
+    if (!teamId) {
+      setError('Team ID is missing');
+      return;
+    }
+
     setIsGenerating(true);
-    await new Promise((res) => setTimeout(res, 3000)); // simulate generation
-    setIsGenerating(false);
-    setDocumentsCreated(true);
+    setError(null);
+    setDocumentsCreated(false);
+
+    try {
+      // Call the generation utility (waits for backend to finish, but does NOT download)
+      const result = await generateExportDocuments(teamId);
+      
+      // Store the export data to pass to ExportPageContent
+      setExportData({
+        pdf2404: result.pdf2404,
+        csvInventory: result.csvInventory,
+      });
+
+      // Show success state with download buttons
+      setDocumentsCreated(true);
+    } catch (err) {
+      const error = err as Error;
+      console.error('Failed to create documents:', error);
+      setError(error.message || 'Failed to generate documents');
+      setDocumentsCreated(false);
+    } finally {
+      setIsGenerating(false);
+    }
   };
-
-  // --- NEW: Transform items into the CSV data structure ---
-  const csvData = itemsToCsvData(items, activeCategory, teamId || '');
-  // --------------------------------------------------------
-
-  // Category bar categories
-  const categories = [
-    {
-      id: 'completed' as const,
-      label: 'Completed Inventory',
-      icon: <CheckCircleIcon />,
-    },
-    {
-      id: 'broken' as const,
-      label: 'Broken Items',
-      icon: <BuildIcon />,
-    },
-  ];
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: theme.palette.background.default }}>
       <TopBar isLoggedIn={true} />
 
       <Box sx={{ px: { xs: 2, md: 4 }, pt: { xs: 3, md: 5 }, pb: 10 }}>
+        {/* ERROR ALERT */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3, maxWidth: 600, mx: 'auto' }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
         {/* LOADING WHILE FETCHING ITEMS */}
         {loading && (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              mt: 10,
-            }}
-          >
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
             <CircularProgress />
           </Box>
         )}
 
-        {/* CATEGORY BAR - Shows after loading completes */}
+        {/* CATEGORY BAR - Always visible after loading */}
         {!loading && (
           <Fade in timeout={400}>
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                gap: 2,
-                mb: 4,
-                flexWrap: 'wrap',
-              }}
-            >
-              {categories.map((category) => {
-                const isActive = activeCategory === category.id;
-
-                return (
-                  <Button
-                    key={category.id}
-                    onClick={() => setActiveCategory(category.id)}
-                    startIcon={category.icon}
-                    variant={isActive ? 'contained' : 'outlined'}
-                    sx={{
-                      borderRadius: 2,
-                      px: 3,
-                      py: 1.5,
-                      fontWeight: 700,
-                      textTransform: 'none',
-                      fontSize: '1rem',
-                      minWidth: 200,
-                      border: isActive ? 'none' : `2px solid ${theme.palette.divider}`,
-                      bgcolor: isActive ? theme.palette.warning.main : 'transparent',
-                      color: isActive
-                        ? theme.palette.getContrastText(theme.palette.warning.main)
-                        : theme.palette.text.primary,
-                      '&:hover': {
-                        bgcolor: isActive ? theme.palette.warning.dark : theme.palette.action.hover,
-                        border: isActive ? 'none' : `2px solid ${theme.palette.text.secondary}`,
-                      },
-                    }}
-                  >
-                    {category.label}
-                  </Button>
-                );
-              })}
+            <Box>
+              <ExportCategoryBar 
+                activeCategory={activeCategory}
+                onCategoryChange={setActiveCategory}
+              />
             </Box>
           </Fade>
         )}
@@ -254,7 +189,6 @@ export default function ExportPage() {
                 Generate your team's completed inventory form for export.
               </Typography>
 
-              {/* REAL percentReviewed */}
               <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
                 Inventory Completion: {percentReviewed}%
               </Typography>
@@ -302,21 +236,36 @@ export default function ExportPage() {
               }}
             >
               <CircularProgress size={60} thickness={5} sx={{ mb: 3 }} />
-              <Typography variant="h6">Generating your documents...</Typography>
+              <Typography variant="h6" fontWeight={700} gutterBottom>
+                Generating your documents...
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center', maxWidth: 400 }}>
+                Please wait while we:
+              </Typography>
+              <Box component="ul" sx={{ mt: 2, textAlign: 'left', color: 'text.secondary' }}>
+                <li>Query your inventory data</li>
+                <li>Generate PDF and CSV reports</li>
+                <li>Upload files to secure storage</li>
+                <li>Prepare download links</li>
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 2 }}>
+                This may take 10-30 seconds depending on your inventory size
+              </Typography>
             </Box>
           </Fade>
         )}
 
-        {/* AFTER GENERATION */}
-        {documentsCreated && (
+        {/* AFTER GENERATION - Pass data to ExportPageContent */}
+        {documentsCreated && exportData && (
           <Fade in timeout={500}>
             <Box>
               <ExportPageContent
                 items={items}
                 percentReviewed={percentReviewed}
                 activeCategory={activeCategory}
-                // PASSED THE GENERATED CSV DATA
-                csvData={csvData}
+                onCategoryChange={setActiveCategory}
+                teamId={teamId || ''}
+                exportData={exportData}
               />
             </Box>
           </Fade>

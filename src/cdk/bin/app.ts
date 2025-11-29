@@ -9,6 +9,8 @@ import { ApiStack } from '../lib/api-stack';
 import { WebStack } from '../lib/web-stack';
 import { SesStack } from '../lib/ses-stack';
 import { S3UploadsStack } from '../lib/s3-stack';
+import { ExportLambdaStack } from '../lib/export-lambda-stack';
+
 
 const app = new cdk.App();
 
@@ -225,6 +227,28 @@ const uploads = new S3UploadsStack(app, `MngS3-${cfg.name}`, {
   serviceName: 'mng-s3',
 });
 
+// Create export Lambda functions
+const exportLambdas = new ExportLambdaStack(app, `MngLambdaExport-${cfg.name}`, {
+  env: { account, region },
+  stage: cfg.name,
+  serviceName: 'mng',
+  ddbTable: dynamo.table,
+  uploadsBucket: uploads.bucket,
+  kmsKey: uploads.key,  // ADD THIS LINE
+  region,
+});
+
+uploads.grantApiAccess(exportLambdas.pdf2404Function.role!);
+uploads.grantApiAccess(exportLambdas.inventoryFunction.role!);
+
+
+// Grant API Lambda permission to invoke export functions
+exportLambdas.grantInvoke(api.apiFn);
+
+// Pass function names to API Lambda via environment variables
+api.apiFn.addEnvironment('EXPORT_2404_FUNCTION_NAME', exportLambdas.pdf2404Function.functionName);
+api.apiFn.addEnvironment('EXPORT_INVENTORY_FUNCTION_NAME', exportLambdas.inventoryFunction.functionName);
+
 // Grant API Lambda full access to uploads bucket + KMS key
 uploads.grantApiAccess(api.apiFn.role!);
 
@@ -253,7 +277,7 @@ api.apiFn.addEnvironment('S3_KMS_KEY_ARN', uploads.key.keyArn);
 
 // Tag stacks if you have tagging config
 if (cfg.tags) {
-  [auth, dynamo, api, web, uploads, ses].forEach((stack) => {
+  [auth, dynamo, api, web, uploads, ses, exportLambdas].forEach((stack) => {
     Object.entries(cfg.tags!).forEach(([k, v]) => {
       cdk.Tags.of(stack).add(k, v);
     });

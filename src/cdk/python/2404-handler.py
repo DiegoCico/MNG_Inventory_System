@@ -34,7 +34,8 @@ def ddb_client():
 def s3_client():
     global _s3
     if _s3 is None:
-        _s3 = boto3.client("s3")
+        from botocore.config import Config
+        _s3 = boto3.client("s3", config=Config(signature_version='s3v4'))
     return _s3
 
 FIELD_COORDS = {
@@ -220,13 +221,22 @@ def ddb_get_team(team_id: str):
     return {k: deser.deserialize(v) for k, v in item.items()}
 
 def s3_put_pdf(bucket: str, key: str, body: bytes):
-    s3_client().put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=body,
-        ContentType="application/pdf",
-        ACL="private"
-    )
+    # Get KMS key ARN from environment (set by CDK)
+    kms_key_arn = os.environ.get('KMS_KEY_ARN', '').strip()
+    
+    put_params = {
+        'Bucket': bucket,
+        'Key': key,
+        'Body': body,
+        'ContentType': 'application/pdf',
+    }
+    
+    # Add KMS encryption if key is provided
+    if kms_key_arn:
+        put_params['ServerSideEncryption'] = 'aws:kms'
+        put_params['SSEKMSKeyId'] = kms_key_arn
+    
+    s3_client().put_object(**put_params)
 
 def to_pdf_values(payload):
     if payload.get("_labels"):
@@ -239,7 +249,8 @@ def to_pdf_values(payload):
     if remarks_list is None:
         r_legacy = payload.get("remarks")
         if r_legacy is None:
-            r_legacy = payload.get("reports")
+            # Try both old and new field names
+            r_legacy = payload.get("reports") or payload.get("damageReports")
         if isinstance(r_legacy, list):
             remarks_list = r_legacy
         elif isinstance(r_legacy, str):
@@ -322,13 +333,11 @@ def generate_team_2404(team_id: str, save_to_s3: bool = True):
 
     org_description = team_data.get("description")
 
-    # filter items that have reports (damage reports)
+    # Filter items that have status = "Damaged" (case-insensitive)
     damaged_items = []
     for itm in items:
-        reports = itm.get("reports")
-        if isinstance(reports, list) and reports:
-            damaged_items.append(itm)
-        elif isinstance(reports, str) and reports.strip():
+        status = (itm.get("status") or "").lower()
+        if status == "damaged":
             damaged_items.append(itm)
 
     if not damaged_items:
@@ -338,10 +347,10 @@ def generate_team_2404(team_id: str, save_to_s3: bool = True):
 
     for itm in damaged_items:
         values_input = {
-            "description": org_description,                    # ✅ organization
+            "description": org_description,
             "actualName": itm.get("actualName") or itm.get("name"),
             "serialNumber": itm.get("serialNumber") or itm.get("serial"),
-            "reports": itm.get("reports"),
+            "reports": itm.get("damageReports"),
         }
 
         values = to_pdf_values(values_input)
@@ -356,16 +365,33 @@ def generate_team_2404(team_id: str, save_to_s3: bool = True):
     out_buf.seek(0)
     pdf_bytes = out_buf.getvalue()
 
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     form_id = f"team_{team_id}"
-    filename = f"DA2404_{form_id}.pdf"
+    filename = f"DA2404_{form_id}_{timestamp}.pdf"
     key = f"Documents/{team_id}/2404/{filename}"
+
 
     if save_to_s3:
         try:
             s3_put_pdf(UPLOADS_BUCKET, key, pdf_bytes)
+            
+            # Generate presigned URL for download (valid for 1 hour)
+            url = s3_client().generate_presigned_url(
+                'get_object',
+                Params={'Bucket': UPLOADS_BUCKET, 'Key': key},
+                ExpiresIn=3600
+            )
+            
+            return {
+                "ok": True,
+                "s3Key": key,
+                "bucket": UPLOADS_BUCKET,
+                "url": url,
+                "teamId": team_id
+            }
         except Exception as e:
             return {"ok": False, "error": f"S3 put failed: {e}"}
-        return {"ok": True, "s3Key": key, "bucket": UPLOADS_BUCKET, "teamId": team_id}
 
     b64 = base64.b64encode(pdf_bytes).decode("utf-8")
     return {
@@ -379,13 +405,15 @@ def generate_team_2404(team_id: str, save_to_s3: bool = True):
 def lambda_handler(event, context):
     method = _get_http_method(event)
 
-    if method == "OPTIONS":
+    # Allow direct Lambda invocation (no httpMethod field)
+    if not method:
+        # Direct invocation from another Lambda - treat as POST
+        pass
+    elif method == "OPTIONS":
         return _resp(200, "")
-
-    if method == "GET":
+    elif method == "GET":
         return _resp(200, {"ok": True, "service": "da2404-stamper", "ddbConfigured": bool(TABLE_NAME)})
-
-    if method != "POST":
+    elif method != "POST":
         return _resp(405, {"error": "Method not allowed. Use POST."})
 
     payload = _get_body_json(event)
