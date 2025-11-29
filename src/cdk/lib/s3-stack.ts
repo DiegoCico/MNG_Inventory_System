@@ -85,10 +85,10 @@ export class S3UploadsStack extends Stack {
     // DEPLOY TEMPLATE
     new s3deploy.BucketDeployment(this, 'UploadTemplatePython', {
       destinationBucket: this.bucket,
-      destinationKeyPrefix: 'template/',
+      destinationKeyPrefix: 'templates/',
       sources: [
         s3deploy.Source.asset('./templates', {
-          exclude: ['2404-template.pdf'],
+          exclude: ['!2404-template.pdf'],
         })
       ],
       prune: true,
