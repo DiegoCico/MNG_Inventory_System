@@ -73,10 +73,10 @@ export default function InventoryReviewed({
   return (
     <Paper elevation={0} sx={{ p: 3, bgcolor: theme.palette.background.paper, border: cardBorder }}>
       {/* --- TITLE + TIME CONTROLS ROW --- */}
-      <Stack 
-        direction={{ xs: 'column', md: 'row' }} 
-        alignItems={{ xs: 'flex-start', md: 'center' }} 
-        justifyContent="space-between" 
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        alignItems={{ xs: 'flex-start', md: 'center' }}
+        justifyContent="space-between"
         spacing={{ xs: 2, md: 0 }}
         mb={2}
       >
@@ -85,9 +85,9 @@ export default function InventoryReviewed({
         </Typography>
 
         {/* Right-side Time Range Controls - Hide on mobile */}
-        <Stack 
-          direction="row" 
-          spacing={2} 
+        <Stack
+          direction="row"
+          spacing={2}
           alignItems="center"
           sx={{ display: { xs: 'none', md: 'flex' } }}
         >
@@ -137,27 +137,27 @@ export default function InventoryReviewed({
       </Stack>
 
       {/* --- MAIN CONTENT ROW: CIRCLE LEFT, HISTOGRAM RIGHT --- */}
-      <Stack 
-        direction={{ xs: 'column', md: 'row' }} 
-        spacing={3} 
-        alignItems="center"
-      >
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="center">
         {/* Circular progress on left */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: { xs: 'center', md: 'flex-start' },
-          width: { xs: '100%', md: 'auto' }
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: { xs: 'center', md: 'flex-start' },
+            width: { xs: '100%', md: 'auto' },
+          }}
+        >
           <CircularProgressBar value={percentReviewed} />
         </Box>
 
         {/* Histogram on right - Hide on mobile */}
-        <Box sx={{ 
-          flex: 1, 
-          minHeight: 180,
-          display: { xs: 'none', md: 'block' },
-          width: '100%'
-        }}>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 180,
+            display: { xs: 'none', md: 'block' },
+            width: '100%',
+          }}
+        >
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
             Reviews in Last {selectedValue} {timeMode}
           </Typography>
@@ -166,7 +166,7 @@ export default function InventoryReviewed({
             <BarChart data={reviewData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 12 }} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
               <Tooltip />
               <Bar dataKey="reviewed" fill={theme.palette.primary.main} radius={[4, 4, 0, 0]} />
             </BarChart>

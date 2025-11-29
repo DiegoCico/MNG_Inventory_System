@@ -62,14 +62,13 @@ describe('ImagePanel', () => {
       expect(screen.queryByRole('button', { name: /Add Image/i })).not.toBeInTheDocument();
     });
 
-    it('shows warning icon in create mode without image', () => {
+    it('shows warning text in create mode without image', () => {
       render(<ImagePanel {...baseProps} isEditMode={true} isCreateMode={true} />);
 
-      const warningIcon = screen.getByLabelText(/Image required for new items/i);
-      expect(warningIcon).toBeInTheDocument();
+      expect(screen.getByText(/Image required/i)).toBeInTheDocument();
     });
 
-    it('hides warning icon when image is present in create mode', () => {
+    it('hides warning when image is present in create mode', () => {
       render(
         <ImagePanel
           {...baseProps}
@@ -79,7 +78,7 @@ describe('ImagePanel', () => {
         />,
       );
 
-      expect(screen.queryByLabelText(/Image required for new items/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Image required/i)).not.toBeInTheDocument();
     });
   });
 
@@ -107,7 +106,7 @@ describe('ImagePanel', () => {
       expect(mockSetSelectedImageFile).toHaveBeenCalledWith(file);
     });
 
-    it('rejects non-image files with alert', () => {
+    it('shows error dialog for non-image files', async () => {
       render(<ImagePanel {...baseProps} isEditMode={true} />);
 
       const file = new File(['dummy'], 'test.txt', { type: 'text/plain' });
@@ -115,11 +114,12 @@ describe('ImagePanel', () => {
 
       fireEvent.change(input, { target: { files: [file] } });
 
-      expect(global.alert).toHaveBeenCalledWith('Please select a valid image file');
+      // ErrorDialog should appear with error message
+      expect(await screen.findByText('Please select a valid image file')).toBeInTheDocument();
       expect(mockSetSelectedImageFile).not.toHaveBeenCalled();
     });
 
-    it('rejects files larger than 3MB', () => {
+    it('shows error dialog for files larger than 3MB', async () => {
       render(<ImagePanel {...baseProps} isEditMode={true} />);
 
       const largeFile = new File(['x'.repeat(4 * 1024 * 1024)], 'large.jpg', {
@@ -129,13 +129,11 @@ describe('ImagePanel', () => {
 
       fireEvent.change(input, { target: { files: [largeFile] } });
 
-      expect(global.alert).toHaveBeenCalledWith(
-        'Image is too large. Please select an image smaller than 3MB.',
-      );
+      expect(await screen.findByText('Image is too large. Please select an image smaller than 3MB.')).toBeInTheDocument();
       expect(mockSetSelectedImageFile).not.toHaveBeenCalled();
     });
 
-    it('accepts files under 3MB', () => {
+    it('accepts files under 3MB', async () => {
       render(<ImagePanel {...baseProps} isEditMode={true} />);
 
       const smallFile = new File(['x'.repeat(1024)], 'small.jpg', {
@@ -146,7 +144,6 @@ describe('ImagePanel', () => {
       fireEvent.change(input, { target: { files: [smallFile] } });
 
       expect(mockSetSelectedImageFile).toHaveBeenCalledWith(smallFile);
-      expect(global.alert).not.toHaveBeenCalled();
     });
 
     it('converts file to base64 preview', () => {
@@ -169,11 +166,11 @@ describe('ImagePanel', () => {
       expect(image).toBeInTheDocument();
     });
 
-    it('file input accepts only images', () => {
+    it('file input accepts images and HEIC files', () => {
       render(<ImagePanel {...baseProps} isEditMode={true} />);
 
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-      expect(input).toHaveAttribute('accept', 'image/*');
+      expect(input).toHaveAttribute('accept', 'image/*,.heic,.heif');
     });
   });
 
@@ -192,8 +189,7 @@ describe('ImagePanel', () => {
       render(<ImagePanel {...baseProps} isEditMode={true} isCreateMode={true} />);
 
       expect(screen.getByRole('button', { name: /Add Image/i })).toBeInTheDocument();
-      const warningIcon = screen.getByLabelText(/Image required for new items/i);
-      expect(warningIcon).toBeInTheDocument();
+      expect(screen.getByText(/Image required/i)).toBeInTheDocument();
     });
 
     it('renders correctly in dark mode', () => {

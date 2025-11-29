@@ -173,6 +173,9 @@ const ExportPageContent: React.FC<ExportPageContentProps> = ({
     }
   };
 
+  // Capitalize first letter for button text
+  const categoryDisplay = activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1);
+
   return (
     <Box
       sx={{
