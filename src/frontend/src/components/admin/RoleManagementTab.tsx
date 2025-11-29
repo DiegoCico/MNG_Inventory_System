@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
@@ -21,6 +22,7 @@ import RoleCard from './RoleCard';
 import RoleForm, { RoleFormData } from './RoleForm';
 import { Permission } from './PermissionCheckboxGroup';
 import * as adminApi from '../../api/admin';
+import { me } from "../../api/auth";
 
 interface Role {
   roleId: string;
@@ -44,6 +46,16 @@ export default function RoleManagementTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const auth = await me();
+        setCurrentUserRole(auth.role); 
+      } catch {}
+    })();
+  }, []);
 
   useEffect(() => {
     loadRoles();
@@ -174,6 +186,7 @@ export default function RoleManagementTab() {
               description={role.description}
               permissions={role.permissions}
               isDefault={DEFAULT_ROLES.includes(role.name)}
+              isMyRole={role.name === currentUserRole}    
               onEdit={() => openEditDialog(role)}
               onDelete={() => openDeleteDialog(role)}
             />

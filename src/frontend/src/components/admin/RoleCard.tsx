@@ -20,6 +20,7 @@ interface RoleCardProps {
   description?: string;
   permissions: Permission[];
   isDefault?: boolean;
+  isMyRole?: boolean;   
   onEdit: () => void;
   onDelete: () => void;
 }
@@ -29,6 +30,7 @@ export default function RoleCard({
   description,
   permissions,
   isDefault = false,
+  isMyRole = false,
   onEdit,
   onDelete,
 }: RoleCardProps) {
@@ -69,14 +71,24 @@ export default function RoleCard({
       <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
         <Tooltip title={isDefault ? 'View permissions' : 'Edit role'}>
           <span>
-            <IconButton size="small" onClick={onEdit} color="primary">
+            <IconButton
+              size="small"
+              onClick={onEdit}
+              color="primary"
+              disabled={isMyRole}          // <<< DISABLE EDIT
+            >
               {isDefault ? <VisibilityIcon fontSize="small" /> : <EditIcon fontSize="small" />}
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title={isDefault ? 'Default roles cannot be deleted' : 'Delete role'}>
           <span>
-            <IconButton size="small" onClick={onDelete} disabled={isDefault} color="error">
+            <IconButton
+              size="small"
+              onClick={onDelete}
+              color="error"
+              disabled={isDefault || isMyRole}    // <<< DISABLE DELETE
+            >
               <DeleteIcon fontSize="small" />
             </IconButton>
           </span>

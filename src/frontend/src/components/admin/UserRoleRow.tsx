@@ -32,11 +32,18 @@ interface Role {
 interface UserRoleRowProps {
   user: User;
   roles: Role[];
+  currentUserId: string;
   onRoleChange: (userId: string, roleName: string) => Promise<void>;
-  onUserDeleted?: (userId: string) => void; // optional callback so parent can refresh list
+  onUserDeleted?: (userId: string) => void;
 }
 
-export default function UserRoleRow({ user, roles, onRoleChange, onUserDeleted }: UserRoleRowProps) {
+export default function UserRoleRow({
+  user,
+  roles,
+  currentUserId,  
+  onRoleChange,
+  onUserDeleted,
+}: UserRoleRowProps) {
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,6 +51,11 @@ export default function UserRoleRow({ user, roles, onRoleChange, onUserDeleted }
   const [deleting, setDeleting] = useState(false);
 
   const handleChange = async (selected: string) => {
+    if (user.userId === currentUserId) {
+      setError("You cannot change your own role.");
+      return;
+    }
+
     if (selected === '__delete_user__') {
       setDeleteDialogOpen(true);
       return;
@@ -113,7 +125,7 @@ export default function UserRoleRow({ user, roles, onRoleChange, onUserDeleted }
               <Select
                 value={roles.some((r) => r.name === user.roleName) ? user.roleName : ''}
                 onChange={(e) => handleChange(e.target.value)}
-                disabled={loading}
+                disabled={loading || user.userId === currentUserId}
                 displayEmpty
               >
                 {/* DELETE USER OPTION - FIRST ITEM */}

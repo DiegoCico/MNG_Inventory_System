@@ -4,6 +4,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import UserRoleRow from './UserRoleRow';
 import * as adminApi from '../../api/admin';
 import { useTheme } from '@mui/material/styles';
+import { me } from "../../api/auth";
 
 interface User {
   userId: string;
@@ -24,6 +25,19 @@ export default function UserRoleAssignmentTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const authUser = await me();
+        setCurrentUserId(authUser.userId);
+      } catch (err) {
+        console.error("auth check failed", err);
+      }
+    })();
+  }, []);
+
 
   useEffect(() => {
     loadData();
@@ -112,6 +126,7 @@ export default function UserRoleAssignmentTab() {
             key={user.userId}
             user={user}
             roles={roles}
+            currentUserId={currentUserId!}
             onRoleChange={handleRoleChange}
             onUserDeleted={(id) =>
               setUsers((prev) => prev.filter((u) => u.userId !== id))
