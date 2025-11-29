@@ -39,7 +39,7 @@ SupplyNet operates entirely on AWS infrastructure, using Amplify for hosting, Co
 
 To complete the project and prepare it for a production environment, a couople components need to be updated. At the moment, everything is still configured to use development settings. CloudFront is serving through its default auto-generated distribution URL, and SES is limited to verified email addresses only. These settings are suitable for testing but must be adjusted for a real deployment.
 
-## What Still Needs To Be Done
+## What Still Needs To Be Done, (Tasks NEU can't do and has to be internal developers)
 
 1. **Assign a Custom Domain for CloudFront**
    Update the CloudFront configuration so it no longer uses the default CloudFront URL. Inside `src/cdk/lib/web-stack.ts` and `src/cdk/bin/app.ts`, provide the custom domain you want your application to use. This ensures the project is deployed under a clean, user-friendly domain.
@@ -61,3 +61,8 @@ Once these changes are done and deployed, the infrastructure will be fully confi
    Currently, once a user updates the status of an item, it saves their userId, username, and name to that item as the last reviewed person. However, if a user then switches their name and/or username, it does not dynamically update the name and/or username to that already reviewed item. In order to fix this, we need to save only the userId to that item, and when getItems is called, the current username and name will be fetched based on that unique userId.
 2. **Change URL**
    inside `src/cdk/bin/app.ts` once you set up your domain, make sure to switch all the URL with the correct domain URL.
+
+## Future Improvements
+
+1. **Tranfer items between teams**
+   Currently, items can only be created or deleted within a specific team. If a user manages multiple teams and needs to move an item from one team to another, they must manually delete it from the original team and recreate it in the new one. Implementing a dedicated item transfer feature would streamline this process and improve usability.
